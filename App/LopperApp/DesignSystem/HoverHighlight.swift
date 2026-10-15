@@ -36,3 +36,16 @@ struct SidebarButtonStyle: ButtonStyle {
             .modifier(HoverHighlight(isPressed: configuration.isPressed))
     }
 }
+
+/// A square icon button for the sidebar footer: the highlight is the same size for every icon, so a row of
+/// them looks like a set and not like one wide bar plus two glyphs.
+struct SidebarIconButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 30, height: 30)
+            .foregroundStyle(isEnabled ? Color.primary.opacity(0.75) : Color.secondary.opacity(0.4))
+            .modifier(HoverHighlight(cornerRadius: 8, isPressed: configuration.isPressed))
+    }
+}

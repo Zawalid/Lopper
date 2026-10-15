@@ -268,23 +268,26 @@ private struct SidebarFooter: View {
     var body: some View {
         VStack(spacing: 0) {
             ScanStatus()
-            Divider()
+            // Inset so the line does not run into the rounded corners of the floating sidebar.
+            Divider().padding(.horizontal, Theme.Spacing.md)
             HStack(spacing: 2) {
                 Button {
                     FolderPicker.choose { model.addRoots($0) }
                 } label: {
                     Label("Add folder", systemImage: "plus")
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: 30 - 12)
                 }
                 .buttonStyle(SidebarButtonStyle())
                 .help("Add a folder to scan (Command-O)")
+
+                Spacer(minLength: 0)
 
                 Button {
                     model.startScan()
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
-                .buttonStyle(SidebarButtonStyle())
+                .buttonStyle(SidebarIconButtonStyle())
                 .disabled(model.isScanning || model.isCleaning)
                 .help("Rescan (Command-R)")
                 .accessibilityLabel("Rescan")
@@ -292,11 +295,14 @@ private struct SidebarFooter: View {
                 SettingsLink {
                     Image(systemName: "gearshape")
                 }
-                .buttonStyle(SidebarButtonStyle())
+                .buttonStyle(SidebarIconButtonStyle())
                 .help("Settings (Command-comma)")
                 .accessibilityLabel("Settings")
             }
-            .padding(Theme.Spacing.xs)
+            // The sidebar's bottom corners are large; keep the controls clear of them.
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.top, Theme.Spacing.sm)
+            .padding(.bottom, Theme.Spacing.md)
         }
     }
 }
