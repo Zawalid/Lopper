@@ -17,7 +17,6 @@ struct RootView: View {
                     DetailView()
                 }
                 .toolbar {
-                    ToolbarItem(placement: .navigation) { ScanStatus() }
                     ToolbarItem {
                         Button { model.startScan() } label: { Label("Rescan", systemImage: "arrow.clockwise") }
                             .help("Rescan (Command-R)")
@@ -63,20 +62,30 @@ struct RootView: View {
     }
 }
 
+/// Scan progress as a quiet caption and a thin bar at the bottom of the sidebar. It used to be a toolbar item,
+/// which macOS draws as its own glass bubble next to the title and which pushed the title around.
 private struct ScanStatus: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        switch model.phase {
-        case .scanning(let done, let total):
-            HStack(spacing: 6) {
-                ProgressView().controlSize(.small)
-                Text(total > 0 ? "Scanning \(done) of \(total)" : "Scanning…")
+        if case .scanning(let done, let total) = model.phase {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(total > 0 ? "Scanning \(done) of \(total)" : "Looking for repositories…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if total > 0 {
+                    ProgressView(value: Double(done), total: Double(total))
+                        .progressViewStyle(.linear)
+                        .controlSize(.small)
+                } else {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .controlSize(.small)
+                }
             }
-        default:
-            EmptyView()
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .accessibilityElement(children: .combine)
         }
     }
 }
@@ -139,6 +148,7 @@ private struct SidebarView: View {
             }
             .listStyle(.sidebar)
 
+            ScanStatus()
             Divider()
             HStack {
                 Button {

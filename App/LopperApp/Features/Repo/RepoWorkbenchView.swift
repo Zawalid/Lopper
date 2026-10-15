@@ -16,6 +16,12 @@ struct RepoWorkbenchView: View {
                 EmptyState(
                     symbol: "exclamationmark.triangle", title: "Couldn't read this repository",
                     message: failure, actionTitle: "Rescan", action: { model.startScan() })
+            } else if summary == nil && model.isScanning {
+                // The route was restored before this repository has been read; do not claim it is empty.
+                VStack(spacing: Theme.Spacing.md) {
+                    ProgressView().controlSize(.large)
+                    Text("Reading this repository…").foregroundStyle(.secondary)
+                }
             } else if rows.isEmpty {
                 EmptyState(
                     symbol: "line.3.horizontal.decrease.circle", title: "Nothing matches",
