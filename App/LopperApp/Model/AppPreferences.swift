@@ -188,3 +188,17 @@ final class AppPreferences {
         store.set(value, forKey: Key.inspectorVisible.rawValue)
     }
 }
+
+/// AppKit autosaves the widths of every split view column. When the window comes back smaller than it was
+/// when those widths were saved (leaving full screen, a different display, a restored smaller frame), the
+/// saved widths no longer add up and the layout overflows the window: the sidebar and inspector end up
+/// clipped by its edges. The window frame itself is restored separately and is left alone.
+enum WindowLayoutDefaults {
+    private static let prefix = "NSSplitView Subview Frames"
+
+    static func discardSavedSplitViewFrames(in defaults: UserDefaults = .standard) {
+        for key in defaults.dictionaryRepresentation().keys where key.hasPrefix(prefix) {
+            defaults.removeObject(forKey: key)
+        }
+    }
+}

@@ -60,6 +60,7 @@ struct LopperCommands: Commands {
 /// Applies appearance and Dock presence before the first window appears.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
+        WindowLayoutDefaults.discardSavedSplitViewFrames()
         MainActor.assumeIsolated { AppPreferences.standard.applyAtLaunch() }
     }
 }

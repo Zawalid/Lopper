@@ -37,21 +37,21 @@ struct RepoWorkbenchView: View {
                     }
                     .width(28)
                     TableColumn("Name", value: \.title) { row in NameCell(row: row) }
-                        .width(min: 150, ideal: 260)
+                        .width(min: 120)
                     TableColumn("Verdict", value: \.verdict) { row in VerdictChip(kind: row.verdict) }
-                        .width(min: 100, ideal: 110)
+                        .width(min: 96, ideal: 100)
                     TableColumn("Evidence", value: \.evidence) { row in
                         Text(row.evidence).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    .width(min: 110, ideal: 200)
+                    .width(min: 90, ideal: 150)
                     TableColumn("Last commit", value: \.lastCommitSort) { row in
                         Text(row.lastCommit.map { AgeFormat.short(from: $0) } ?? "-")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
-                    .width(min: 70, ideal: 84)
+                    .width(min: 84, ideal: 84)
                     TableColumn("Size", value: \.sizeSort) { row in SizeCell(row: row) }
-                        .width(min: 70, ideal: 84)
+                        .width(min: 56, ideal: 68)
                 }
                 .contextMenu(forSelectionType: CleanupRow.ID.self) { ids in
                     if let id = ids.first, let row = model.allRows.first(where: { $0.id == id }) {
@@ -69,7 +69,7 @@ struct RepoWorkbenchView: View {
         .safeAreaInset(edge: .bottom) { SelectionBar(repoID: repoID) }
         .inspector(isPresented: $model.showInspector) {
             InspectorView()
-                .inspectorColumnWidth(min: 260, ideal: 300, max: 400)
+                .inspectorColumnWidth(min: 240, ideal: 270, max: 400)
         }
     }
 
@@ -95,14 +95,16 @@ private struct FilterBar: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .fixedSize()
+            // Not fixedSize(): a fixed-size segmented control reports a huge ideal width and makes the
+            // split view overflow the window, clipping the sidebar and the inspector.
+            .frame(maxWidth: 340)
             .help("Filter by verdict")
 
             Picker("Kind", selection: $model.kindFilter) {
                 ForEach(KindFilter.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.menu)
-            .fixedSize()
+            .frame(maxWidth: 160)
             .help("Filter by kind")
 
             Spacer(minLength: 0)
