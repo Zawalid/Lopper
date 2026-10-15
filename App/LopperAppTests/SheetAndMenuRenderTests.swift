@@ -19,6 +19,17 @@ final class SheetAndMenuRenderTests: XCTestCase {
                 .environment(model))
     }
 
+    func testMenuBarShowsFinishedAgentsLine() throws {
+        let m = Fixtures.agentMeasurements
+        let model = AppModel.preview(
+            snapshots: [Fixtures.agentSample], sizes: m.sizes, activity: m.activity,
+            clock: { Fixtures.now })
+        XCTAssertEqual(MenuBarView.agentsLine(for: model.agentsSummary), "2 agent worktrees finished")
+        XCTAssertNil(MenuBarView.agentsLine(for: AgentsSummary()))
+        try RenderSupport.render(
+            "menubar-agents", size: CGSize(width: 300, height: 360), MenuBarView().environment(model))
+    }
+
     func testMenuBarPopoverRenders() async throws {
         let model = await RenderSupport.makeModel(snapshots: [Fixtures.sample])
         try RenderSupport.render("menubar", size: CGSize(width: 300, height: 300),

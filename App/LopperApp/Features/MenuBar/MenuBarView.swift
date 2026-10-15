@@ -41,6 +41,16 @@ struct MenuBarView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                if let line = Self.agentsLine(for: model.agentsSummary) {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Text(line).font(.callout).foregroundStyle(.secondary)
+                        Button("Review agents") {
+                            openMain()
+                            model.route = .agents
+                        }
+                        .buttonStyle(.link)
+                    }
+                }
                 Button("Review and clean") {
                     openMain()
                     model.beginCleanAllSafe()
@@ -65,6 +75,13 @@ struct MenuBarView: View {
         }
         .padding(Theme.Spacing.lg)
         .frame(width: 300)
+    }
+
+    /// "3 agent worktrees finished" or nil when there are none to reclaim.
+    static func agentsLine(for summary: AgentsSummary) -> String? {
+        summary.reclaimable > 0
+            ? "\(Plural.count(summary.reclaimable, "agent worktree")) finished"
+            : nil
     }
 
     private var lastScanText: String {

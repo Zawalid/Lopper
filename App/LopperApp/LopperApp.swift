@@ -51,8 +51,10 @@ struct LopperCommands: Commands {
                 .keyboardShortcut("i")
             Button("Overview") { model.route = .overview }
                 .keyboardShortcut("1")
-            Button("History") { model.route = .history }
+            Button("Agents") { model.route = .agents }
                 .keyboardShortcut("2")
+            Button("History") { model.route = .history }
+                .keyboardShortcut("3")
         }
     }
 }
