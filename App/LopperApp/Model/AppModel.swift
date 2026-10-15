@@ -143,6 +143,11 @@ final class AppModel {
     var verdictFilter: VerdictFilter = .all
     var kindFilter: KindFilter = .all
     var searchText = ""
+    var agentFilter: AgentStateFilter = .all
+    var agentToolFilter: AgentTool?
+    var agentSearchText = ""
+    /// Finished rows the user unticked on the Agents page.
+    var agentExcluded: Set<String> = []
     var clean: CleanState?
     var toast: UndoToast?
 
@@ -153,13 +158,16 @@ final class AppModel {
     private var cleanTask: Task<Void, Never>?
     private var cleanControl = BatchControl()
     private var lastCompletedScan: Date?
+    private let clock: @Sendable () -> Date
 
     init(
         client: any EngineClient,
         store: SettingsStore = .standard,
         settings: Settings? = nil,
-        preferences: AppPreferences = AppPreferences()
+        preferences: AppPreferences = AppPreferences(),
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
+        self.clock = now
         self.client = client
         self.store = store
         self.preferences = preferences
@@ -203,12 +211,16 @@ final class AppModel {
     }
 
     var allRows: [CleanupRow] {
-        snapshots.flatMap { RowMapper.rows(for: $0, sizes: sizes) }
+        snapshots.flatMap { mappedRows($0) }
+    }
+
+    private func mappedRows(_ snapshot: RepoSnapshot) -> [CleanupRow] {
+        RowMapper.rows(for: snapshot, sizes: sizes, policy: agentPolicy, now: clock())
     }
 
     func rows(forRepo id: String) -> [CleanupRow] {
         guard let snapshot = snapshots.first(where: { $0.repo.id == id }) else { return [] }
-        return RowMapper.rows(for: snapshot, sizes: sizes)
+        return mappedRows(snapshot)
     }
 
     /// Rows of one repository after the search text and both filters are applied.
@@ -232,7 +244,7 @@ final class AppModel {
                     safeWorktrees: 0, review: 0, protected: 0, reclaimableBytes: 0,
                     defaultBranch: nil, failure: message)
             case .snapshot(let snapshot):
-                let rows = RowMapper.rows(for: snapshot, sizes: sizes)
+                let rows = mappedRows(snapshot)
                 let safe = rows.filter { $0.verdict == .safe }
                 return RepoSummary(
                     id: snapshot.repo.id, name: snapshot.repo.name, root: snapshot.repo.root,
@@ -474,6 +486,100 @@ final class AppModel {
         }
     }
 
+    // MARK: Agents
+
+    var agentPolicy: AgentPolicy { AgentPolicy(settings: settings) }
+
+    /// Every detected agent worktree, loudest first, then oldest activity first.
+    var agentRows: [AgentRow] {
+        snapshots
+            .flatMap { mappedRows($0) }
+            .compactMap { row in row.agent.map { AgentRow(row: row, assessment: $0) } }
+            .sorted {
+                if $0.stateSort != $1.stateSort { return $0.stateSort < $1.stateSort }
+                if $0.activitySort != $1.activitySort { return $0.activitySort < $1.activitySort }
+                return $0.title < $1.title
+            }
+    }
+
+    var visibleAgentRows: [AgentRow] {
+        let needle = agentSearchText.trimmingCharacters(in: .whitespaces).lowercased()
+        return agentRows.filter { item in
+            agentFilter.matches(item.assessment.state)
+                && (agentToolFilter == nil || item.assessment.detection.tool == agentToolFilter)
+                && (needle.isEmpty
+                    || item.title.lowercased().contains(needle)
+                    || item.row.location.lowercased().contains(needle)
+                    || item.row.repoName.lowercased().contains(needle))
+        }
+    }
+
+    /// What "Reclaim finished" removes: measured, merged, clean, idle, and not unticked by the user.
+    var reclaimableAgentRows: [AgentRow] {
+        agentRows.filter { $0.assessment.isReclaimable && !agentExcluded.contains($0.id) }
+    }
+
+    var abandonedAgentRows: [AgentRow] {
+        agentRows.filter { $0.assessment.isReviewReclaimable && !agentExcluded.contains($0.id) }
+    }
+
+    var agentsSummary: AgentsSummary {
+        var summary = AgentsSummary()
+        for item in agentRows {
+            let assessment = item.assessment
+            summary.total += 1
+            if !assessment.isActivityMeasured && assessment.state != .protected { summary.measuring += 1 }
+            if assessment.isReclaimable {
+                summary.reclaimable += 1
+                summary.reclaimableBytes += item.row.size ?? 0
+            }
+            if assessment.isReviewReclaimable {
+                summary.abandonedReclaimable += 1
+                summary.abandonedBytes += item.row.size ?? 0
+            }
+            switch assessment.state {
+            case .unmerged, .abandoned: summary.notMerged += 1
+            case .active: summary.active += 1
+            case .protected: summary.protected += 1
+            case .finished: break
+            }
+            if assessment.uniqueWork.existsOnlyInFolder { summary.folderOnly += 1 }
+        }
+        return summary
+    }
+
+    var failedRepositoryCount: Int {
+        results.filter { if case .failure = $0 { true } else { false } }.count
+    }
+
+    var agentsPageState: AgentsPageState {
+        if settings.roots.isEmpty { return .needsFolders }
+        if agentRows.isEmpty {
+            if isScanning || (results.isEmpty && phase == .idle) { return .scanning }
+            return .noAgents(repositories: summaries.count)
+        }
+        return agentsSummary.reclaimable == 0 ? .nothingToReclaim : .ready
+    }
+
+    func setAgentIncluded(_ id: String, _ included: Bool) {
+        if included { agentExcluded.remove(id) } else { agentExcluded.insert(id) }
+    }
+
+    func beginReclaimFinishedAgents() {
+        beginClean(rows: reclaimableAgentRows.map(\.row))
+    }
+
+    func beginReclaimAbandonedAgents() {
+        beginClean(rows: abandonedAgentRows.map(\.row))
+    }
+
+    /// Sends one not-merged or abandoned row to the Review sheet. Rows that hold work only in the folder,
+    /// active rows and unmeasured rows never get there.
+    func beginReview(row: CleanupRow) {
+        guard let agent = row.agent, agent.canReview else { return }
+        beginClean(rows: [row])
+    }
+
     // MARK: Selection
 
     func checkAllSafe(inRepo id: String? = nil) {
@@ -640,22 +746,29 @@ extension AppModel {
     static func preview(
         snapshots: [RepoSnapshot] = [Fixtures.sample],
         sizes: [String: Int64] = ["/code/wt/feat/in-worktree": 1_240_000_000],
+        activity: [String: Date] = [:],
         roots: [URL] = [URL(fileURLWithPath: "/code")],
         history: [UndoRecord] = [],
         route: Route = .overview,
         phase: ScanPhase? = nil,
         focusedRowID: String? = nil,
-        failures: [URL] = []
+        failures: [URL] = [],
+        clock: @escaping @Sendable () -> Date = { Date() }
     ) -> AppModel {
         let store = SettingsStore(url: FileManager.default.temporaryDirectory
             .appendingPathComponent("lopper-preview-settings.json"))
         let model = AppModel(
             client: FakeEngineClient(snapshots: snapshots),
             store: store,
-            settings: Settings(roots: roots))
+            settings: Settings(roots: roots),
+            now: clock)
         model.results = snapshots.map { .snapshot($0) }
             + failures.map { .failure(repoRoot: $0, message: "git couldn't complete this step: not a git repository") }
-        model.sizes = sizes.mapValues { DiskUsage(total: $0, disposable: 0) }
+        var usage: [String: DiskUsage] = [:]
+        for path in Set(sizes.keys).union(activity.keys) {
+            usage[path] = DiskUsage(total: sizes[path] ?? 0, disposable: 0, newestModification: activity[path])
+        }
+        model.sizes = usage
         model.history = history
         model.route = route
         model.phase = phase ?? .ready(Date())

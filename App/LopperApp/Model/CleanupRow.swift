@@ -24,6 +24,8 @@ struct CleanupRow: Identifiable, Equatable, Sendable {
     let extraFiles: [String]
     /// The branch removed together with a Safe worktree.
     let bundledBranch: String?
+    /// The Agents page's reading of this worktree; nil unless a known tool made it.
+    var agent: AgentAssessment? = nil
 
     var isSelectable: Bool { verdict != .protected }
     var lastCommitSort: Date { lastCommit ?? .distantPast }
@@ -45,7 +47,10 @@ struct CleanupRow: Identifiable, Equatable, Sendable {
 enum RowMapper {
     /// Branches checked out in a linked worktree are represented by that worktree's row; the main
     /// working directory is the repository itself and gets no row.
-    static func rows(for snapshot: RepoSnapshot, sizes: [String: DiskUsage]) -> [CleanupRow] {
+    static func rows(
+        for snapshot: RepoSnapshot, sizes: [String: DiskUsage],
+        policy: AgentPolicy = AgentPolicy(), now: Date = Date()
+    ) -> [CleanupRow] {
         let repo = snapshot.repo
         var rows: [CleanupRow] = []
 
@@ -70,7 +75,9 @@ enum RowMapper {
                 size: sizes[worktree.path.path]?.total,
                 agentHint: worktree.agentHint,
                 extraFiles: worktree.status.extraFiles,
-                bundledBranch: worktree.verdict.kind == .safe ? worktree.branch : nil))
+                bundledBranch: worktree.verdict.kind == .safe ? worktree.branch : nil,
+                agent: AgentAssessor.assess(
+                    worktree: worktree, usage: sizes[worktree.path.path], policy: policy, now: now)))
         }
 
         for branch in snapshot.branches where branch.checkedOutAt == nil {

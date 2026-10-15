@@ -8,6 +8,7 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     var snapshots: [RepoSnapshot]
     var failures: [URL] = []
     var sizeByPath: [String: Int64] = [:]
+    var activityByPath: [String: Date] = [:]
     var cleanOutcome: @Sendable (CleanupItem) -> CleanOutcome = { item in
         .removed(UndoRecord(
             timestamp: Fixtures.now, repoPath: "/code/api", action: .deleteBranch, branch: item.id,
@@ -47,7 +48,8 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     }
 
     func measure(_ path: URL, disposable: Set<String>) async -> DiskUsage {
-        DiskUsage(total: sizeByPath[path.path] ?? 0, disposable: 0)
+        DiskUsage(
+            total: sizeByPath[path.path] ?? 0, disposable: 0, newestModification: activityByPath[path.path])
     }
 
     func clean(_ items: [CleanupItem], settings: Settings, control: BatchControl) -> AsyncStream<BatchEvent> {

@@ -71,6 +71,67 @@ enum Fixtures {
         ]
     }
 
+    /// A linked worktree made by Claude Code. `kind` and `evidence` must be consistent, as the real
+    /// classifier would produce them.
+    static func agentWorktree(
+        _ name: String, kind: VerdictKind = .safe, evidence: MergeEvidence = .ancestorOfDefault,
+        ahead: Int = 0, daysAgo: Double = 5, detached: Bool = false, dirty: Bool = false,
+        extraFiles: [String] = [], locked: Bool = false, root: URL = Fixtures.root
+    ) -> WorktreeEntry {
+        var reasons: [VerdictReason] = []
+        switch kind {
+        case .safe:
+            reasons = [.mergedVia(evidence)]
+        case .review:
+            if !evidence.isStrong { reasons.append(.noMergeEvidence) }
+            if dirty { reasons.append(.worktreeDirty) }
+            if locked { reasons.append(.worktreeLocked) }
+            if !extraFiles.isEmpty { reasons.append(.worktreeHasExtraFiles(extraFiles)) }
+        case .protected:
+            reasons = [.matchesProtectedPattern("release/*")]
+        }
+        return WorktreeEntry(
+            repoRoot: root, path: root.appendingPathComponent(".claude/worktrees/\(name)"),
+            head: "0123456789abcdef", branch: detached ? nil : "claude/\(name)", isMain: false,
+            isLocked: locked, isPrunable: false,
+            status: WorktreeStatus(isDirty: dirty, extraFiles: extraFiles, disposablePaths: []),
+            operationInProgress: false, evidence: evidence,
+            verdict: Verdict(kind: kind, reasons: reasons, evidence: evidence),
+            agentHint: "Claude Code", ahead: ahead,
+            lastCommit: now.addingTimeInterval(-daysAgo * 86_400),
+            createdAt: now.addingTimeInterval(-(daysAgo + 2) * 86_400))
+    }
+
+    /// Nine agent worktrees covering every state: two finished, one just touched, two not merged (one with
+    /// uncommitted work), two abandoned (one detached), one finished but locked, one protected.
+    static var agentSample: RepoSnapshot {
+        snapshot(
+            branches: [branch("main", .protected)],
+            worktrees: [
+                agentWorktree("finished-a", daysAgo: 6),
+                agentWorktree("finished-b", daysAgo: 12),
+                agentWorktree("just-now", daysAgo: 0.005),
+                agentWorktree("wip", kind: .review, evidence: .none, ahead: 3, daysAgo: 9),
+                agentWorktree("scratch", kind: .review, evidence: .none, daysAgo: 20, dirty: true),
+                agentWorktree("old-feature", kind: .review, evidence: .none, ahead: 2, daysAgo: 45),
+                agentWorktree("old-detached", kind: .review, evidence: .none, ahead: 1, daysAgo: 40, detached: true),
+                agentWorktree("locked-done", kind: .review, evidence: .ancestorOfDefault, daysAgo: 20, locked: true),
+                agentWorktree("release", kind: .protected, daysAgo: 3),
+            ])
+    }
+
+    /// Sizes and last activity for every agent worktree of `agentSample`, as the measuring step would
+    /// have produced them.
+    static var agentMeasurements: (sizes: [String: Int64], activity: [String: Date]) {
+        var sizes: [String: Int64] = [:]
+        var activity: [String: Date] = [:]
+        for (index, entry) in agentSample.worktrees.filter({ !$0.isMain }).enumerated() {
+            sizes[entry.path.path] = Int64(180_000_000 + index * 95_000_000)
+            activity[entry.path.path] = entry.lastCommit
+        }
+        return (sizes, activity)
+    }
+
     /// 3 safe branches, 1 safe worktree (with its branch), 1 review branch, 1 protected default branch.
     static var sample: RepoSnapshot {
         snapshot(
