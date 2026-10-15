@@ -70,11 +70,14 @@ public struct Settings: Sendable, Equatable {
     public var staleDays: Int
     public var disposableNames: [String]
     public var trashRetentionDays: Int
+    /// How long an agent worktree must be untouched before it counts as finished. Zero disables the grace.
+    public var agentFinishedGraceMinutes: Int
     /// Per-repository settings, keyed by the repository's path.
     public var repos: [String: RepoOverrides]
     /// Top-level keys written by a newer build, preserved untouched.
     public var unknownKeys: [String: JSONValue]
 
+    public static let defaultAgentFinishedGraceMinutes = 120
     public static let defaultProtectedPatterns = ["main", "master", "develop", "release/*", "hotfix/*"]
     public static let defaultDisposableNames = [
         "node_modules", ".next", ".nuxt", ".turbo", ".cache", "dist", "build", "out",
@@ -91,7 +94,8 @@ public struct Settings: Sendable, Equatable {
         staleDays: Int = 30,
         disposableNames: [String] = Settings.defaultDisposableNames,
         trashRetentionDays: Int = 30,
-        repos: [String: RepoOverrides] = [:]
+        repos: [String: RepoOverrides] = [:],
+        agentFinishedGraceMinutes: Int = Settings.defaultAgentFinishedGraceMinutes
     ) {
         self.schemaVersion = Settings.currentSchemaVersion
         self.folders = folders
@@ -101,6 +105,7 @@ public struct Settings: Sendable, Equatable {
         self.disposableNames = disposableNames
         self.trashRetentionDays = trashRetentionDays
         self.repos = repos
+        self.agentFinishedGraceMinutes = agentFinishedGraceMinutes
         self.unknownKeys = [:]
     }
 
@@ -240,7 +245,7 @@ private struct AnyKey: CodingKey {
 extension Settings: Codable {
     private static let knownKeys: Set<String> = [
         "schemaVersion", "folders", "scanDepth", "protectedPatterns", "staleDays", "disposableNames",
-        "trashRetentionDays", "repos",
+        "trashRetentionDays", "repos", "agentFinishedGraceMinutes",
     ]
     /// Version 1 keys, read for migration and never written again.
     private static let legacyKeys: Set<String> = ["roots", "defaultBranchOverrides", "repoDisposableNames"]
@@ -261,6 +266,8 @@ extension Settings: Codable {
         staleDays = try value("staleDays", as: Int.self) ?? defaults.staleDays
         disposableNames = try value("disposableNames", as: [String].self) ?? defaults.disposableNames
         trashRetentionDays = try value("trashRetentionDays", as: Int.self) ?? defaults.trashRetentionDays
+        agentFinishedGraceMinutes = max(
+            0, try value("agentFinishedGraceMinutes", as: Int.self) ?? defaults.agentFinishedGraceMinutes)
 
         if let folders = try value("folders", as: [FolderSetting].self) {
             self.folders = folders
@@ -299,5 +306,6 @@ extension Settings: Codable {
         try container.encode(disposableNames, forKey: AnyKey("disposableNames"))
         try container.encode(trashRetentionDays, forKey: AnyKey("trashRetentionDays"))
         try container.encode(repos, forKey: AnyKey("repos"))
+        try container.encode(agentFinishedGraceMinutes, forKey: AnyKey("agentFinishedGraceMinutes"))
     }
 }

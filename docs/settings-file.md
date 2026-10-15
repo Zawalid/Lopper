@@ -20,6 +20,7 @@ Edit it while Lopper is closed, or use the Settings window. Keys are sorted, so 
 | `disposableNames` | list | File and directory names (globs allowed) treated as throwaway inside a worktree |
 | `staleDays` | number | Age after which a branch counts as stale |
 | `trashRetentionDays` | number | How long removals stay restorable |
+| `agentFinishedGraceMinutes` | number | Minutes an agent worktree must be untouched before the Agents page calls it finished (default 120) |
 | `repos` | object | Per repository, keyed by its path: `defaultBranch`, `protectedPatterns` (replaces the global list), `disposableNames` (added to the global list), `isIgnored` |
 
 Anything else in the file is kept as is when Lopper saves.
@@ -37,4 +38,4 @@ Anything else in the file is kept as is when Lopper saves.
 ## What causes a rescan
 
 Changing enabled folders, their exclude patterns, `scanDepth`, `protectedPatterns`, `disposableNames`, or
-anything under `repos`. Changing `staleDays` or `trashRetentionDays` does not.
+anything under `repos`. Changing `staleDays`, `trashRetentionDays` or `agentFinishedGraceMinutes` does not.
