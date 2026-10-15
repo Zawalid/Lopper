@@ -33,7 +33,7 @@ public struct Cleaner: Sendable {
 
     /// `approved` is the verdict the user saw. The action runs only if the item is still at least as safe.
     public func deleteBranch(
-        repoRoot: URL, name: String, approved: VerdictKind, now: Date = Date()
+        repoRoot: URL, name: String, approved: VerdictKind, batchID: UUID? = nil, now: Date = Date()
     ) async -> CleanOutcome {
         await serialized(repoRoot) {
             let found: BranchEntry?
@@ -51,7 +51,7 @@ public struct Cleaner: Sendable {
             var record = UndoRecord(
                 timestamp: now, repoPath: repoRoot.path, action: .deleteBranch, branch: name,
                 tip: entry.tip, upstream: entry.upstream, worktreePath: nil,
-                trashRef: trashRef, status: .pending)
+                trashRef: trashRef, status: .pending, batchID: batchID)
             return await execute(record: &record, repoRoot: repoRoot) {
                 try await deleteBranchIfUnchanged(name: name, expectedTip: entry.tip, repoRoot: repoRoot)
             }
@@ -61,7 +61,7 @@ public struct Cleaner: Sendable {
     // MARK: Remove worktree
 
     public func removeWorktree(
-        repoRoot: URL, path: URL, approved: VerdictKind, now: Date = Date()
+        repoRoot: URL, path: URL, approved: VerdictKind, batchID: UUID? = nil, now: Date = Date()
     ) async -> CleanOutcome {
         await serialized(repoRoot) {
             let found: WorktreeEntry?
@@ -80,7 +80,7 @@ public struct Cleaner: Sendable {
             var record = UndoRecord(
                 timestamp: now, repoPath: repoRoot.path, action: .removeWorktree, branch: entry.branch,
                 tip: entry.head, upstream: nil, worktreePath: entry.path.path,
-                trashRef: Self.trashRef(now: now, label: label), status: .pending)
+                trashRef: Self.trashRef(now: now, label: label), status: .pending, batchID: batchID)
             let folderGone = entry.isPrunable && !FileManager.default.fileExists(atPath: entry.path.path)
             return await execute(record: &record, repoRoot: repoRoot) {
                 if folderGone {
@@ -127,6 +127,18 @@ public struct Cleaner: Sendable {
         } catch {
             return .failed(message: String(describing: error))
         }
+    }
+
+    /// Restores every completed removal of one batch. Branches come back first so that worktrees
+    /// removed in the same batch can be re-attached to them.
+    public func restoreBatch(_ batchID: UUID, now: Date = Date()) async -> [RestoreOutcome] {
+        let records = await undoLog.all().filter { $0.batchID == batchID && $0.status == .completed }
+        let ordered = records.filter { $0.action == .deleteBranch } + records.filter { $0.action == .removeWorktree }
+        var outcomes: [RestoreOutcome] = []
+        for record in ordered {
+            outcomes.append(await restore(record, now: now))
+        }
+        return outcomes
     }
 
     /// Removes keep-alive refs older than the retention window and marks their records expired.

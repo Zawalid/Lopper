@@ -26,11 +26,13 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
     public let trashRef: String
     public var status: UndoStatus
     public var detail: String?
+    /// Records created by one user action share a batch, so the whole action can be undone at once.
+    public let batchID: UUID?
 
     public init(
         id: UUID = UUID(), timestamp: Date, repoPath: String, action: UndoAction, branch: String?,
         tip: String, upstream: String?, worktreePath: String?, trashRef: String,
-        status: UndoStatus, detail: String? = nil
+        status: UndoStatus, detail: String? = nil, batchID: UUID? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -43,6 +45,7 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
         self.trashRef = trashRef
         self.status = status
         self.detail = detail
+        self.batchID = batchID
     }
 }
 
