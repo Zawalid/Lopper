@@ -2,7 +2,9 @@ import Foundation
 
 enum SizeFormat {
     static func string(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        // The formatter spells nothing as "Zero KB", which reads like a word in a number tile.
+        if bytes == 0 { return "0 KB" }
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
 

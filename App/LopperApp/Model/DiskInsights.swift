@@ -4,6 +4,7 @@ import Lopper
 enum DiskGrouping: String, CaseIterable, Identifiable {
     case project = "By project"
     case kind = "By kind"
+    case map = "Map"
 
     var id: String { rawValue }
 }

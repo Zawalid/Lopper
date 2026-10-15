@@ -19,4 +19,8 @@ final class FormattingTests: XCTestCase {
         XCTAssertEqual(Plural.count(2, "worktree"), "2 worktrees")
         XCTAssertTrue(SizeFormat.string(3_070_000_000).hasPrefix("3"))
     }
+
+    func testNothingIsWrittenAsZeroKB() {
+        XCTAssertEqual(SizeFormat.string(0), "0 KB")
+    }
 }

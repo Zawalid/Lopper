@@ -86,6 +86,10 @@ private struct DiskReady: View {
                     message: model.diskUntouchedOnly
                         ? "No project has gone \(model.settings.staleDays) days without an edit."
                         : "Try a different search.")
+            } else if model.diskGrouping == .map {
+                DiskMapView(
+                    projects: projects,
+                    caches: model.diskUntouchedOnly ? [] : model.developerCaches)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: Theme.Spacing.md) {
@@ -94,6 +98,8 @@ private struct DiskReady: View {
                             ForEach(projects) { ProjectCard(project: $0) }
                         case .kind:
                             ForEach(model.diskKindGroups) { KindCard(group: $0) }
+                        case .map:
+                            EmptyView()
                         }
                         if !model.developerCaches.isEmpty && !model.diskUntouchedOnly {
                             DeveloperCachesCard()
@@ -293,8 +299,8 @@ private struct Controls: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(maxWidth: 200)
-            .help("Group by project or by kind of folder")
+            .frame(maxWidth: 260)
+            .help("Group by project or kind of folder, or see everything as a map")
 
             Toggle("Untouched \(model.settings.staleDays)+ days", isOn: $model.diskUntouchedOnly)
                 .toggleStyle(.checkbox)

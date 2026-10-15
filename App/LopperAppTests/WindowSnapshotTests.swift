@@ -36,12 +36,13 @@ final class WindowSnapshotTests: XCTestCase {
 
         let routes: [(String, Route)] = [
             ("overview", .overview), ("agents", .agents), ("disk", .disk), ("history", .history),
-            ("repository", .repo(Fixtures.root.path)),
+            ("repository", .repo(Fixtures.root.path)), ("disk-map", .disk),
         ]
         for appearance in [("dark", NSAppearance.Name.darkAqua), ("light", .aqua)] {
             window.appearance = NSAppearance(named: appearance.1)
             for (name, route) in routes {
                 model.route = route
+                model.diskGrouping = name == "disk-map" ? .map : .project
                 if case .repo = route {
                     model.focusedRowID = model.allRows.first { $0.verdict == .review }?.id
                 } else {
