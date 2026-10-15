@@ -55,7 +55,7 @@ for result in results {
         print("!! \(root.path): \(message)")
     case .snapshot(let snapshot):
         let gh = snapshot.prDetectionAvailable ? "" : "  (PR detection off)"
-        print("\n== \(snapshot.repo.name)  [default: \(snapshot.repo.defaultBranch)]\(gh)")
+        print("\n== \(snapshot.repo.name)  [default: \(snapshot.repo.defaultBranch ?? "unknown")]\(gh)")
         for branch in snapshot.branches.sorted(by: { $0.name < $1.name }) {
             let reasons = branch.verdict.reasons.map(\.text).joined(separator: "; ")
             print("  branch   \(label(branch.verdict.kind)) \(branch.name)  \(age(branch.lastCommit))  \(reasons)")

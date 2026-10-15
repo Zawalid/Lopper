@@ -15,7 +15,12 @@ public struct RepoInspector: Sendable {
     public func inspect(repoRoot: URL, now: Date = Date()) async throws -> RepoSnapshot {
         let defaultName = await DefaultBranch.resolve(
             git: git, repoRoot: repoRoot, override: settings.defaultBranchOverrides[repoRoot.path])
-        let defaultRefs = await DefaultBranch.existingRefs(git: git, repoRoot: repoRoot, branch: defaultName)
+        let defaultRefs: [String]
+        if let defaultName {
+            defaultRefs = await DefaultBranch.existingRefs(git: git, repoRoot: repoRoot, branch: defaultName)
+        } else {
+            defaultRefs = []
+        }
         let detector = MergeEvidenceDetector(git: git, repoRoot: repoRoot, defaultRefs: defaultRefs)
 
         let worktreeText = try await git.runChecked(["worktree", "list", "--porcelain", "-z"], in: repoRoot)
@@ -33,7 +38,10 @@ public struct RepoInspector: Sendable {
         var prAvailable = false
         if let prProvider {
             do {
+                // A PR merged into some other branch (a stacked PR, an abandoned integration branch)
+                // proves nothing about the default branch.
                 mergedPRs = try await prProvider.mergedPullRequests(in: repoRoot)
+                    .filter { $0.baseBranch == defaultName }
                 prAvailable = true
             } catch {
                 prAvailable = false

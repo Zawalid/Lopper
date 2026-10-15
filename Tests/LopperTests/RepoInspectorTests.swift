@@ -86,7 +86,7 @@ final class RepoInspectorTests: XCTestCase {
         let without = try await inspect(repo)
         XCTAssertEqual(try branch(without, "feature").verdict.kind, .review)
 
-        let provider = FakePRProvider(prs: [MergedPR(number: 9, headBranch: "feature", headSHA: tip)])
+        let provider = FakePRProvider(prs: [MergedPR(number: 9, headBranch: "feature", headSHA: tip, baseBranch: "main")])
         let with = try await inspect(repo, prs: provider)
         XCTAssertTrue(with.prDetectionAvailable)
         XCTAssertEqual(try branch(with, "feature").evidence, .prMerged(number: 9))
@@ -300,5 +300,36 @@ final class RepoInspectorTests: XCTestCase {
         XCTAssertTrue(entry.isPrunable)
         XCTAssertEqual(entry.verdict.kind, .review)
         XCTAssertTrue(entry.verdict.reasons.contains(.worktreeUnreadable), "\(entry.verdict.reasons)")
+    }
+
+    func testDefaultBranchIsNotGuessedFromTheCheckedOutBranch() async throws {
+        let repo = try TestRepo()
+        try repo.git("branch", "-m", "main", "trunk")   // no main, master or origin: unknowable
+        try repo.commit("base", files: ["a": "a"])
+        try repo.git("checkout", "-b", "feat/x")
+        try repo.commit("feature", files: ["f": "f"])
+
+        let snapshot = try await inspect(repo)
+
+        XCTAssertNil(snapshot.repo.defaultBranch)
+        // `trunk` is an ancestor of the checked-out branch, which proves nothing about being merged.
+        XCTAssertEqual(try branch(snapshot, "trunk").verdict.kind, .review)
+    }
+
+    func testPullRequestMergedIntoAnotherBaseIsNotEvidence() async throws {
+        let repo = try baseRepo()
+        try repo.git("checkout", "-b", "stacked")
+        let tip = try repo.commit("stacked work", files: ["s.txt": "s"])
+        try repo.git("checkout", "main")
+        // Merged into an integration branch that was later abandoned: main never received it.
+        let provider = FakePRProvider(prs: [
+            MergedPR(number: 12, headBranch: "stacked", headSHA: tip, baseBranch: "integration"),
+        ])
+
+        let snapshot = try await inspect(repo, prs: provider)
+
+        let entry = try branch(snapshot, "stacked")
+        XCTAssertEqual(entry.evidence, .none)
+        XCTAssertEqual(entry.verdict.kind, .review)
     }
 }

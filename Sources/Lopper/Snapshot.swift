@@ -4,10 +4,12 @@ public struct Repo: Sendable, Equatable, Identifiable {
     public var id: String { root.path }
     public let root: URL
     public let name: String
-    public let defaultBranch: String
+    /// Nil when it cannot be determined (no origin/HEAD, no main or master, no override). Everything
+    /// in such a repository is classified Review; the user can set it in Settings.
+    public let defaultBranch: String?
     public let remoteURL: String?
 
-    public init(root: URL, name: String, defaultBranch: String, remoteURL: String?) {
+    public init(root: URL, name: String, defaultBranch: String?, remoteURL: String?) {
         self.root = root
         self.name = name
         self.defaultBranch = defaultBranch

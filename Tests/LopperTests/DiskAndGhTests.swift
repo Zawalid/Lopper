@@ -32,11 +32,11 @@ final class DiskAndGhTests: XCTestCase {
     }
 
     func testDecodeGhJson() throws {
-        let json = #"[{"number":482,"headRefName":"feat/login","headRefOid":"abc123"},{"number":7,"headRefName":"fix/x","headRefOid":"def456"}]"#
+        let json = #"[{"number":482,"headRefName":"feat/login","headRefOid":"abc123","baseRefName":"main"},{"number":7,"headRefName":"fix/x","headRefOid":"def456","baseRefName":"develop"}]"#
         let prs = try GhCliProvider.decode(json)
         XCTAssertEqual(prs, [
-            MergedPR(number: 482, headBranch: "feat/login", headSHA: "abc123"),
-            MergedPR(number: 7, headBranch: "fix/x", headSHA: "def456"),
+            MergedPR(number: 482, headBranch: "feat/login", headSHA: "abc123", baseBranch: "main"),
+            MergedPR(number: 7, headBranch: "fix/x", headSHA: "def456", baseBranch: "develop"),
         ])
     }
 
@@ -49,10 +49,10 @@ final class DiskAndGhTests: XCTestCase {
     }
 
     func testProviderParsesStubOutput() async throws {
-        let gh = try stubGh(#"echo '[{"number":3,"headRefName":"b","headRefOid":"s"}]'"#)
+        let gh = try stubGh(#"echo '[{"number":3,"headRefName":"b","headRefOid":"s","baseRefName":"main"}]'"#)
         let provider = try XCTUnwrap(GhCliProvider(executable: gh))
         let prs = try await provider.mergedPullRequests(in: FileManager.default.temporaryDirectory)
-        XCTAssertEqual(prs, [MergedPR(number: 3, headBranch: "b", headSHA: "s")])
+        XCTAssertEqual(prs, [MergedPR(number: 3, headBranch: "b", headSHA: "s", baseBranch: "main")])
     }
 
     func testProviderThrowsWhenGhFails() async throws {

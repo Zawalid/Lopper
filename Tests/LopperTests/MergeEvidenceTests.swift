@@ -5,7 +5,7 @@ final class MergeEvidenceTests: XCTestCase {
     private let git = GitRunner()
 
     private func detector(_ repo: TestRepo) async -> MergeEvidenceDetector {
-        let name = await DefaultBranch.resolve(git: git, repoRoot: repo.root)
+        let name = await DefaultBranch.resolve(git: git, repoRoot: repo.root) ?? "main"
         let refs = await DefaultBranch.existingRefs(git: git, repoRoot: repo.root, branch: name)
         return MergeEvidenceDetector(git: git, repoRoot: repo.root, defaultRefs: refs)
     }
@@ -109,7 +109,7 @@ final class MergeEvidenceTests: XCTestCase {
         try repo.git("checkout", "-b", "feature")
         let tip = try repo.commit("work", files: ["f.txt": "f"])
         try repo.git("checkout", "main")
-        let pr = MergedPR(number: 482, headBranch: "feature", headSHA: tip)
+        let pr = MergedPR(number: 482, headBranch: "feature", headSHA: tip, baseBranch: "main")
 
         let evidence = await detector(repo).evidence(tip: tip, branchName: "feature", upstreamGone: false, mergedPRs: [pr])
         XCTAssertEqual(evidence, .prMerged(number: 482))
@@ -121,7 +121,7 @@ final class MergeEvidenceTests: XCTestCase {
         let prHead = try repo.commit("work", files: ["f.txt": "f"])
         let tip = try repo.commit("after the PR was merged", files: ["g.txt": "g"])
         try repo.git("checkout", "main")
-        let pr = MergedPR(number: 7, headBranch: "feature", headSHA: prHead)
+        let pr = MergedPR(number: 7, headBranch: "feature", headSHA: prHead, baseBranch: "main")
 
         let evidence = await detector(repo).evidence(tip: tip, branchName: "feature", upstreamGone: false, mergedPRs: [pr])
         XCTAssertEqual(evidence, .prMergedWithNewerCommits(number: 7))
@@ -142,7 +142,7 @@ final class MergeEvidenceTests: XCTestCase {
         try repo.addOrigin()
         let name = await DefaultBranch.resolve(git: git, repoRoot: repo.root)
         XCTAssertEqual(name, "main")
-        let refs = await DefaultBranch.existingRefs(git: git, repoRoot: repo.root, branch: name)
+        let refs = await DefaultBranch.existingRefs(git: git, repoRoot: repo.root, branch: "main")
         XCTAssertEqual(refs, ["refs/heads/main", "refs/remotes/origin/main"])
     }
 
@@ -158,5 +158,15 @@ final class MergeEvidenceTests: XCTestCase {
         let repo = try baseRepo()
         let name = await DefaultBranch.resolve(git: git, repoRoot: repo.root, override: "develop")
         XCTAssertEqual(name, "develop")
+    }
+
+    func testDefaultBranchIsNilWhenNothingIdentifiesIt() async throws {
+        // No origin, no main, no master, no override: the checked-out branch is not evidence of
+        // anything, so Lopper must not invent a default from it.
+        let repo = try TestRepo()
+        try repo.git("branch", "-m", "main", "trunk")
+        try repo.commit("base", files: ["a": "a"])
+        let name = await DefaultBranch.resolve(git: git, repoRoot: repo.root)
+        XCTAssertNil(name)
     }
 }

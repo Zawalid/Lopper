@@ -25,7 +25,7 @@ public struct GhCliProvider: PRProvider {
     public func mergedPullRequests(in repoRoot: URL) async throws -> [MergedPR] {
         let output = try await runner.run(
             ["pr", "list", "--state", "merged", "--limit", "300",
-             "--json", "number,headRefName,headRefOid"],
+             "--json", "number,headRefName,headRefOid,baseRefName"],
             in: repoRoot)
         guard output.succeeded else {
             throw CommandError.failed(
@@ -40,8 +40,13 @@ public struct GhCliProvider: PRProvider {
             let number: Int
             let headRefName: String
             let headRefOid: String
+            let baseRefName: String
         }
         let rows = try JSONDecoder().decode([Row].self, from: Data(json.utf8))
-        return rows.map { MergedPR(number: $0.number, headBranch: $0.headRefName, headSHA: $0.headRefOid) }
+        return rows.map {
+            MergedPR(
+                number: $0.number, headBranch: $0.headRefName, headSHA: $0.headRefOid,
+                baseBranch: $0.baseRefName)
+        }
     }
 }
