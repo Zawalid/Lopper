@@ -25,7 +25,24 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(
             AppPreferences.Key.allCases.map(\.rawValue).sorted(),
             ["appearance", "editorBundleID", "inspectorVisible", "lastRoute", "showCountInMenuBar",
-             "showInDock", "terminalBundleID"])
+             "showInDock", "sidebarGrouping", "terminalBundleID"])
+    }
+
+    func testSidebarGroupingDefaultsToAttentionAndIsRemembered() {
+        let store = MemoryPreferenceStore()
+        let (first, _) = make(store: store)
+        XCTAssertEqual(first.sidebarGrouping, .attention)
+
+        first.setSidebarGrouping(.folder)
+        let (second, _) = make(store: store)
+        XCTAssertEqual(second.sidebarGrouping, .folder)
+    }
+
+    func testAnUnknownStoredGroupingFallsBackToAttention() {
+        let store = MemoryPreferenceStore()
+        store.set("by-colour", forKey: AppPreferences.Key.sidebarGrouping.rawValue)
+        let (prefs, _) = make(store: store)
+        XCTAssertEqual(prefs.sidebarGrouping, .attention)
     }
 
     func testDefaults() {

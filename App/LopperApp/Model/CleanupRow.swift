@@ -136,4 +136,10 @@ struct RepoSummary: Identifiable, Equatable, Sendable {
     var safe: Int { safeBranches + safeWorktrees }
     var total: Int { safe + review + protected }
     var hasSafeItems: Bool { safe > 0 }
+
+    /// What a screen reader says after the name.
+    var countsDescription: String {
+        if failure != nil { return "Could not be read" }
+        return "\(safe) safe, \(review) to review, \(protected) protected"
+    }
 }

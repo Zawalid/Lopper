@@ -98,6 +98,32 @@ final class WindowSmokeTests: XCTestCase {
         }
     }
 
+    func testSwitchingTheSidebarGroupingDoesNotCrashAndStaysInsideTheWindow() async {
+        let model = await readyModel()
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump()
+
+        for grouping in SidebarGrouping.allCases + [.attention] {
+            model.preferences.setSidebarGrouping(grouping)
+            await pump(0.4)
+            assertPanesInsideWindow(window, "grouping \(grouping.rawValue)")
+        }
+    }
+
+    func testHidingTheOpenRepositoryReturnsToTheOverviewWithoutCrashing() async {
+        let model = await readyModel()
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        model.route = .repo(Fixtures.root.path)
+        await pump()
+
+        model.hideRepository(Fixtures.root)
+        await pump(0.6)
+
+        XCTAssertNotNil(window.contentViewController)
+    }
+
     func testChangingTheVerdictFilterDoesNotCrash() async {
         let model = await readyModel()
         let window = makeWindow(model: model)

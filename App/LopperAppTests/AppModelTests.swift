@@ -461,6 +461,52 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.isScanning)
     }
 
+    func testHidingARepositoryIgnoresItRescansAndSaysHowToGetItBack() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.hideRepository(Fixtures.root)
+
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.isIgnored, true)
+        XCTAssertTrue(model.isScanning, "hiding changes what is found, so the scan runs again")
+        XCTAssertTrue(model.notice?.contains(Fixtures.sample.repo.name) == true)
+        XCTAssertTrue(model.notice?.contains("Settings") == true)
+    }
+
+    func testHidingKeepsTheRepositorysOtherOverrides() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.updateSettings { $0.repos[Fixtures.root.path] = RepoOverrides(defaultBranch: "trunk") }
+        await settle(model)
+
+        model.hideRepository(Fixtures.root)
+
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.defaultBranch, "trunk")
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.isIgnored, true)
+    }
+
+    func testShowingAHiddenRepositoryAgainDropsAnOverrideThatHasNothingElseInIt() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.hideRepository(Fixtures.root)
+        await settle(model)
+
+        model.showRepository(Fixtures.root)
+
+        XCTAssertNil(model.settings.repos[Fixtures.root.path])
+    }
+
+    func testShowingAHiddenRepositoryAgainKeepsItsOtherOverrides() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.updateSettings {
+            $0.repos[Fixtures.root.path] = RepoOverrides(defaultBranch: "trunk", isIgnored: true)
+        }
+        await settle(model)
+
+        model.showRepository(Fixtures.root)
+
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path], RepoOverrides(defaultBranch: "trunk"))
+    }
+
     func testToolStatusComesFromTheEngineClient() async {
         let (model, _) = makeModel([])
         XCTAssertEqual(model.toolStatus, .unknown)

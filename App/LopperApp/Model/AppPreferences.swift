@@ -79,6 +79,7 @@ final class AppPreferences {
     /// The stored keys. `editorBundleID` and `showCountInMenuBar` keep the names earlier builds used.
     enum Key: String, CaseIterable {
         case appearance, showInDock, showCountInMenuBar, editorBundleID, terminalBundleID, lastRoute, inspectorVisible
+        case sidebarGrouping
     }
 
     /// Things a preference does to the running application, injectable so tests do not change their host.
@@ -114,6 +115,7 @@ final class AppPreferences {
     private(set) var terminalBundleID: String
     private(set) var lastRoute: Route
     private(set) var inspectorVisible: Bool
+    private(set) var sidebarGrouping: SidebarGrouping
 
     /// The instance the running app uses: real defaults, real effects.
     static let standard = AppPreferences(
@@ -136,6 +138,8 @@ final class AppPreferences {
         terminalBundleID = store.string(forKey: Key.terminalBundleID.rawValue) ?? TerminalChoice.terminal.rawValue
         lastRoute = PreferencesRoute.decode(store.string(forKey: Key.lastRoute.rawValue))
         inspectorVisible = store.bool(forKey: Key.inspectorVisible.rawValue) ?? true
+        sidebarGrouping = store.string(forKey: Key.sidebarGrouping.rawValue)
+            .flatMap(SidebarGrouping.init(rawValue:)) ?? .attention
     }
 
     /// Applies the stored appearance and Dock presence; called once as the app starts.
@@ -180,6 +184,12 @@ final class AppPreferences {
         guard value != lastRoute else { return }
         lastRoute = value
         store.set(PreferencesRoute.encode(value), forKey: Key.lastRoute.rawValue)
+    }
+
+    func setSidebarGrouping(_ value: SidebarGrouping) {
+        guard value != sidebarGrouping else { return }
+        sidebarGrouping = value
+        store.set(value.rawValue, forKey: Key.sidebarGrouping.rawValue)
     }
 
     func setInspectorVisible(_ value: Bool) {
