@@ -24,8 +24,18 @@ struct RepoWorkbenchView: View {
                         : "Try a different search or filter.")
             } else {
                 Table(rows, selection: $model.focusedRowID, sortOrder: $sortOrder) {
-                    TableColumn("") { row in CheckCell(row: row) }
-                        .width(28)
+                    // Table cells are created in their own hosting views, so they get everything they need
+                    // passed in explicitly instead of reading AppModel from the environment.
+                    TableColumn("") { row in
+                        CheckCell(
+                            row: row,
+                            isChecked: Binding(
+                                get: { model.checked.contains(row.id) },
+                                set: { isOn in
+                                    if isOn { model.checked.insert(row.id) } else { model.checked.remove(row.id) }
+                                }))
+                    }
+                    .width(28)
                     TableColumn("Name", value: \.title) { row in NameCell(row: row) }
                     TableColumn("Verdict", value: \.verdict) { row in VerdictChip(kind: row.verdict) }
                         .width(min: 96, ideal: 108)
@@ -87,20 +97,15 @@ struct RepoWorkbenchView: View {
 
 private struct CheckCell: View {
     let row: CleanupRow
-    @Environment(AppModel.self) private var model
+    @Binding var isChecked: Bool
 
     var body: some View {
-        Toggle(isOn: Binding(
-            get: { model.checked.contains(row.id) },
-            set: { isOn in
-                if isOn { model.checked.insert(row.id) } else { model.checked.remove(row.id) }
-            }
-        )) { EmptyView() }
-        .toggleStyle(.checkbox)
-        .labelsHidden()
-        .disabled(!row.isSelectable)
-        .help(row.isSelectable ? "Select for cleaning" : (row.reasons.first ?? "Protected"))
-        .accessibilityLabel("Select \(row.title)")
+        Toggle(isOn: $isChecked) { EmptyView() }
+            .toggleStyle(.checkbox)
+            .labelsHidden()
+            .disabled(!row.isSelectable)
+            .help(row.isSelectable ? "Select for cleaning" : (row.reasons.first ?? "Protected"))
+            .accessibilityLabel("Select \(row.title)")
     }
 }
 
