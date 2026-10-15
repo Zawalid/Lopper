@@ -3,6 +3,8 @@ import Foundation
 public enum UndoAction: String, Codable, Sendable, Equatable {
     case deleteBranch
     case removeWorktree
+    /// A generated folder (node_modules, .next, ...) moved to the macOS Trash.
+    case trashFolder
 }
 
 public enum UndoStatus: String, Codable, Sendable, Equatable {
@@ -33,12 +35,14 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
     public let reason: String?
     /// How much disk the removal freed, when the caller knew. Absent for branches and for older records.
     public var bytes: Int64?
+    /// Where a trashed folder ended up inside the Trash, so it can be put back. Only set for `.trashFolder`.
+    public var trashedPath: String?
 
     public init(
         id: UUID = UUID(), timestamp: Date, repoPath: String, action: UndoAction, branch: String?,
         tip: String, upstream: String?, worktreePath: String?, trashRef: String,
         status: UndoStatus, detail: String? = nil, batchID: UUID? = nil,
-        reason: String? = nil, bytes: Int64? = nil
+        reason: String? = nil, bytes: Int64? = nil, trashedPath: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -54,6 +58,7 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
         self.batchID = batchID
         self.reason = reason
         self.bytes = bytes
+        self.trashedPath = trashedPath
     }
 }
 

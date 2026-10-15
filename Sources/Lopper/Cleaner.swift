@@ -157,6 +157,9 @@ public struct Cleaner: Sendable {
                     try await restoreWorktree(record, in: repoRoot)
                     return try await finishRestore(
                         record, detail: "Restored worktree \(record.worktreePath ?? "")", repoRoot: repoRoot)
+                case .trashFolder:
+                    let path = try restoreFolder(record)
+                    return try await finishRestore(record, detail: "Put back \(path)", repoRoot: repoRoot)
                 }
             }
             return outcome
@@ -169,7 +172,9 @@ public struct Cleaner: Sendable {
     /// removed in the same batch can be re-attached to them.
     public func restoreBatch(_ batchID: UUID, now: Date = Date()) async -> [RestoreOutcome] {
         let records = await undoLog.all().filter { $0.batchID == batchID && $0.status == .completed }
-        let ordered = records.filter { $0.action == .deleteBranch } + records.filter { $0.action == .removeWorktree }
+        let ordered = records.filter { $0.action == .deleteBranch }
+            + records.filter { $0.action == .removeWorktree }
+            + records.filter { $0.action == .trashFolder }
         var outcomes: [RestoreOutcome] = []
         for record in ordered {
             outcomes.append(await restore(record, now: now))
@@ -183,8 +188,13 @@ public struct Cleaner: Sendable {
         let cutoff = now.addingTimeInterval(-TimeInterval(retentionDays) * 86_400)
         var expired = 0
         for record in await undoLog.all() where record.status == .completed && record.timestamp < cutoff {
-            let repoRoot = URL(fileURLWithPath: record.repoPath)
-            _ = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
+            if record.action == .trashFolder {
+                // The Trash is the person's: only note that a folder is gone once it really is.
+                if let trashed = record.trashedPath, FileManager.default.fileExists(atPath: trashed) { continue }
+            } else {
+                let repoRoot = URL(fileURLWithPath: record.repoPath)
+                _ = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
+            }
             var updated = record
             updated.status = .expired
             try? await undoLog.append(updated)
@@ -319,8 +329,30 @@ public struct Cleaner: Sendable {
         }
     }
 
+    /// Moves a trashed folder back where it came from. Never replaces something that has appeared there since.
+    private func restoreFolder(_ record: UndoRecord) throws -> String {
+        guard let original = record.worktreePath, let trashed = record.trashedPath else {
+            throw CleanError.restoreBlocked("the record does not say where the folder was")
+        }
+        let manager = FileManager.default
+        guard manager.fileExists(atPath: trashed) else {
+            throw CleanError.restoreBlocked("it is no longer in the Trash")
+        }
+        if manager.fileExists(atPath: original) {
+            throw CleanError.restoreBlocked("\(original) already exists")
+        }
+        let parent = URL(fileURLWithPath: original).deletingLastPathComponent().path
+        guard manager.fileExists(atPath: parent) else {
+            throw CleanError.restoreBlocked("the folder it was in no longer exists")
+        }
+        try manager.moveItem(atPath: trashed, toPath: original)
+        return original
+    }
+
     private func finishRestore(_ record: UndoRecord, detail: String, repoRoot: URL) async throws -> RestoreOutcome {
-        _ = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
+        if !record.trashRef.isEmpty {
+            _ = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
+        }
         var updated = record
         updated.status = .restored
         updated.detail = detail
