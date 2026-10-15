@@ -35,14 +35,6 @@ struct RootView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 520)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if let notice = model.notice {
-                Banner(
-                    symbol: "exclamationmark.triangle", message: notice,
-                    onDismiss: { model.dismissNotice() })
-                .padding(Theme.Spacing.md)
-            }
-        }
         .task { model.startScan() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.scanIfStale()
@@ -93,6 +85,20 @@ private struct DetailView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        content
+            // The notice lives in the detail column only. An inset on the whole split view would also push
+            // the sidebar's first row up under the traffic lights.
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if let notice = model.notice {
+                    Banner(
+                        symbol: "exclamationmark.triangle", message: notice,
+                        onDismiss: { model.dismissNotice() })
+                    .padding(Theme.Spacing.md)
+                }
+            }
+    }
+
+    @ViewBuilder private var content: some View {
         switch model.route {
         case .overview: OverviewView()
         case .history: HistoryView()
@@ -105,31 +111,35 @@ private struct SidebarView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        List(selection: Binding<Route?>(
-            get: { model.route },
-            set: { if let route = $0 { model.route = route } }
-        )) {
-            Section {
-                Label("Overview", systemImage: "square.grid.2x2").tag(Route.overview)
-                Label("History", systemImage: "clock.arrow.circlepath").tag(Route.history)
-            }
-            Section("Repositories") {
-                ForEach(model.orderedSummaries) { summary in
-                    HStack {
-                        Label(summary.name, systemImage: summary.failure == nil ? "shippingbox" : "exclamationmark.triangle")
-                        Spacer()
-                        if summary.safe > 0 {
-                            Text("\(summary.safe)")
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
+        // The footer is a sibling of the list, not an inset over it: on a sidebar-style list an inset does not
+        // move the scroll content, so the last repository ended up underneath "Add folder".
+        VStack(spacing: 0) {
+            List(selection: Binding<Route?>(
+                get: { model.route },
+                set: { if let route = $0 { model.route = route } }
+            )) {
+                Section {
+                    Label("Overview", systemImage: "square.grid.2x2").tag(Route.overview)
+                    Label("History", systemImage: "clock.arrow.circlepath").tag(Route.history)
+                }
+                Section("Repositories") {
+                    ForEach(model.orderedSummaries) { summary in
+                        HStack {
+                            Label(summary.name, systemImage: summary.failure == nil ? "shippingbox" : "exclamationmark.triangle")
+                            Spacer()
+                            if summary.safe > 0 {
+                                Text("\(summary.safe)")
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        .tag(Route.repo(summary.id))
                     }
-                    .tag(Route.repo(summary.id))
                 }
             }
-        }
-        .listStyle(.sidebar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+            .listStyle(.sidebar)
+
+            Divider()
             HStack {
                 Button {
                     FolderPicker.choose { model.addRoots($0) }
