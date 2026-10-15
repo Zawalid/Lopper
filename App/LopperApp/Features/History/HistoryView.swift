@@ -310,12 +310,11 @@ private struct StatusCell: View {
     var body: some View {
         switch entry.status {
         case .removed:
-            HStack(spacing: 6) {
-                Label("Restorable", systemImage: "arrow.uturn.backward.circle")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.green)
-                Text(detail).font(.caption).foregroundStyle(.tertiary)
-            }
+            Label(detail, systemImage: "arrow.uturn.backward.circle")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.green)
+                .lineLimit(1)
+                .help("Can be restored")
         case .restored:
             Label("Restored", systemImage: "checkmark.circle")
                 .font(.caption).foregroundStyle(.secondary)
@@ -326,9 +325,9 @@ private struct StatusCell: View {
     }
 
     private var detail: String {
-        if entry.kind == .folder { return "in Trash" }
+        if entry.kind == .folder { return "In the Trash" }
         let days = HistoryBuilder.daysLeft(for: entry, retentionDays: retentionDays, now: now)
-        return days == 0 ? "today" : "\(days)d left"
+        return days == 0 ? "Expires today" : "\(days)d left"
     }
 }
 
