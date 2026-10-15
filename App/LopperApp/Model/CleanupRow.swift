@@ -45,6 +45,16 @@ struct CleanupRow: Identifiable, Equatable, Sendable {
     /// Safe, and for an agent worktree also finished, merged, clean, idle and measured. Every "clean all safe"
     /// shortcut and the safe counts use this, so a worktree an agent may still be using is never swept up.
     var isBulkEligible: Bool { verdict == .safe && (agent?.isReclaimable ?? true) }
+
+    /// Why an agent worktree cannot go to the review sheet from the inspector (still in use, or work that
+    /// exists only in its folder), so no button opens a sheet the Agents page would not offer. Nil for rows
+    /// no agent made and for rows that can be reviewed.
+    var agentHeldBackReason: String? {
+        guard let agent, !(agent.isReclaimable || agent.canReview) else { return nil }
+        if agent.state == .active { return "Still in use, or measuring. Lopper leaves it alone for now." }
+        return agent.sheetNote.isEmpty ? "Lopper will not remove this from here." : agent.sheetNote
+    }
+
     var lastCommitSort: Date { lastCommit ?? .distantPast }
     var sizeSort: Int64 { size ?? -1 }
 

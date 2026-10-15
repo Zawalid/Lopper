@@ -307,13 +307,7 @@ private struct InspectorActionBar: View {
     let row: CleanupRow
     @Environment(AppModel.self) private var model
 
-    /// Why an agent worktree cannot go to the review sheet from here (still in use, or work that exists only
-    /// in its folder), so this button never opens a sheet the Agents page would not offer.
-    private var heldBack: String? {
-        guard let agent = row.agent, !(agent.isReclaimable || agent.canReview) else { return nil }
-        if agent.state == .active { return "Still in use, or measuring. Lopper leaves it alone for now." }
-        return agent.sheetNote.isEmpty ? "Lopper will not remove this from here." : agent.sheetNote
-    }
+    private var heldBack: String? { row.agentHeldBackReason }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.sm) {

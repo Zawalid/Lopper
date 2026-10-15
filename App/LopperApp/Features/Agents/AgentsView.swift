@@ -74,8 +74,9 @@ struct AgentsContent: View {
                 TableColumn("") { item in
                     AgentCheckCell(
                         item: item,
-                        isIncluded: !model.agentExcluded.contains(item.id),
-                        setIncluded: { model.setAgentIncluded(item.id, $0) })
+                        isIncluded: Binding(
+                            get: { !model.agentExcluded.contains(item.id) },
+                            set: { model.setAgentIncluded(item.id, $0) }))
                 }
                 .width(28)
                 TableColumn("Worktree", value: \.title) { item in WorktreeCell(item: item) }
@@ -226,12 +227,11 @@ struct StateChip: View {
 
 private struct AgentCheckCell: View {
     let item: AgentRow
-    let isIncluded: Bool
-    let setIncluded: (Bool) -> Void
+    @Binding var isIncluded: Bool
 
     var body: some View {
         if item.assessment.isReclaimable {
-            Toggle("", isOn: Binding(get: { isIncluded }, set: setIncluded))
+            Toggle("", isOn: $isIncluded)
                 .toggleStyle(.checkbox)
                 .labelsHidden()
                 .accessibilityLabel("Include \(item.title)")

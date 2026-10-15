@@ -216,6 +216,21 @@ final class AgentsModelTests: XCTestCase {
         XCTAssertEqual(client.strictItemIDs, expected)
     }
 
+    func testInspectorActionBarHoldsBackRowsTheAgentsPageWouldNotOffer() {
+        let model = measuredModel()
+        func reason(_ title: String) -> String? {
+            model.agentRows.first { $0.title == title }!.row.agentHeldBackReason
+        }
+        XCTAssertNil(reason("claude/finished-a"), "finished rows can be reviewed from the inspector")
+        XCTAssertNil(reason("claude/wip"), "committed unmerged work can be reviewed, the branch is kept")
+        XCTAssertNotNil(reason("claude/just-now"), "an active worktree is held back")
+        XCTAssertNotNil(reason("claude/scratch"), "uncommitted work is held back")
+        XCTAssertNotNil(reason("claude/locked-done"), "a locked worktree is held back")
+        let ordinary = Fixtures.sample
+        let plain = RowMapper.rows(for: ordinary, sizes: [:]).first { $0.kind == .worktree }!
+        XCTAssertNil(plain.agentHeldBackReason, "ordinary rows are never held back by the agent rules")
+    }
+
     func testGraceComesFromSettings() {
         let model = measuredModel()
         // The "just-now" worktree is about 7 minutes old: with a zero grace it is no longer active.
