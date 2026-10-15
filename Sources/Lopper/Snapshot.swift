@@ -69,11 +69,17 @@ public struct WorktreeEntry: Sendable, Equatable, Identifiable {
 
     /// Typed form of `agentHint`, computed from the path and branch.
     public var agent: AgentDetection? { AgentDetector.detect(path: path.path, branch: branch) }
+    /// Commits on this worktree's HEAD that the default branch does not have.
+    public let ahead: Int
+    /// Date of the HEAD commit.
+    public let lastCommit: Date?
+    /// When the worktree was created; nil for the main working directory or when unknown.
+    public let createdAt: Date?
 
     public init(
         repoRoot: URL, path: URL, head: String, branch: String?, isMain: Bool, isLocked: Bool,
         isPrunable: Bool, status: WorktreeStatus, operationInProgress: Bool, evidence: MergeEvidence,
-        verdict: Verdict, agentHint: String?
+        verdict: Verdict, agentHint: String?, ahead: Int = 0, lastCommit: Date? = nil, createdAt: Date? = nil
     ) {
         self.repoRoot = repoRoot
         self.path = path
@@ -87,6 +93,9 @@ public struct WorktreeEntry: Sendable, Equatable, Identifiable {
         self.evidence = evidence
         self.verdict = verdict
         self.agentHint = agentHint
+        self.ahead = ahead
+        self.lastCommit = lastCommit
+        self.createdAt = createdAt
     }
 }
 

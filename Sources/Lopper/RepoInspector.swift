@@ -177,12 +177,15 @@ public struct RepoInspector: Sendable {
                 isDirty: status.isDirty, isLocked: entry.isLocked,
                 extraFiles: status.extraFiles, operationInProgress: operation,
                 isUnreadable: unreadable))
+        let lastCommit = await commitDate(of: entry.head, repoRoot: context.repoRoot)
         return WorktreeEntry(
             repoRoot: context.repoRoot, path: url, head: entry.head, branch: entry.branch,
             isMain: isMain, isLocked: entry.isLocked, isPrunable: entry.isPrunable,
             status: status, operationInProgress: operation, evidence: evidence,
             verdict: Classifier.classify(input),
-            agentHint: AgentHint.detect(path: entry.path, branch: entry.branch))
+            agentHint: AgentHint.detect(path: entry.path, branch: entry.branch),
+            ahead: counts.ahead, lastCommit: lastCommit,
+            createdAt: isMain ? nil : WorktreeMetadata.createdAt(ofWorktreeAt: url))
     }
 
     private func aheadBehind(tip: String, defaultRef: String?, repoRoot: URL) async -> (ahead: Int, behind: Int) {
@@ -194,6 +197,14 @@ public struct RepoInspector: Sendable {
         let parts = output.stdout.split(whereSeparator: \.isWhitespace).compactMap { Int($0) }
         guard parts.count == 2 else { return (0, 0) }
         return (ahead: parts[1], behind: parts[0])
+    }
+
+    private func commitDate(of commit: String, repoRoot: URL) async -> Date? {
+        guard let output = try? await git.run(["log", "-1", "--format=%ct", commit], in: repoRoot),
+            output.succeeded,
+            let seconds = TimeInterval(output.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
+        else { return nil }
+        return Date(timeIntervalSince1970: seconds)
     }
 
     /// Nil when git could not read the worktree (failure, timeout, unreadable folder).
