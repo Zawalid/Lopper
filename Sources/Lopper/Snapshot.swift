@@ -67,6 +67,9 @@ public struct WorktreeEntry: Sendable, Equatable, Identifiable {
     public let verdict: Verdict
     public let agentHint: String?
 
+    /// Typed form of `agentHint`, computed from the path and branch.
+    public var agent: AgentDetection? { AgentDetector.detect(path: path.path, branch: branch) }
+
     public init(
         repoRoot: URL, path: URL, head: String, branch: String?, isMain: Bool, isLocked: Bool,
         isPrunable: Bool, status: WorktreeStatus, operationInProgress: Bool, evidence: MergeEvidence,
@@ -110,20 +113,6 @@ public struct RepoSnapshot: Sendable, Equatable {
 public enum AgentHint {
     /// Heuristic label for worktrees created by AI coding agents. Informational only.
     public static func detect(path: String, branch: String?) -> String? {
-        let pathMarkers: [(String, String)] = [
-            ("/.claude/worktrees/", "Claude Code"),
-            ("/.cursor/worktrees/", "Cursor"),
-            ("/.codex/worktrees/", "Codex"),
-        ]
-        for (marker, label) in pathMarkers where path.contains(marker) { return label }
-        guard let branch else { return nil }
-        let branchMarkers: [(String, String)] = [
-            ("claude/", "Claude Code"),
-            ("worktree-", "Claude Code"),
-            ("cursor/", "Cursor"),
-            ("codex/", "Codex"),
-        ]
-        for (prefix, label) in branchMarkers where branch.hasPrefix(prefix) { return label }
-        return nil
+        AgentDetector.detect(path: path, branch: branch)?.tool.label
     }
 }
