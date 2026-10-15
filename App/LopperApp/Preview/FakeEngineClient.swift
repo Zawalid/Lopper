@@ -67,6 +67,12 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         measureLock.withLock { measurementLog }
     }
 
+    var caches: [DiskArtifact] = []
+    var volume: VolumeSpace?
+
+    func developerCaches() async -> [DiskArtifact] { caches }
+    func volumeSpace() -> VolumeSpace? { volume }
+
     /// Scripted: what is "still in the Trash".
     var trashed: [UndoRecord] = []
     private(set) var deletedForGood: [UndoRecord] = []

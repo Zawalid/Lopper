@@ -37,6 +37,8 @@ public enum ArtifactRemoval: Sendable, Equatable {
 public enum ArtifactLocation: Sendable, Equatable {
     case mainCheckout
     case worktree(branch: String?)
+    /// A tool's cache in the home folder (Xcode build data, the npm cache, ...), not inside any repository.
+    case developerCache
 }
 
 /// One generated folder inside a checkout, found through git and safe to describe.

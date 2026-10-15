@@ -172,6 +172,8 @@ final class AppModel {
     // Disk page
     var artifacts: [DiskArtifact] = []
     var artifactPhase: ArtifactScanPhase = .idle
+    var developerCaches: [DiskArtifact] = []
+    var volumeSpace: VolumeSpace?
     var diskGrouping: DiskGrouping = .project
     var diskUntouchedOnly = false
     var diskSearchText = ""
@@ -1027,6 +1029,8 @@ extension AppModel {
         focusedRowID: String? = nil,
         failures: [URL] = [],
         artifacts: [DiskArtifact] = Fixtures.diskArtifacts,
+        developerCaches: [DiskArtifact] = Fixtures.developerCaches,
+        volume: VolumeSpace? = VolumeSpace(total: 994_000_000_000, available: 142_000_000_000),
         clock: @escaping @Sendable () -> Date = { Date() }
     ) -> AppModel {
         let store = SettingsStore(url: FileManager.default.temporaryDirectory
@@ -1035,6 +1039,8 @@ extension AppModel {
         client.historyRecords = history
         // A rescan (the window starts one) must find the same folders the preview was given.
         client.artifactsByRoot = Dictionary(grouping: artifacts, by: { $0.checkoutRoot.path })
+        client.caches = developerCaches
+        client.volume = volume
         let model = AppModel(
             client: client,
             store: store,
@@ -1050,6 +1056,8 @@ extension AppModel {
         model.measuredPaths = Set(usage.keys)
         model.history = history
         model.artifacts = artifacts
+        model.developerCaches = developerCaches
+        model.volumeSpace = volume
         model.artifactPhase = .ready(Date())
         model.route = route
         model.phase = phase ?? .ready(Date())

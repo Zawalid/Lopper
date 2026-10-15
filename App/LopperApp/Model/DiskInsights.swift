@@ -96,6 +96,8 @@ enum DiskInsights {
                 case .worktree(let branch):
                     let label = branch ?? first.checkoutRoot.lastPathComponent
                     name = "\(repoName) / \(label)"
+                case .developerCache:
+                    name = "Developer caches"
                 }
                 let sorted = items.sorted { $0.bytes > $1.bytes }
                 let generated = sorted.reduce(Int64(0)) { $0 + $1.bytes }

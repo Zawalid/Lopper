@@ -192,4 +192,27 @@ final class DiskModelTests: XCTestCase {
         XCTAssertEqual(client.deletedForGood.map(\.id), [record.id])
         XCTAssertEqual(model.trashedTotals.bytes, 0)
     }
+
+    func testDeveloperCachesAndFreeSpaceAreLoadedWithTheScan() async {
+        let (model, client) = makeModel()
+        client.caches = [Fixtures.developerCaches[0]]
+        client.volume = VolumeSpace(total: 1_000, available: 400)
+        model.startScan()
+        await settle(model)
+
+        XCTAssertEqual(model.developerCaches.map(\.name), ["Xcode build data"])
+        XCTAssertEqual(model.volumeSpace?.used, 600)
+    }
+
+    func testClearingDeveloperCachesUsesTheSameReviewSheet() async {
+        let (model, client) = makeModel()
+        client.caches = Fixtures.developerCaches
+        model.startScan()
+        await settle(model)
+
+        model.beginClearDeveloperCaches()
+
+        XCTAssertEqual(model.diskClear?.artifacts.count, 2)
+        XCTAssertEqual(model.diskClear?.title, "Clear developer caches")
+    }
 }

@@ -26,14 +26,17 @@ public struct ArtifactCleaner: Sendable {
     private let trash: TrashProvider
     private let git: GitRunner
     private let gate: RepoGate
+    private let home: URL
 
     public init(
-        undoLog: UndoLog, trash: TrashProvider = SystemTrash(), git: GitRunner = GitRunner(), gate: RepoGate = RepoGate()
+        undoLog: UndoLog, trash: TrashProvider = SystemTrash(), git: GitRunner = GitRunner(),
+        gate: RepoGate = RepoGate(), home: URL = FileManager.default.homeDirectoryForCurrentUser
     ) {
         self.undoLog = undoLog
         self.trash = trash
         self.git = git
         self.gate = gate
+        self.home = home
     }
 
     public func clear(
@@ -41,7 +44,10 @@ public struct ArtifactCleaner: Sendable {
     ) async -> CleanOutcome {
         do {
             return try await gate.run(key: artifact.repoRoot.path) {
-                await perform(artifact, names: names, batchID: batchID, now: now)
+                if artifact.location == .developerCache {
+                    return await performCache(artifact, batchID: batchID, now: now)
+                }
+                return await perform(artifact, names: names, batchID: batchID, now: now)
             }
         } catch {
             return .failed(message: UserMessage.describe(error))
@@ -115,6 +121,45 @@ public struct ArtifactCleaner: Sendable {
         }
         do {
             let trashed = try trash.moveToTrash(path)
+            record.trashedPath = trashed.path
+            record.status = .completed
+            try? await undoLog.append(record)
+            return .removed(record)
+        } catch {
+            record.status = .failed
+            record.detail = String(describing: error)
+            try? await undoLog.append(record)
+            return .failed(message: "Could not move the folder to the Trash. \(UserMessage.describe(error))")
+        }
+    }
+
+    /// A tool cache is cleared only when it is exactly one of the folders in the catalog: no search, no
+    /// patterns, and never a path that is not spelled out there.
+    private func performCache(_ artifact: DiskArtifact, batchID: UUID?, now: Date) async -> CleanOutcome {
+        let manager = FileManager.default
+        let known = DeveloperCaches.catalog(home: home)
+        guard let entry = known.first(where: {
+            $0.path.standardizedFileURL.path == artifact.path.standardizedFileURL.path
+        }) else {
+            return .skipped(reason: "This is not a cache Lopper knows how to clear")
+        }
+        guard let attributes = try? manager.attributesOfItem(atPath: entry.path.path) else {
+            return .skipped(reason: "This folder no longer exists")
+        }
+        guard attributes[.type] as? FileAttributeType == .typeDirectory else {
+            return .skipped(reason: "This is no longer a plain folder, so it was left alone")
+        }
+        var record = UndoRecord(
+            timestamp: now, repoPath: DeveloperCaches.historyRepoPath, action: .trashFolder, branch: nil, tip: "",
+            upstream: nil, worktreePath: entry.path.path, trashRef: "", status: .pending, batchID: batchID,
+            reason: "\(entry.name). Comes back with \(entry.regenerate).", bytes: artifact.bytes)
+        do {
+            try await undoLog.append(record)
+        } catch {
+            return .failed(message: "Nothing was changed because the undo log could not be written.")
+        }
+        do {
+            let trashed = try trash.moveToTrash(entry.path)
             record.trashedPath = trashed.path
             record.status = .completed
             try? await undoLog.append(record)

@@ -53,6 +53,8 @@ private struct DiskReady: View {
     @Environment(AppModel.self) private var model
     @State private var confirmingDelete = false
 
+    private var cacheBytes: Int64 { model.developerCaches.reduce(0) { $0 + $1.bytes } }
+
     var body: some View {
         let projects = model.visibleDiskProjects
         let waiting = model.trashedTotals
@@ -66,6 +68,11 @@ private struct DiskReady: View {
                     .padding([.horizontal, .top], Theme.Spacing.lg)
             }
             DiskTotalsStrip()
+            if let space = model.volumeSpace {
+                VolumeBar(space: space, reclaimable: model.diskTotals.clearableBytes + cacheBytes)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.sm)
+            }
             Controls()
             Divider()
             if projects.isEmpty {
@@ -83,6 +90,9 @@ private struct DiskReady: View {
                         case .kind:
                             ForEach(model.diskKindGroups) { KindCard(group: $0) }
                         }
+                        if !model.developerCaches.isEmpty && !model.diskUntouchedOnly {
+                            DeveloperCachesCard()
+                        }
                     }
                     .padding(Theme.Spacing.lg)
                 }
@@ -99,6 +109,114 @@ private struct DiskReady: View {
             Text("These are the folders Lopper moved to the Trash. They are removed from the Trash and can no "
                 + "longer be restored. Everything else in the Trash is left alone.")
         }
+    }
+}
+
+/// How full the disk is, with the part Lopper could give back marked at the end of the used space.
+private struct VolumeBar: View {
+    let space: VolumeSpace
+    let reclaimable: Int64
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            GeometryReader { proxy in
+                let total = Double(max(space.total, 1))
+                let usedWidth = proxy.size.width * Double(space.used) / total
+                let reclaimWidth = min(usedWidth, proxy.size.width * Double(reclaimable) / total)
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.secondary.opacity(0.18))
+                    Capsule().fill(Color.blue.opacity(0.65)).frame(width: max(4, usedWidth))
+                    if reclaimWidth > 1 {
+                        Capsule().fill(Color.green)
+                            .frame(width: max(4, reclaimWidth))
+                            .offset(x: max(0, usedWidth - reclaimWidth))
+                    }
+                }
+            }
+            .frame(height: 8)
+            HStack {
+                Text("\(SizeFormat.string(space.available)) free of \(SizeFormat.string(space.total))")
+                Spacer()
+                if reclaimable > 0 {
+                    Label("\(SizeFormat.string(reclaimable)) can be given back", systemImage: "circle.fill")
+                        .foregroundStyle(.green)
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct DeveloperCachesCard: View {
+    @Environment(AppModel.self) private var model
+    @State private var isExpanded = false
+
+    var body: some View {
+        let caches = model.developerCaches
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: Theme.Spacing.md) {
+                Button {
+                    withAnimation(.snappy) { isExpanded.toggle() }
+                } label: {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                            .frame(width: 12)
+                        Image(systemName: "externaldrive.badge.icloud").foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Developer caches").font(.callout.weight(.semibold))
+                            Text("Outside your projects. Each tool rebuilds its own.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                Spacer(minLength: Theme.Spacing.md)
+                Text(SizeFormat.string(caches.reduce(0) { $0 + $1.bytes }))
+                    .font(.callout.monospacedDigit().weight(.medium))
+                Button("Clear \(caches.count)") { model.beginClearDeveloperCaches() }
+                    .buttonStyle(.lopperSecondary)
+                    .controlSize(.small)
+                    .disabled(model.clean != nil || model.diskClear != nil)
+            }
+            .padding(Theme.Spacing.md)
+
+            if isExpanded {
+                Divider().padding(.horizontal, Theme.Spacing.md)
+                VStack(spacing: 0) {
+                    ForEach(caches) { cache in
+                        HStack(spacing: Theme.Spacing.md) {
+                            Image(systemName: "memorychip").foregroundStyle(.secondary).frame(width: 20)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(cache.name).font(.callout)
+                                if case .offered(let how) = cache.removal {
+                                    Text("Comes back with \(how)").font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer(minLength: Theme.Spacing.md)
+                            Text(SizeFormat.string(cache.bytes))
+                                .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            Button("Clear") { model.beginClear(artifact: cache) }
+                                .buttonStyle(.lopperSecondary)
+                                .controlSize(.small)
+                                .disabled(model.clean != nil || model.diskClear != nil)
+                        }
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
+                        .contextMenu {
+                            Button("Reveal in Finder") { OpenActions.reveal(cache.path) }
+                        }
+                    }
+                }
+                .padding(.vertical, Theme.Spacing.xs)
+            }
+        }
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
     }
 }
 

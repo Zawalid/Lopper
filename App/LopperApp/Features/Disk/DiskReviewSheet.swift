@@ -131,7 +131,9 @@ struct DiskReviewSheet: View {
     private struct Group { let name: String; let items: [DiskArtifact] }
 
     private func groups(_ state: DiskClearState) -> [Group] {
-        Dictionary(grouping: state.artifacts) { $0.checkoutRoot.lastPathComponent }
+        Dictionary(grouping: state.artifacts) {
+            $0.location == .developerCache ? "Developer caches" : $0.checkoutRoot.lastPathComponent
+        }
             .map { Group(name: $0.key, items: $0.value.sorted { $0.bytes > $1.bytes }) }
             .sorted { $0.name < $1.name }
     }

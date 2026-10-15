@@ -146,6 +146,23 @@ enum Fixtures {
             worktrees: [worktree("feat/in-worktree", .safe, evidence: .contentIncluded)])
     }
 
+    /// Tool caches for previews, outside any repository.
+    static var developerCaches: [DiskArtifact] {
+        let home = URL(fileURLWithPath: "/Users/me")
+        func cache(_ name: String, _ relative: String, _ bytes: Int64, _ how: String) -> DiskArtifact {
+            let url = home.appendingPathComponent(relative)
+            return DiskArtifact(
+                path: url, name: name, kind: .cache, bytes: bytes, newestModification: now,
+                projectDirectory: url.deletingLastPathComponent(), checkoutRoot: home,
+                repoRoot: URL(fileURLWithPath: DeveloperCaches.historyRepoPath), location: .developerCache,
+                removal: .offered(regenerate: how))
+        }
+        return [
+            cache("Xcode build data", "Library/Developer/Xcode/DerivedData", 6_200_000_000, "your next Xcode build"),
+            cache("npm cache", ".npm/_cacache", 1_900_000_000, "the next npm install"),
+        ]
+    }
+
     /// Generated folders for previews: a big install and a build output in the main folder, one more in a worktree.
     static var diskArtifacts: [DiskArtifact] {
         func artifact(

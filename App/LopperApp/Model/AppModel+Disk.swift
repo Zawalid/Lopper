@@ -32,7 +32,7 @@ extension AppModel {
 
     var diskPageState: DiskPageState {
         if settings.roots.isEmpty { return .needsFolders }
-        if artifacts.isEmpty {
+        if artifacts.isEmpty && developerCaches.isEmpty {
             if isScanning || artifactPhase == .scanning || (results.isEmpty && phase == .idle) { return .scanning }
             return .nothingFound(projects: snapshots.count)
         }
@@ -102,6 +102,8 @@ extension AppModel {
             }
         }
         artifacts = found
+        developerCaches = await client.developerCaches()
+        volumeSpace = client.volumeSpace()
         artifactPhase = .ready(clock())
     }
 
@@ -110,6 +112,10 @@ extension AppModel {
     func beginClearAllClearable() {
         beginDiskClear(
             visibleDiskProjects.flatMap(\.clearable), title: "Clear generated folders")
+    }
+
+    func beginClearDeveloperCaches() {
+        beginDiskClear(developerCaches, title: "Clear developer caches")
     }
 
     func beginClearUntouched() {

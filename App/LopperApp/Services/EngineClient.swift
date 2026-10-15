@@ -9,6 +9,10 @@ protocol EngineClient: Sendable {
     func measure(_ path: URL, disposable: Set<String>, excluding: [URL]) async -> DiskUsage
     /// Generated folders (node_modules, build output, ...) git ignores inside one working folder.
     func artifacts(in root: URL, repoRoot: URL, location: ArtifactLocation, names: Set<String>) async -> [DiskArtifact]
+    /// Tool caches in the home folder (Xcode build data, npm cache, ...), as clearable folders.
+    func developerCaches() async -> [DiskArtifact]
+    /// Free and total space of the disk the home folder is on.
+    func volumeSpace() -> VolumeSpace?
     /// Moves one generated folder to the Trash after re-checking it, recording an undo entry.
     func clearArtifact(_ artifact: DiskArtifact, names: Set<String>, batchID: UUID) async -> CleanOutcome
     /// `strictItemIDs` are worktree items that must be refused if work that exists only in the folder has
@@ -63,6 +67,14 @@ struct LiveEngineClient: EngineClient {
 
     func artifacts(in root: URL, repoRoot: URL, location: ArtifactLocation, names: Set<String>) async -> [DiskArtifact] {
         await ArtifactScanner(git: git).scan(root: root, repoRoot: repoRoot, names: names, location: location)
+    }
+
+    func developerCaches() async -> [DiskArtifact] {
+        await DeveloperCaches.scan()
+    }
+
+    func volumeSpace() -> VolumeSpace? {
+        VolumeSpace.read(at: FileManager.default.homeDirectoryForCurrentUser)
     }
 
     func clearArtifact(_ artifact: DiskArtifact, names: Set<String>, batchID: UUID) async -> CleanOutcome {
