@@ -79,20 +79,20 @@ struct AgentsContent: View {
                 }
                 .width(28)
                 TableColumn("Worktree", value: \.title) { item in WorktreeCell(item: item) }
-                    .width(min: 120)
+                    .width(min: 100)
                 TableColumn("State", value: \.stateSort) { item in StateChip(state: item.assessment.state) }
-                    .width(min: 96, ideal: 104)
+                    .width(min: 90, ideal: 104)
                 TableColumn("Only here") { item in OnlyHereCell(work: item.assessment.uniqueWork) }
-                    .width(min: 100, ideal: 150)
+                    .width(min: 84, ideal: 150)
                 TableColumn("Activity", value: \.activitySort) { item in ActivityCell(item: item) }
-                    .width(min: 70, ideal: 74)
+                    .width(min: 56, ideal: 74)
                 TableColumn("Age", value: \.ageSort) { item in
                     Text(item.assessment.createdAt.map { AgeFormat.short(from: $0) } ?? "-")
                         .foregroundStyle(.secondary).monospacedDigit()
                 }
-                .width(min: 48, ideal: 52)
+                .width(min: 44, ideal: 52)
                 TableColumn("Size", value: \.sizeSort) { item in AgentSizeCell(row: item.row) }
-                    .width(min: 56, ideal: 68)
+                    .width(min: 52, ideal: 68)
             }
             .contextMenu(forSelectionType: String.self) { ids in
                 if let id = ids.first, let item = model.agentRows.first(where: { $0.id == id }) {
@@ -130,22 +130,27 @@ private struct HeaderStrip: View {
                     }
                 }
                 Spacer(minLength: 0)
-                if summary.notMerged > 0 {
-                    Label("\(summary.notMerged) not merged", systemImage: "exclamationmark.triangle.fill")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.orange)
-                        .help("These hold work that is not in the default branch. They are never part of Reclaim finished.")
-                }
-                if summary.abandonedReclaimable > 0 {
-                    Button("Reclaim \(summary.abandonedReclaimable) abandoned, keep branches") {
-                        model.beginReclaimAbandonedAgents()
-                    }
-                    .disabled(model.clean != nil)
-                    .help("Removes the folders only. Each branch keeps its commits. You review the list first.")
-                }
                 Button("Reclaim \(included.count) finished") { model.beginReclaimFinishedAgents() }
                     .buttonStyle(.borderedProminent)
                     .disabled(included.isEmpty || model.clean != nil)
+            }
+            if summary.notMerged > 0 || summary.abandonedReclaimable > 0 {
+                HStack(spacing: Theme.Spacing.lg) {
+                    if summary.notMerged > 0 {
+                        Label("\(summary.notMerged) not merged", systemImage: "exclamationmark.triangle.fill")
+                            .font(.callout.weight(.semibold))
+                            .foregroundStyle(.orange)
+                            .help("These hold work that is not in the default branch. They are never part of Reclaim finished.")
+                    }
+                    Spacer(minLength: 0)
+                    if summary.abandonedReclaimable > 0 {
+                        Button("Reclaim \(summary.abandonedReclaimable) abandoned, keep branches") {
+                            model.beginReclaimAbandonedAgents()
+                        }
+                        .disabled(model.clean != nil)
+                        .help("Removes the folders only. Each branch keeps its commits. You review the list first.")
+                    }
+                }
             }
             if model.failedRepositoryCount > 0 {
                 Banner(
@@ -176,16 +181,17 @@ private struct AgentFilterBar: View {
             Picker("State", selection: $model.agentFilter) {
                 ForEach(AgentStateFilter.allCases) { Text($0.rawValue).tag($0) }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: 420)
+            .pickerStyle(.menu)
+            .frame(maxWidth: 190)
+            .help("Filter by state")
 
             Picker("Tool", selection: $model.agentToolFilter) {
                 Text("All tools").tag(AgentTool?.none)
                 ForEach(AgentTool.allCases, id: \.self) { Text($0.label).tag(AgentTool?.some($0)) }
             }
             .pickerStyle(.menu)
-            .frame(maxWidth: 160)
+            .frame(maxWidth: 170)
+            .help("Filter by tool")
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.Spacing.lg)
