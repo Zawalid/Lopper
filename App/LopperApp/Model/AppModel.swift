@@ -5,6 +5,7 @@ import Lopper
 
 enum Route: Hashable {
     case overview
+    case agents
     case history
     case repo(String)
 }

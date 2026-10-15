@@ -7,6 +7,26 @@ import Lopper
 
 // MARK: Screens
 
+#Preview("Agents, ready") {
+    AgentsContent()
+        .environment(AppModel.preview(
+            snapshots: [Fixtures.agentSample], sizes: Fixtures.agentMeasurements.sizes,
+            activity: Fixtures.agentMeasurements.activity, route: .agents, clock: { Fixtures.now }))
+        .frame(width: 820, height: 560)
+}
+
+#Preview("Agents, none found") {
+    AgentsContent()
+        .environment(AppModel.preview(snapshots: [Fixtures.sample], route: .agents))
+        .frame(width: 820, height: 560)
+}
+
+#Preview("Agents, scanning") {
+    AgentsContent()
+        .environment(AppModel.preview(snapshots: [], route: .agents, phase: .scanning(done: 1, total: 4)))
+        .frame(width: 820, height: 560)
+}
+
 #Preview("Overview, ready") {
     OverviewView()
         .environment(AppModel.preview(snapshots: [Fixtures.sample, secondRepo]))

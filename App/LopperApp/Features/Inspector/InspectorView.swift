@@ -25,6 +25,7 @@ struct InspectorContent: View {
                 header(row)
                 why(row)
                 details(row)
+                if let agent = row.agent { agentSection(row, agent) }
                 if !row.extraFiles.isEmpty { untracked(row) }
                 actions(row)
             }
@@ -90,6 +91,45 @@ struct InspectorContent: View {
             }
         }
         .font(.callout)
+    }
+
+    private func agentSection(_ row: CleanupRow, _ agent: AgentAssessment) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Text("Agent").font(.headline)
+            Grid(alignment: .leading, horizontalSpacing: Theme.Spacing.md, verticalSpacing: Theme.Spacing.sm) {
+                GridRow {
+                    Text("Tool").foregroundStyle(.secondary)
+                    Text(agent.detection.label)
+                }
+                GridRow {
+                    Text("State").foregroundStyle(.secondary)
+                    StateChip(state: agent.state)
+                }
+                GridRow {
+                    Text("Only here").foregroundStyle(.secondary)
+                    Text(agent.uniqueWork.summary)
+                }
+                if let created = agent.createdAt {
+                    GridRow {
+                        Text("Created").foregroundStyle(.secondary)
+                        Text(created, format: .relative(presentation: .named))
+                    }
+                }
+                if let activity = agent.lastActivity {
+                    GridRow {
+                        Text("Last activity").foregroundStyle(.secondary)
+                        Text(activity, format: .relative(presentation: .named))
+                    }
+                }
+            }
+            .font(.callout)
+            if !agent.sheetNote.isEmpty {
+                Text(agent.sheetNote).font(.caption).foregroundStyle(.secondary)
+            }
+            if agent.canReview {
+                Button("Review and remove…") { model.beginReview(row: row) }
+            }
+        }
     }
 
     private func untracked(_ row: CleanupRow) -> some View {

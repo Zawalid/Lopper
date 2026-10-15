@@ -39,6 +39,7 @@ enum PreferencesRoute {
     static func encode(_ route: Route) -> String {
         switch route {
         case .overview: "overview"
+        case .agents: "agents"
         case .history: "history"
         case .repo(let path): "repo:\(path)"
         }
@@ -46,6 +47,7 @@ enum PreferencesRoute {
 
     static func decode(_ value: String?) -> Route {
         guard let value else { return .overview }
+        if value == "agents" { return .agents }
         if value == "history" { return .history }
         if value.hasPrefix("repo:"), value.count > "repo:".count {
             return .repo(String(value.dropFirst("repo:".count)))

@@ -110,6 +110,7 @@ private struct DetailView: View {
     @ViewBuilder private var content: some View {
         switch model.route {
         case .overview: OverviewView()
+        case .agents: AgentsView()
         case .history: HistoryView()
         case .repo(let id): RepoWorkbenchView(repoID: id)
         }

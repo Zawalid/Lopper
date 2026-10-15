@@ -165,7 +165,7 @@ struct ReviewRow: View {
             Image(systemName: row.kind.symbol).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.title).lineLimit(1)
-                Text(row.reasons.first ?? row.evidence)
+                Text(row.agent.flatMap { $0.sheetNote.isEmpty ? nil : $0.sheetNote } ?? row.reasons.first ?? row.evidence)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
