@@ -407,4 +407,67 @@ final class AppModelTests: XCTestCase {
 
         XCTAssertTrue(model.isScanning)
     }
+
+    // MARK: Settings window support
+
+    func testRepositoryCountIsPerFolderIncludingNestedRepositories() async {
+        func repo(_ path: String) -> RepoSnapshot {
+            let root = URL(fileURLWithPath: path)
+            return Fixtures.snapshot(
+                name: root.lastPathComponent, root: root,
+                branches: [Fixtures.branch("main", .protected, root: root)])
+        }
+        let (model, _) = makeModel([repo("/code/a"), repo("/code/group/b"), repo("/elsewhere/c")])
+        model.startScan()
+        await settle(model)
+
+        XCTAssertEqual(model.repositoryCount(inFolder: URL(fileURLWithPath: "/code")), 2)
+        XCTAssertEqual(model.repositoryCount(inFolder: URL(fileURLWithPath: "/elsewhere")), 1)
+        XCTAssertEqual(model.repositoryCount(inFolder: URL(fileURLWithPath: "/cod")), 0, "a path prefix is not a parent folder")
+    }
+
+    func testResettingSettingsKeepsAByteIdenticalBackupAndReturnsToOnboarding() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-reset-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let file = directory.appendingPathComponent("settings.json")
+        var original = Settings(roots: [URL(fileURLWithPath: "/code")])
+        original.scanDepth = 6
+        try original.save(to: file)
+        let before = try Data(contentsOf: file)
+        let store = SettingsStore(url: file, debounce: .milliseconds(10))
+        let model = AppModel(client: FakeEngineClient(snapshots: [Fixtures.sample]), store: store)
+        model.startScan()
+        await settle(model)
+
+        model.resetSettings()
+
+        XCTAssertEqual(model.settings, Settings())
+        XCTAssertEqual(model.overviewState, .needsFolders)
+        let backups = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+            .filter { $0.hasPrefix("settings.json.reset-") }
+        XCTAssertEqual(backups.count, 1)
+        XCTAssertEqual(try Data(contentsOf: directory.appendingPathComponent(backups[0])), before)
+    }
+
+    func testRemovingRepositoryOverridesDropsTheEntryAndRescans() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.updateSettings { $0.repos[Fixtures.root.path] = RepoOverrides(defaultBranch: "trunk") }
+        await settle(model)
+
+        model.removeRepoOverrides(for: Fixtures.root)
+
+        XCTAssertNil(model.settings.repos[Fixtures.root.path])
+        XCTAssertTrue(model.isScanning)
+    }
+
+    func testToolStatusComesFromTheEngineClient() async {
+        let (model, _) = makeModel([])
+        XCTAssertEqual(model.toolStatus, .unknown)
+
+        await model.refreshToolStatus()
+
+        XCTAssertEqual(model.toolStatus.gitVersion, "2.54.0 (Apple Git-157)")
+        XCTAssertEqual(model.toolStatus.gitHubCLI, .installed(version: "2.98.0", path: "/opt/homebrew/bin/gh"))
+    }
 }

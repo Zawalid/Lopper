@@ -332,6 +332,39 @@ final class AppModel {
         setRoots(settings.roots.filter { $0.canonicalized.path != key })
     }
 
+    // MARK: Settings window support
+
+    private(set) var toolStatus: ToolStatus = .unknown
+
+    var settingsFileURL: URL { store.url }
+
+    func refreshToolStatus() async {
+        toolStatus = await client.toolStatus()
+    }
+
+    /// How many scanned repositories sit inside `folder`, nested ones included.
+    func repositoryCount(inFolder folder: URL) -> Int {
+        let prefix = folder.canonicalized.path
+        return results.filter {
+            let path = $0.repoRoot.canonicalized.path
+            return path == prefix || path.hasPrefix(prefix + "/")
+        }.count
+    }
+
+    func removeRepoOverrides(for repoRoot: URL) {
+        updateSettings { $0.repos[repoRoot.path] = nil }
+    }
+
+    /// Restores every setting to its default. The file as it was is kept as `settings.json.reset-<time>`.
+    func resetSettings(now: Date = Date()) {
+        store.flush()
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        store.backupFile(label: "reset-\(formatter.string(from: now))")
+        updateSettings { $0 = Settings() }
+    }
+
     /// One line that says where Lopper is looking, for the Overview footer.
     var foldersSummary: String {
         let names = settings.roots.map { RowMapper.abbreviated($0) }

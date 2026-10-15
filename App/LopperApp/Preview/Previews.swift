@@ -96,9 +96,35 @@ import Lopper
         .environment(AppModel.preview())
 }
 
-#Preview("Settings") {
-    SettingsView()
-        .environment(AppModel.preview())
+#Preview("Settings, General") {
+    SettingsView(initialPane: .general).environment(AppModel.preview())
+}
+
+#Preview("Settings, Folders") {
+    SettingsView(initialPane: .folders).environment(AppModel.preview(roots: [
+        URL(fileURLWithPath: "/code"), URL(fileURLWithPath: "/work/projects"),
+    ]))
+}
+
+#Preview("Settings, Safety") {
+    let model = AppModel.preview()
+    model.updateSettings {
+        $0.repos["/code/api"] = RepoOverrides(
+            defaultBranch: "trunk", protectedPatterns: ["trunk"], disposableNames: [".env.test"])
+    }
+    return SettingsView(initialPane: .safety).environment(model)
+}
+
+#Preview("Settings, Tools") {
+    SettingsView(initialPane: .tools).environment(AppModel.preview())
+}
+
+#Preview("Settings, Advanced") {
+    SettingsView(initialPane: .advanced).environment(AppModel.preview())
+}
+
+#Preview("Settings, About") {
+    SettingsView(initialPane: .about).environment(AppModel.preview())
 }
 
 #Preview("Whole window") {
@@ -108,6 +134,20 @@ import Lopper
 }
 
 // MARK: Design system gallery
+
+#Preview("Tag list editor") {
+    TagListEditorPreview()
+        .padding(24)
+        .frame(width: 520)
+}
+
+private struct TagListEditorPreview: View {
+    @State private var tags = ["main", "master", "develop", "release/*", "hotfix/*", "staging"]
+
+    var body: some View {
+        TagListEditor(tags: $tags, prompt: "main, release/*")
+    }
+}
 
 #Preview("Design system") {
     VStack(alignment: .leading, spacing: 20) {

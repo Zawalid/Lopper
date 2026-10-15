@@ -17,6 +17,9 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     var scanDelay: Duration = .zero
     var cleanItemDelay: Duration = .zero
     var restoreBatchOutcomes: [RestoreOutcome] = []
+    var tools = ToolStatus(
+        gitVersion: "2.54.0 (Apple Git-157)",
+        gitHubCLI: .installed(version: "2.98.0", path: "/opt/homebrew/bin/gh"))
     private(set) var restoredBatches: [UUID] = []
     private(set) var cleanedItems: [CleanupItem] = []
     let githubCLIAvailable: Bool
@@ -88,5 +91,7 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     func restore(_ record: UndoRecord) async -> RestoreOutcome {
         .failed(message: "not used")
     }
+
+    func toolStatus() async -> ToolStatus { tools }
 }
 #endif

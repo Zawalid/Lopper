@@ -10,6 +10,7 @@ protocol EngineClient: Sendable {
     func history() async -> [UndoRecord]
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
+    func toolStatus() async -> ToolStatus
 }
 
 /// The real engine. One shared gate serializes scans and removals per repository.
@@ -54,5 +55,18 @@ struct LiveEngineClient: EngineClient {
 
     func restore(_ record: UndoRecord) async -> RestoreOutcome {
         await cleaner(Settings()).restore(record)
+    }
+
+    func toolStatus() async -> ToolStatus {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let gitOutput = try? await git.run(["--version"], in: home)
+        let gitVersion = gitOutput.flatMap { $0.succeeded ? ToolStatus.parseGitVersion($0.stdout) : nil }
+
+        guard let gh = GhCliProvider.locate() else {
+            return ToolStatus(gitVersion: gitVersion, gitHubCLI: .notInstalled)
+        }
+        let output = try? await CommandRunner(executable: gh, timeout: .seconds(10)).run(["--version"])
+        let version = output.flatMap { $0.succeeded ? ToolStatus.parseGitHubVersion($0.stdout) : nil } ?? "unknown"
+        return ToolStatus(gitVersion: gitVersion, gitHubCLI: .installed(version: version, path: gh.path))
     }
 }

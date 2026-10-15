@@ -28,6 +28,8 @@ targets:
         PRODUCT_NAME: Lopper
         PRODUCT_MODULE_NAME: LopperApp
         PRODUCT_BUNDLE_IDENTIFIER: dev.lopper.app
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Lopper
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools

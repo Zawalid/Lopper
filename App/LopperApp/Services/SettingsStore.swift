@@ -59,6 +59,16 @@ final class SettingsStore: @unchecked Sendable {
         try? writer(value, url)
     }
 
+    /// Copies the settings file next to itself as `settings.json.<label>`. Returns nil when there is no file.
+    @discardableResult
+    func backupFile(label: String) -> URL? {
+        let destination = url.deletingLastPathComponent().appendingPathComponent("\(url.lastPathComponent).\(label)")
+        guard FileManager.default.fileExists(atPath: url.path),
+            (try? FileManager.default.copyItem(at: url, to: destination)) != nil
+        else { return nil }
+        return destination
+    }
+
     /// Immediate save, kept for callers that need the file on disk right away.
     func save(_ settings: Settings) {
         scheduleSave(settings)
