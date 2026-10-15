@@ -49,15 +49,15 @@ struct RepoWorkbenchView: View {
                     TableColumn("Evidence", value: \.evidence) { row in
                         Text(row.evidence).foregroundStyle(.secondary).lineLimit(1)
                     }
-                    .width(min: 90, ideal: 150)
+                    .width(min: 72, ideal: 150)
                     TableColumn("Last commit", value: \.lastCommitSort) { row in
                         Text(row.lastCommit.map { AgeFormat.short(from: $0) } ?? "-")
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
-                    .width(min: 84, ideal: 84)
+                    .width(min: 64, ideal: 78)
                     TableColumn("Size", value: \.sizeSort) { row in SizeCell(row: row) }
-                        .width(min: 56, ideal: 68)
+                        .width(min: 52, ideal: 64)
                 }
                 .contextMenu(forSelectionType: CleanupRow.ID.self) { ids in
                     if let id = ids.first, let row = model.allRows.first(where: { $0.id == id }) {

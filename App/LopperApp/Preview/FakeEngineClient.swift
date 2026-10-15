@@ -113,7 +113,10 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         }
     }
 
-    func history() async -> [UndoRecord] { [] }
+    /// What `history()` returns, so a preview or test can show a log that survives the startup rescan.
+    var historyRecords: [UndoRecord] = []
+
+    func history() async -> [UndoRecord] { historyRecords }
 
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome] {
         restoredBatches.append(id)

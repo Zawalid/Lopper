@@ -993,8 +993,10 @@ extension AppModel {
     ) -> AppModel {
         let store = SettingsStore(url: FileManager.default.temporaryDirectory
             .appendingPathComponent("lopper-preview-settings.json"))
+        let client = FakeEngineClient(snapshots: snapshots)
+        client.historyRecords = history
         let model = AppModel(
-            client: FakeEngineClient(snapshots: snapshots),
+            client: client,
             store: store,
             settings: Settings(roots: roots),
             now: clock)

@@ -1,6 +1,30 @@
 import Foundation
 import Lopper
 
+/// The blocks of the Overview page, in the order they appear. The page renders exactly this list, so a block
+/// can never be drawn twice by one state also drawing it inside another.
+enum OverviewSection: Hashable {
+    case hero, statStrip, worthALook, staleNote, cards, activity, folders
+}
+
+enum OverviewLayout {
+    static func sections(for state: OverviewState) -> [OverviewSection] {
+        switch state {
+        case .needsFolders:
+            return [.hero]
+        case .scanning:
+            // The hero draws its own placeholders while the first scan runs.
+            return [.hero]
+        case .nothingFound:
+            return [.hero, .activity, .folders]
+        case .allTidy:
+            return [.hero, .worthALook, .staleNote, .cards, .activity, .folders]
+        case .ready:
+            return [.hero, .statStrip, .worthALook, .staleNote, .cards, .activity, .folders]
+        }
+    }
+}
+
 /// One cleanup action as the Overview shows it: what was removed together, and whether it can still be undone.
 struct ActivityBatch: Identifiable, Equatable {
     let id: UUID

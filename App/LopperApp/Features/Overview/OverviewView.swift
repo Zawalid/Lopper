@@ -20,17 +20,26 @@ struct OverviewContent: View {
         let totals = model.totals
         VStack(spacing: Theme.Spacing.xl) {
             banners
-            hero(totals)
-            statStrip(totals)
-            worthALook(totals)
-            staleRow
-            cards
-            activity
-            foldersFooter
+            ForEach(OverviewLayout.sections(for: model.overviewState), id: \.self) { section in
+                content(for: section, totals: totals)
+            }
         }
         .padding(32)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func content(for section: OverviewSection, totals: Totals) -> some View {
+        switch section {
+        case .hero: hero(totals)
+        case .statStrip: statStrip(totals)
+        case .worthALook: worthALook(totals)
+        case .staleNote: staleRow
+        case .cards: cards
+        case .activity: activity
+        case .folders: foldersFooter
+        }
     }
 
     @ViewBuilder
@@ -94,7 +103,6 @@ struct OverviewContent: View {
                 message: review > 0
                     ? "Nothing is safe to remove. \(Plural.count(review, "item")) need a look."
                     : "Nothing is waiting to be cleaned up.")
-            if review > 0 { worthALook(totals) }
         case .ready:
             ReclaimHero(
                 headline: model.isScanning ? "Found so far" : model.heroHeadline,

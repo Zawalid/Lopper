@@ -75,6 +75,9 @@ private struct DetailView: View {
 
     var body: some View {
         content
+            // Fill the column first, then paint it: an empty state hugs its text, and a background applied to
+            // that would only cover a rectangle around it.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.pageBackground)
             // The notice lives in the detail column only. An inset on the whole split view would also push
             // the sidebar's first row up under the traffic lights.
