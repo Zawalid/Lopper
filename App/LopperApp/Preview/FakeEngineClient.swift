@@ -1,6 +1,7 @@
+#if DEBUG
+// A scripted engine for previews and tests. Compiled into debug builds only.
 import Foundation
 import Lopper
-@testable import LopperApp
 
 /// Deterministic engine for model tests: a fixed scan result and scripted clean outcomes.
 final class FakeEngineClient: EngineClient, @unchecked Sendable {
@@ -88,3 +89,4 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         .failed(message: "not used")
     }
 }
+#endif

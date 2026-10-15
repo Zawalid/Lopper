@@ -95,14 +95,14 @@ These are cheap now and expensive later.
 5. **Persistence plan:** the undo log is JSON lines today; History search and rules will want a small
    database. Decide before History grows.
 6. **Background work model:** in-app timers first; a login-item helper only if rules need it.
-7. **Fast dev loop:** `scripts/dev.sh` and `#Preview` blocks on every screen.
+7. **Fast dev loop:** `scripts/dev.sh` and `#Preview` blocks on every screen (done).
 8. **Real-window tests:** keep the window-level click tests growing with every page.
 
 ## 6. Order of work
 
 | Phase | Goal | Items |
 |---|---|---|
-| 0, now | Trust the app | Acceptance on real repositories, bug fixes, deferred minors, dev loop and previews |
+| 0, now | Trust the app | Acceptance on real repositories, bug fixes, deferred minors; dev loop and previews (done, see docs/development.md) |
 | 1 | Foundations | Settings architecture, localization, entitlements seam, diagnostics, icon and naming check |
 | 2 | Differentiators | Agents page, Disk page with in-place artifact cleanup, richer History |
 | 3 | Automation | Rules and schedule, notifications, the `lop` CLI |

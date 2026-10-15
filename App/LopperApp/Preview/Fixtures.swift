@@ -1,6 +1,7 @@
+#if DEBUG
+// Sample data for previews and tests. Compiled into debug builds only.
 import Foundation
 import Lopper
-@testable import LopperApp
 
 enum Fixtures {
     static let root = URL(fileURLWithPath: "/code/api")
@@ -51,6 +52,25 @@ enum Fixtures {
             prDetectionAvailable: true, scannedAt: now)
     }
 
+    static var historyRecords: [UndoRecord] {
+        let batch = UUID()
+        let earlier = UUID()
+        func record(_ branch: String, _ action: UndoAction, batch: UUID, hoursAgo: Double, status: UndoStatus = .completed) -> UndoRecord {
+            UndoRecord(
+                timestamp: Date().addingTimeInterval(-hoursAgo * 3_600), repoPath: root.path, action: action,
+                branch: branch, tip: "abc1234", upstream: nil,
+                worktreePath: action == .removeWorktree ? "/code/wt/\(branch)" : nil,
+                trashRef: "refs/lopper/trash/1/\(branch)", status: status, batchID: batch)
+        }
+        return [
+            record("feat/old-1", .deleteBranch, batch: batch, hoursAgo: 2),
+            record("feat/old-2", .deleteBranch, batch: batch, hoursAgo: 2),
+            record("feat/in-worktree", .removeWorktree, batch: batch, hoursAgo: 2),
+            record("fix/typo", .deleteBranch, batch: earlier, hoursAgo: 50, status: .restored),
+            record("chore/ci", .deleteBranch, batch: earlier, hoursAgo: 50),
+        ]
+    }
+
     /// 3 safe branches, 1 safe worktree (with its branch), 1 review branch, 1 protected default branch.
     static var sample: RepoSnapshot {
         snapshot(
@@ -65,3 +85,4 @@ enum Fixtures {
             worktrees: [worktree("feat/in-worktree", .safe, evidence: .contentIncluded)])
     }
 }
+#endif

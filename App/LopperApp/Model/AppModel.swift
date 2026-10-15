@@ -546,3 +546,35 @@ final class AppModel {
         }
     }
 }
+
+#if DEBUG
+extension AppModel {
+    /// A model with its state filled in directly, for previews and screenshots. It never scans.
+    static func preview(
+        snapshots: [RepoSnapshot] = [Fixtures.sample],
+        sizes: [String: Int64] = ["/code/wt/feat/in-worktree": 1_240_000_000],
+        roots: [URL] = [URL(fileURLWithPath: "/code")],
+        history: [UndoRecord] = [],
+        route: Route = .overview,
+        phase: ScanPhase? = nil,
+        focusedRowID: String? = nil,
+        failures: [URL] = []
+    ) -> AppModel {
+        let store = SettingsStore(url: FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-preview-settings.json"))
+        let model = AppModel(
+            client: FakeEngineClient(snapshots: snapshots),
+            store: store,
+            settings: Settings(roots: roots))
+        model.results = snapshots.map { .snapshot($0) }
+            + failures.map { .failure(repoRoot: $0, message: "git couldn't complete this step: not a git repository") }
+        model.sizes = sizes.mapValues { DiskUsage(total: $0, disposable: 0) }
+        model.history = history
+        model.route = route
+        model.phase = phase ?? .ready(Date())
+        model.focusedRowID = focusedRowID
+        return model
+    }
+}
+#endif
+
