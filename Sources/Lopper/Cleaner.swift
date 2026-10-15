@@ -51,7 +51,7 @@ public struct Cleaner: Sendable {
             var record = UndoRecord(
                 timestamp: now, repoPath: repoRoot.path, action: .deleteBranch, branch: name,
                 tip: entry.tip, upstream: entry.upstream, worktreePath: nil,
-                trashRef: trashRef, status: .pending, batchID: batchID)
+                trashRef: trashRef, status: .pending, batchID: batchID, reason: entry.evidence.summary)
             return await execute(record: &record, repoRoot: repoRoot) {
                 try await deleteBranchIfUnchanged(name: name, expectedTip: entry.tip, repoRoot: repoRoot)
             }
@@ -65,7 +65,7 @@ public struct Cleaner: Sendable {
     /// verdict alone would let through even though removing the folder deletes them.
     public func removeWorktree(
         repoRoot: URL, path: URL, approved: VerdictKind, refuseFolderOnlyWork: Bool = false,
-        batchID: UUID? = nil, now: Date = Date()
+        batchID: UUID? = nil, bytes: Int64? = nil, now: Date = Date()
     ) async -> CleanOutcome {
         await serialized(repoRoot) {
             let found: WorktreeEntry?
@@ -90,7 +90,8 @@ public struct Cleaner: Sendable {
             var record = UndoRecord(
                 timestamp: now, repoPath: repoRoot.path, action: .removeWorktree, branch: entry.branch,
                 tip: entry.head, upstream: nil, worktreePath: entry.path.path,
-                trashRef: Self.trashRef(now: now, label: label), status: .pending, batchID: batchID)
+                trashRef: Self.trashRef(now: now, label: label), status: .pending, batchID: batchID,
+                reason: entry.evidence.summary, bytes: bytes)
             let folderGone = entry.isPrunable && !FileManager.default.fileExists(atPath: entry.path.path)
             return await execute(record: &record, repoRoot: repoRoot) {
                 if folderGone {

@@ -28,11 +28,17 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
     public var detail: String?
     /// Records created by one user action share a batch, so the whole action can be undone at once.
     public let batchID: UUID?
+    /// Why removal was safe at the time, in the words shown in the app ("Merged via PR #54"). Absent in records
+    /// written before this field existed.
+    public let reason: String?
+    /// How much disk the removal freed, when the caller knew. Absent for branches and for older records.
+    public var bytes: Int64?
 
     public init(
         id: UUID = UUID(), timestamp: Date, repoPath: String, action: UndoAction, branch: String?,
         tip: String, upstream: String?, worktreePath: String?, trashRef: String,
-        status: UndoStatus, detail: String? = nil, batchID: UUID? = nil
+        status: UndoStatus, detail: String? = nil, batchID: UUID? = nil,
+        reason: String? = nil, bytes: Int64? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -46,6 +52,8 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
         self.status = status
         self.detail = detail
         self.batchID = batchID
+        self.reason = reason
+        self.bytes = bytes
     }
 }
 
