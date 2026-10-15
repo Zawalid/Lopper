@@ -25,7 +25,56 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(
             AppPreferences.Key.allCases.map(\.rawValue).sorted(),
             ["appearance", "editorBundleID", "inspectorVisible", "lastRoute", "showCountInMenuBar",
-             "showInDock", "terminalBundleID"])
+             "showInDock", "sidebarGrouping", "sidebarShowsDetails", "sidebarShowsTidy", "sidebarSort",
+             "terminalBundleID"])
+    }
+
+    func testSidebarGroupingDefaultsToAttentionAndIsRemembered() {
+        let store = MemoryPreferenceStore()
+        let (first, _) = make(store: store)
+        XCTAssertEqual(first.sidebarGrouping, .attention)
+
+        first.setSidebarGrouping(.folder)
+        let (second, _) = make(store: store)
+        XCTAssertEqual(second.sidebarGrouping, .folder)
+    }
+
+    func testSidebarOptionsDefaultsAndPersistence() {
+        let store = MemoryPreferenceStore()
+        let (first, _) = make(store: store)
+        XCTAssertEqual(first.sidebarSort, .attention)
+        XCTAssertTrue(first.sidebarShowsDetails)
+        XCTAssertTrue(first.sidebarShowsTidy)
+
+        first.setSidebarSort(.size)
+        first.setSidebarShowsDetails(false)
+        first.setSidebarShowsTidy(false)
+        let (second, _) = make(store: store)
+        XCTAssertEqual(second.sidebarSort, .size)
+        XCTAssertFalse(second.sidebarShowsDetails)
+        XCTAssertFalse(second.sidebarShowsTidy)
+    }
+
+    func testResettingTheSidebarOptionsRestoresEveryDefault() {
+        let (prefs, _) = make()
+        prefs.setSidebarGrouping(.folder)
+        prefs.setSidebarSort(.name)
+        prefs.setSidebarShowsDetails(false)
+        prefs.setSidebarShowsTidy(false)
+
+        prefs.resetSidebarOptions()
+
+        XCTAssertEqual(prefs.sidebarGrouping, .attention)
+        XCTAssertEqual(prefs.sidebarSort, .attention)
+        XCTAssertTrue(prefs.sidebarShowsDetails)
+        XCTAssertTrue(prefs.sidebarShowsTidy)
+    }
+
+    func testAnUnknownStoredGroupingFallsBackToAttention() {
+        let store = MemoryPreferenceStore()
+        store.set("by-colour", forKey: AppPreferences.Key.sidebarGrouping.rawValue)
+        let (prefs, _) = make(store: store)
+        XCTAssertEqual(prefs.sidebarGrouping, .attention)
     }
 
     func testDefaults() {

@@ -44,6 +44,7 @@ struct HistoryView: View {
                                 Spacer()
                                 if let batchID = group.batchID, group.restorable {
                                     Button("Restore all") { model.restoreBatch(batchID) }
+                                        .buttonStyle(.lopperSecondary)
                                         .controlSize(.small)
                                 }
                             }
@@ -73,7 +74,9 @@ private struct RecordRow: View {
             Spacer()
             switch record.status {
             case .completed:
-                Button("Restore") { model.restore(record) }.controlSize(.small)
+                Button("Restore") { model.restore(record) }
+                    .buttonStyle(.lopperSecondary)
+                    .controlSize(.small)
             case .restored:
                 Text("Restored").font(.caption).foregroundStyle(.secondary)
             case .expired:

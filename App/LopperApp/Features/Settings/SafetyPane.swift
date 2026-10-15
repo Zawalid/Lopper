@@ -74,6 +74,7 @@ private struct OverrideRow: View {
             }
             Spacer()
             Button("Reset") { model.removeRepoOverrides(for: URL(fileURLWithPath: path)) }
+                .buttonStyle(.lopperSecondary)
                 .controlSize(.small)
         }
     }

@@ -461,6 +461,94 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(model.isScanning)
     }
 
+    func testHidingARepositoryIgnoresItRescansAndSaysHowToGetItBack() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.hideRepository(Fixtures.root)
+
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.isIgnored, true)
+        XCTAssertTrue(model.isScanning, "hiding changes what is found, so the scan runs again")
+        XCTAssertTrue(model.notice?.contains(Fixtures.sample.repo.name) == true)
+        XCTAssertTrue(model.notice?.contains("Settings") == true)
+    }
+
+    func testHidingKeepsTheRepositorysOtherOverrides() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.updateSettings { $0.repos[Fixtures.root.path] = RepoOverrides(defaultBranch: "trunk") }
+        await settle(model)
+
+        model.hideRepository(Fixtures.root)
+
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.defaultBranch, "trunk")
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.isIgnored, true)
+    }
+
+    func testShowingAHiddenRepositoryAgainDropsAnOverrideThatHasNothingElseInIt() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.hideRepository(Fixtures.root)
+        await settle(model)
+
+        model.showRepository(Fixtures.root)
+
+        XCTAssertNil(model.settings.repos[Fixtures.root.path])
+    }
+
+    func testShowingAHiddenRepositoryAgainKeepsItsOtherOverrides() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.updateSettings {
+            $0.repos[Fixtures.root.path] = RepoOverrides(defaultBranch: "trunk", isIgnored: true)
+        }
+        await settle(model)
+
+        model.showRepository(Fixtures.root)
+
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path], RepoOverrides(defaultBranch: "trunk"))
+    }
+
+    func testCleaningOneRepositoryTakesOnlyItsSafeRows() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let id = Fixtures.sample.repo.id
+
+        model.beginCleanSafe(inRepo: id)
+
+        let rows = model.clean?.rows ?? []
+        XCTAssertFalse(rows.isEmpty)
+        XCTAssertTrue(rows.allSatisfy { $0.verdict == .safe && $0.repoRoot == Fixtures.sample.repo.root })
+    }
+
+    func testCleaningARepositoryThatHasNothingSafeOpensNoSheet() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.beginCleanSafe(inRepo: "/does/not/exist")
+
+        XCTAssertNil(model.clean)
+    }
+
+    func testOpeningARepositoryCanSetTheVerdictFilterAtTheSameTime() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.openRepository(Fixtures.sample.repo.id, showing: .review)
+
+        XCTAssertEqual(model.route, .repo(Fixtures.sample.repo.id))
+        XCTAssertEqual(model.verdictFilter, .review)
+    }
+
+    func testTheFirstRepositoryWithItemsToReviewIsTheOneWithTheMost() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        XCTAssertEqual(model.repositoryWithMostToReview?.id, Fixtures.sample.repo.id)
+    }
+
     func testToolStatusComesFromTheEngineClient() async {
         let (model, _) = makeModel([])
         XCTAssertEqual(model.toolStatus, .unknown)

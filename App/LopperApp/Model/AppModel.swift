@@ -261,18 +261,12 @@ final class AppModel {
 
     /// Repositories with something to do, most safe items first; failed scans are included so they are seen.
     var attentionSummaries: [RepoSummary] {
-        summaries
-            .filter { $0.failure != nil || $0.safe + $0.review > 0 }
-            .sorted {
-                if $0.safe != $1.safe { return $0.safe > $1.safe }
-                if $0.review != $1.review { return $0.review > $1.review }
-                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
+        summaries.filter(\.needsAttention).sorted(by: RepoSummary.attentionBefore)
     }
 
     var tidySummaries: [RepoSummary] {
         summaries
-            .filter { $0.failure == nil && $0.safe + $0.review == 0 }
+            .filter { !$0.needsAttention }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
@@ -389,6 +383,21 @@ final class AppModel {
             let path = $0.repoRoot.canonicalized.path
             return path == prefix || path.hasPrefix(prefix + "/")
         }.count
+    }
+
+    /// Stops scanning and listing a repository. Nothing is deleted; it is shown again from Settings, Safety.
+    func hideRepository(_ repoRoot: URL) {
+        let name = summaries.first { $0.id == repoRoot.path }?.name ?? repoRoot.lastPathComponent
+        updateSettings { $0.repos[repoRoot.path, default: RepoOverrides()].isIgnored = true }
+        notice = "Hid \(name). You can show it again in Settings, under Safety."
+    }
+
+    func showRepository(_ repoRoot: URL) {
+        updateSettings {
+            guard var overrides = $0.repos[repoRoot.path] else { return }
+            overrides.isIgnored = false
+            $0.repos[repoRoot.path] = overrides == RepoOverrides() ? nil : overrides
+        }
     }
 
     func removeRepoOverrides(for repoRoot: URL) {
@@ -594,6 +603,26 @@ final class AppModel {
 
     func beginCleanAllSafe() {
         beginClean(rows: allRows.filter { $0.verdict == .safe })
+    }
+
+    /// Opens the review sheet with one repository's safe items. The sheet is still the only way anything is
+    /// removed, so a button on a card is a shortcut to the same safety step and not around it.
+    func beginCleanSafe(inRepo id: String) {
+        beginClean(rows: rows(forRepo: id).filter { $0.verdict == .safe })
+    }
+
+    /// Opens a repository, optionally narrowed to one verdict.
+    func openRepository(_ id: String, showing filter: VerdictFilter = .all) {
+        verdictFilter = filter
+        route = .repo(id)
+    }
+
+    /// Where to look first when there is something to review.
+    var repositoryWithMostToReview: RepoSummary? {
+        summaries.filter { $0.review > 0 }.min {
+            if $0.review != $1.review { return $0.review > $1.review }
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
     }
 
     func beginCleanChecked() {

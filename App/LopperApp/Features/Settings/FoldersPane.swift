@@ -53,7 +53,7 @@ private struct FolderRow: View {
                 Button {
                     model.removeRoot(folder.path)
                 } label: { Image(systemName: "minus.circle") }
-                .buttonStyle(.plain)
+                .buttonStyle(.lopperIcon)
                 .help("Stop looking in this folder")
                 .accessibilityLabel("Remove \(folder.path.lastPathComponent)")
             }

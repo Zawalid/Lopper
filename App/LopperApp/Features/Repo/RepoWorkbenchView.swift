@@ -216,8 +216,9 @@ private struct SelectionBar: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Button("Select all safe") { model.checkAllSafe(inRepo: repoID) }
+                .buttonStyle(.lopperSecondary)
             Button("Review and clean") { model.beginCleanChecked() }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lopperPrimary)
                 .disabled(checked.isEmpty)
         }
         .padding(.horizontal, Theme.Spacing.lg)

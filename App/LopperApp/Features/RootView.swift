@@ -62,34 +62,6 @@ struct RootView: View {
     }
 }
 
-/// Scan progress as a quiet caption and a thin bar at the bottom of the sidebar. It used to be a toolbar item,
-/// which macOS draws as its own glass bubble next to the title and which pushed the title around.
-private struct ScanStatus: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        if case .scanning(let done, let total) = model.phase {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(total > 0 ? "Scanning \(done) of \(total)" : "Looking for repositories…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if total > 0 {
-                    ProgressView(value: Double(done), total: Double(total))
-                        .progressViewStyle(.linear)
-                        .controlSize(.small)
-                } else {
-                    ProgressView()
-                        .progressViewStyle(.linear)
-                        .controlSize(.small)
-                }
-            }
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, Theme.Spacing.sm)
-            .accessibilityElement(children: .combine)
-        }
-    }
-}
-
 private struct DetailView: View {
     @Environment(AppModel.self) private var model
 
@@ -113,63 +85,6 @@ private struct DetailView: View {
         case .agents: AgentsView()
         case .history: HistoryView()
         case .repo(let id): RepoWorkbenchView(repoID: id)
-        }
-    }
-}
-
-private struct SidebarView: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        // The footer is a sibling of the list, not an inset over it: on a sidebar-style list an inset does not
-        // move the scroll content, so the last repository ended up underneath "Add folder".
-        VStack(spacing: 0) {
-            List(selection: Binding<Route?>(
-                get: { model.route },
-                set: { if let route = $0 { model.route = route } }
-            )) {
-                Section {
-                    Label("Overview", systemImage: "square.grid.2x2").tag(Route.overview)
-                    Label("History", systemImage: "clock.arrow.circlepath").tag(Route.history)
-                }
-                Section("Repositories") {
-                    ForEach(model.orderedSummaries) { summary in
-                        HStack {
-                            Label(summary.name, systemImage: summary.failure == nil ? "shippingbox" : "exclamationmark.triangle")
-                            Spacer()
-                            if summary.safe > 0 {
-                                Text("\(summary.safe)")
-                                    .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        .tag(Route.repo(summary.id))
-                    }
-                }
-            }
-            .listStyle(.sidebar)
-
-            ScanStatus()
-            Divider()
-            HStack {
-                Button {
-                    FolderPicker.choose { model.addRoots($0) }
-                } label: {
-                    Label("Add folder", systemImage: "plus")
-                }
-                .buttonStyle(.plain)
-                .help("Add a folder to scan (Command-O)")
-                Spacer()
-                SettingsLink {
-                    Image(systemName: "gearshape")
-                }
-                .buttonStyle(.plain)
-                .help("Settings (Command-comma)")
-                .accessibilityLabel("Settings")
-            }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, Theme.Spacing.sm)
         }
     }
 }

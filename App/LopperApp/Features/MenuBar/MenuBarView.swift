@@ -55,7 +55,7 @@ struct MenuBarView: View {
                     openMain()
                     model.beginCleanAllSafe()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.lopperPrimary)
                 .controlSize(.large)
             }
             Divider()
@@ -63,15 +63,14 @@ struct MenuBarView: View {
                 Text(lastScanText).font(.caption).foregroundStyle(.tertiary)
                 Spacer()
                 Button { model.startScan() } label: { Image(systemName: "arrow.clockwise") }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.lopperIcon)
                     .help("Rescan")
                     .accessibilityLabel("Rescan")
-                Button("Open Lopper") { openMain() }.buttonStyle(.link)
+                Button("Open Lopper") { openMain() }.buttonStyle(.lopperLink)
             }
             Button("Quit Lopper") { NSApp.terminate(nil) }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .font(.caption)
+                .buttonStyle(.lopperSecondary)
+                .controlSize(.small)
         }
         .padding(Theme.Spacing.lg)
         .frame(width: 300)

@@ -120,20 +120,22 @@ struct CleanSheet: View {
             switch state.phase {
             case .review:
                 Button("Cancel", role: .cancel) { model.dismissClean() }
+                    .buttonStyle(.lopperSecondary)
                     .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button("Remove \(Plural.count(state.includedRows.count, "item"))") { model.runClean() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lopperPrimary)
                     .keyboardShortcut(.defaultAction)
                     .disabled(state.includedRows.isEmpty)
             case .running:
                 Spacer()
                 Button(state.isStopping ? "Stopping…" : "Stop") { model.cancelClean() }
+                    .buttonStyle(.lopperSecondary)
                     .disabled(state.isStopping)
             case .finished:
                 Spacer()
                 Button("Done") { model.finishClean() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lopperPrimary)
                     .keyboardShortcut(.defaultAction)
             }
         }

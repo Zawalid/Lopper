@@ -98,6 +98,71 @@ final class WindowSmokeTests: XCTestCase {
         }
     }
 
+    func testSwitchingTheSidebarGroupingDoesNotCrashAndStaysInsideTheWindow() async {
+        let model = await readyModel()
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump()
+
+        for grouping in SidebarGrouping.allCases + [.attention] {
+            model.preferences.setSidebarGrouping(grouping)
+            await pump(0.4)
+            assertPanesInsideWindow(window, "grouping \(grouping.rawValue)")
+        }
+    }
+
+    func testSidebarDetailsSortAndTidyOptionsDoNotCrashAndStayInsideTheWindow() async {
+        let model = await readyModel()
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump()
+
+        for sort in SidebarSort.allCases {
+            model.preferences.setSidebarSort(sort)
+            model.preferences.setSidebarShowsDetails(sort != .name)
+            model.preferences.setSidebarShowsTidy(sort != .size)
+            await pump(0.3)
+            assertPanesInsideWindow(window, "sort \(sort.rawValue)")
+        }
+        model.preferences.resetSidebarOptions()
+        await pump(0.3)
+        assertPanesInsideWindow(window, "after reset")
+    }
+
+    func testOverviewWithRecentActivityRendersInARealWindow() async {
+        let batch = UUID()
+        let history = [
+            UndoRecord(
+                timestamp: Date().addingTimeInterval(-3_600), repoPath: Fixtures.root.path,
+                action: .deleteBranch, branch: "feat/old", tip: "abc", upstream: nil, worktreePath: nil,
+                trashRef: "refs/lopper/old", status: .completed, batchID: batch),
+            UndoRecord(
+                timestamp: Date().addingTimeInterval(-3_500), repoPath: Fixtures.root.path,
+                action: .deleteBranch, branch: "feat/older", tip: "def", upstream: nil, worktreePath: nil,
+                trashRef: "refs/lopper/older", status: .restored, batchID: batch),
+        ]
+        let model = AppModel.preview(history: history, route: .overview)
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump(0.6)
+
+        assertPanesInsideWindow(window, "overview with activity")
+        XCTAssertEqual(OverviewInsights.recentActivity(history: model.history).first?.itemCount, 2)
+    }
+
+    func testHidingTheOpenRepositoryReturnsToTheOverviewWithoutCrashing() async {
+        let model = await readyModel()
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        model.route = .repo(Fixtures.root.path)
+        await pump()
+
+        model.hideRepository(Fixtures.root)
+        await pump(0.6)
+
+        XCTAssertNotNil(window.contentViewController)
+    }
+
     func testChangingTheVerdictFilterDoesNotCrash() async {
         let model = await readyModel()
         let window = makeWindow(model: model)

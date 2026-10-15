@@ -41,7 +41,8 @@ struct TagChip: View {
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.lopperIcon)
+            .padding(-4)
             .accessibilityLabel("Remove \(title)")
         }
         .padding(.leading, 8)
