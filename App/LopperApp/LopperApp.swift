@@ -30,6 +30,8 @@ struct LopperCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
+            Button("Add Folder…") { FolderPicker.choose { model.addRoots($0) } }
+                .keyboardShortcut("o")
             Button("Rescan") { model.startScan() }
                 .keyboardShortcut("r")
             Button("Select All Safe Items") { model.checkAllSafe() }

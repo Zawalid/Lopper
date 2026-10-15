@@ -195,6 +195,25 @@ final class AppModel {
         }
     }
 
+    /// Repositories with something to do, most safe items first; failed scans are included so they are seen.
+    var attentionSummaries: [RepoSummary] {
+        summaries
+            .filter { $0.failure != nil || $0.safe + $0.review > 0 }
+            .sorted {
+                if $0.safe != $1.safe { return $0.safe > $1.safe }
+                if $0.review != $1.review { return $0.review > $1.review }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+    }
+
+    var tidySummaries: [RepoSummary] {
+        summaries
+            .filter { $0.failure == nil && $0.safe + $0.review == 0 }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    var orderedSummaries: [RepoSummary] { attentionSummaries + tidySummaries }
+
     var totals: Totals {
         summaries.reduce(into: Totals()) { totals, summary in
             totals.repositories += 1
@@ -255,7 +274,41 @@ final class AppModel {
 
     func setRoots(_ roots: [URL]) {
         updateSettings { $0.roots = roots }
-        startScan()
+        if roots.isEmpty {
+            // Nothing left to look in: forget everything that came from the removed folders.
+            scanTask?.cancel()
+            results = []
+            sizes = [:]
+            checked = []
+            focusedRowID = nil
+            route = .overview
+            phase = .idle
+        } else {
+            startScan()
+        }
+    }
+
+    /// Adds folders to the ones already being scanned (duplicates ignored) and rescans.
+    func addRoots(_ urls: [URL]) {
+        var seen = Set<String>()
+        var merged: [URL] = []
+        for url in settings.roots + urls where seen.insert(url.canonicalized.path).inserted {
+            merged.append(url)
+        }
+        setRoots(merged.sorted { $0.path < $1.path })
+    }
+
+    func removeRoot(_ url: URL) {
+        let key = url.canonicalized.path
+        setRoots(settings.roots.filter { $0.canonicalized.path != key })
+    }
+
+    /// One line that says where Lopper is looking, for the Overview footer.
+    var foldersSummary: String {
+        let names = settings.roots.map { RowMapper.abbreviated($0) }
+        guard let first = names.first else { return "No folders chosen" }
+        if names.count == 1 { return "Looking in \(first)" }
+        return "Looking in \(first) and \(Plural.count(names.count - 1, "more folder"))"
     }
 
     func addThrowaway(name: String, repoRoot: URL) {
@@ -294,6 +347,10 @@ final class AppModel {
             }
             guard !Task.isCancelled else { return }
             results = Self.sorted(collected)
+            // A repository that no longer exists must not stay selected as the current screen.
+            if case .repo(let id) = route, !results.contains(where: { $0.repoRoot.path == id }) {
+                route = .overview
+            }
             let finished = Date()
             lastCompletedScan = finished
             phase = .ready(finished)

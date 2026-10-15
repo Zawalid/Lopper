@@ -21,6 +21,7 @@ struct OverviewContent: View {
             banners
             hero(totals)
             cards
+            foldersFooter
         }
         .padding(32)
         .frame(maxWidth: 900)
@@ -86,12 +87,42 @@ struct OverviewContent: View {
 
     @ViewBuilder
     private var cards: some View {
-        if !model.summaries.isEmpty {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)], spacing: Theme.Spacing.lg) {
-                ForEach(model.summaries) { summary in
-                    RepoCard(summary: summary) { model.route = .repo(summary.id) }
+        let attention = model.attentionSummaries
+        let tidy = model.tidySummaries
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            if !attention.isEmpty {
+                grid(attention)
+            }
+            if !tidy.isEmpty {
+                DisclosureGroup("\(Plural.count(tidy.count, "repository", "repositories")) already tidy") {
+                    grid(tidy).padding(.top, Theme.Spacing.sm)
                 }
+                .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func grid(_ summaries: [RepoSummary]) -> some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)], spacing: Theme.Spacing.lg) {
+            ForEach(summaries) { summary in
+                RepoCard(summary: summary) { model.route = .repo(summary.id) }
+            }
+        }
+    }
+
+    private var foldersFooter: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Text(model.foldersSummary)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Button("Add folder…") { FolderPicker.choose { model.addRoots($0) } }
+                .buttonStyle(.link)
+            SettingsLink { Text("Manage folders") }
+                .buttonStyle(.link)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Theme.Spacing.md)
     }
 }

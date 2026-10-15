@@ -114,7 +114,7 @@ private struct SidebarView: View {
                 Label("History", systemImage: "clock.arrow.circlepath").tag(Route.history)
             }
             Section("Repositories") {
-                ForEach(model.summaries) { summary in
+                ForEach(model.orderedSummaries) { summary in
                     HStack {
                         Label(summary.name, systemImage: summary.failure == nil ? "shippingbox" : "exclamationmark.triangle")
                         Spacer()
@@ -129,5 +129,26 @@ private struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            HStack {
+                Button {
+                    FolderPicker.choose { model.addRoots($0) }
+                } label: {
+                    Label("Add folder", systemImage: "plus")
+                }
+                .buttonStyle(.plain)
+                .help("Add a folder to scan (Command-O)")
+                Spacer()
+                SettingsLink {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(.plain)
+                .help("Settings (Command-comma)")
+                .accessibilityLabel("Settings")
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+        }
     }
 }

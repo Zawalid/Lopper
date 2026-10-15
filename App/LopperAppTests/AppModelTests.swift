@@ -298,4 +298,62 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(sized.heroHeadline, "Ready to reclaim")
         XCTAssertTrue(sized.heroValue.contains("MB"), sized.heroValue)
     }
+
+    // MARK: Folders
+
+    func testAddingFoldersMergesWithoutDuplicatesAndRescans() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.addRoots([URL(fileURLWithPath: "/code"), URL(fileURLWithPath: "/work/projects")])
+
+        XCTAssertEqual(model.settings.roots.map(\.path).sorted(), ["/code", "/work/projects"])
+        XCTAssertTrue(model.isScanning, "adding a folder must rescan so its repositories appear")
+    }
+
+    func testRemovingAFolderRescansAndRemovingTheLastOneReturnsToOnboarding() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.addRoots([URL(fileURLWithPath: "/work/projects")])
+        await settle(model)
+        XCTAssertEqual(model.settings.roots.count, 2)
+
+        model.removeRoot(URL(fileURLWithPath: "/work/projects"))
+        XCTAssertEqual(model.settings.roots.map(\.path), ["/code"])
+
+        model.removeRoot(URL(fileURLWithPath: "/code"))
+        XCTAssertTrue(model.settings.roots.isEmpty)
+        XCTAssertEqual(model.overviewState, .needsFolders)
+        XCTAssertTrue(model.results.isEmpty, "nothing from the removed folders may stay listed")
+        XCTAssertFalse(model.isScanning)
+    }
+
+    func testFolderSummaryNamesTheFoldersBeingScanned() {
+        let (model, _) = makeModel([])
+        XCTAssertEqual(model.foldersSummary, "Looking in /code")
+        model.addRoots([URL(fileURLWithPath: "/work/projects")])
+        XCTAssertEqual(model.foldersSummary, "Looking in /code and 1 more folder")
+    }
+
+    func testRepositoriesThatNeedAttentionComeFirstAndTidyOnesAreSeparate() async {
+        func repo(_ name: String, _ branches: [(String, VerdictKind)]) -> RepoSnapshot {
+            let root = URL(fileURLWithPath: "/code/\(name)")
+            return Fixtures.snapshot(
+                name: name, root: root,
+                branches: [Fixtures.branch("main", .protected, root: root)]
+                    + branches.map { Fixtures.branch($0.0, $0.1, root: root) })
+        }
+        let (model, _) = makeModel([
+            repo("alpha", []),
+            repo("zeta", [("a", .safe), ("b", .safe)]),
+            repo("mid", [("c", .review)]),
+            repo("beta", []),
+        ])
+        model.startScan()
+        await settle(model)
+
+        XCTAssertEqual(model.attentionSummaries.map(\.name), ["zeta", "mid"])
+        XCTAssertEqual(model.tidySummaries.map(\.name), ["alpha", "beta"])
+        XCTAssertEqual(model.orderedSummaries.map(\.name), ["zeta", "mid", "alpha", "beta"])
+    }
 }

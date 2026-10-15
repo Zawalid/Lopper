@@ -17,16 +17,14 @@ struct SettingsView: View {
                         Label(RowMapper.abbreviated(root), systemImage: "folder")
                         Spacer()
                         Button {
-                            model.setRoots(model.settings.roots.filter { $0 != root })
+                            model.removeRoot(root)
                         } label: { Image(systemName: "minus.circle") }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Remove \(root.lastPathComponent)")
                     }
                 }
                 Button("Add folder…") {
-                    FolderPicker.choose { urls in
-                        model.setRoots(Array(Set(model.settings.roots + urls)).sorted { $0.path < $1.path })
-                    }
+                    FolderPicker.choose { model.addRoots($0) }
                 }
                 Stepper(
                     "Search depth: \(model.settings.scanDepth)",
