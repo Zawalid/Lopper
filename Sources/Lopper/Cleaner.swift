@@ -91,8 +91,23 @@ public struct Cleaner: Sendable {
                 // then (a detached HEAD has no branch to keep it) would be orphaned by the removal.
                 let current = try await git.runChecked(["rev-parse", "HEAD"], in: entry.path)
                 guard current == entry.head else { throw CleanError.movedAfterVerification(entry.path.path) }
-                // Never --force: git itself refuses to remove a worktree with local changes.
-                return try await git.runChecked(["worktree", "remove", entry.path.path], in: repoRoot)
+                // A detached HEAD has no branch to keep its commits. Give them one before the folder goes,
+                // and take it back if git then refuses the removal, so a refusal leaves nothing behind.
+                var savedRef: String?
+                if entry.branch == nil && entry.verdict.kind != .safe {
+                    let name = Self.savedBranchName(forWorktreeAt: entry.path, head: entry.head)
+                    try await git.runChecked(["update-ref", "refs/heads/\(name)", entry.head], in: repoRoot)
+                    savedRef = "refs/heads/\(name)"
+                }
+                do {
+                    // Never --force: git itself refuses to remove a worktree with local changes.
+                    return try await git.runChecked(["worktree", "remove", entry.path.path], in: repoRoot)
+                } catch {
+                    if let savedRef {
+                        _ = try? await git.run(["update-ref", "-d", savedRef, entry.head], in: repoRoot)
+                    }
+                    throw error
+                }
             }
         }
     }
