@@ -209,6 +209,84 @@ struct StatTile: View {
     }
 }
 
+/// A button that confirms what it did: its label turns into a green check and a short word for a moment.
+/// Both labels are laid out together, so the button does not change width when it flips.
+struct FeedbackButton: View {
+    let title: String
+    let systemImage: String
+    var successTitle = "Copied"
+    var iconOnly = false
+    let action: () -> Void
+
+    @State private var succeeded = false
+    @State private var resetTask: Task<Void, Never>?
+
+    var body: some View {
+        Button {
+            action()
+            withAnimation(.snappy(duration: 0.18)) { succeeded = true }
+            AccessibilityNotification.Announcement(successTitle).post()
+            resetTask?.cancel()
+            resetTask = Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled else { return }
+                withAnimation(.snappy(duration: 0.18)) { succeeded = false }
+            }
+        } label: {
+            ZStack {
+                content(title, systemImage).opacity(succeeded ? 0 : 1)
+                content(successTitle, "checkmark").foregroundStyle(.green).opacity(succeeded ? 1 : 0)
+            }
+        }
+        .help(succeeded ? successTitle : title)
+        .accessibilityLabel(succeeded ? successTitle : title)
+    }
+
+    @ViewBuilder
+    private func content(_ text: String, _ symbol: String) -> some View {
+        if iconOnly {
+            Image(systemName: symbol)
+        } else {
+            Label(text, systemImage: symbol)
+        }
+    }
+}
+
+/// The small floating message for actions that cannot show their own result, such as a context menu item.
+struct ConfirmationPill: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            Text(message).font(.callout)
+        }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Color(nsColor: .separatorColor)))
+        .shadow(color: .black.opacity(0.2), radius: 8, y: 2)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Opens the Settings window on a given pane. `SettingsLink` cannot say which one.
+struct OpenSettingsButton<Label: View>: View {
+    let pane: SettingsPane
+    @ViewBuilder var label: () -> Label
+    @Environment(\.openSettings) private var openSettings
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Button {
+            model.requestSettingsPane(pane)
+            openSettings()
+        } label: {
+            label()
+        }
+    }
+}
+
 struct Banner: View {
     let symbol: String
     let message: String
@@ -285,5 +363,27 @@ struct UndoToastView: View {
     private var message: String {
         let size = toast.reclaimed > 0 ? ", \(SizeFormat.string(toast.reclaimed)) reclaimed" : ""
         return "Removed \(Plural.count(toast.removed, "item"))\(size)"
+    }
+}
+
+/// A repository card that has not been read yet. It breathes slowly so the page does not look frozen.
+struct SkeletonCard: View {
+    @State private var dim = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.1)).frame(width: 110, height: 12)
+            RoundedRectangle(cornerRadius: 3).fill(Color.primary.opacity(0.07)).frame(height: 6)
+            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.07)).frame(width: 150, height: 9)
+        }
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 79)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
+        .opacity(dim ? 0.55 : 1)
+        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)
+        .onAppear { dim = true }
+        .accessibilityHidden(true)
     }
 }

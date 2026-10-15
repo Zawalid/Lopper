@@ -131,7 +131,7 @@ private struct HeaderStrip: View {
                 }
                 Spacer(minLength: 0)
                 Button("Reclaim \(included.count) finished") { model.beginReclaimFinishedAgents() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.lopperPrimary)
                     .disabled(included.isEmpty || model.clean != nil)
             }
             if summary.notMerged > 0 || summary.abandonedReclaimable > 0 {
@@ -147,6 +147,7 @@ private struct HeaderStrip: View {
                         Button("Reclaim \(summary.abandonedReclaimable) abandoned, keep branches") {
                             model.beginReclaimAbandonedAgents()
                         }
+                        .buttonStyle(.lopperSecondary)
                         .disabled(model.clean != nil)
                         .help("Removes the folders only. Each branch keeps its commits. You review the list first.")
                     }

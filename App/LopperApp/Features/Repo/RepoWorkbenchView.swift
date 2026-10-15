@@ -61,7 +61,9 @@ struct RepoWorkbenchView: View {
                 }
                 .contextMenu(forSelectionType: CleanupRow.ID.self) { ids in
                     if let id = ids.first, let row = model.allRows.first(where: { $0.id == id }) {
-                        RowMenu(row: row, terminalBundleID: model.preferences.terminalBundleID)
+                        RowMenu(
+                            row: row, terminalBundleID: model.preferences.terminalBundleID,
+                            copy: { model.copy($0, confirming: $1) })
                     }
                 }
             }
@@ -186,14 +188,16 @@ private struct SizeCell: View {
 struct RowMenu: View {
     let row: CleanupRow
     var terminalBundleID: String = TerminalChoice.terminal.rawValue
+    /// Copies text and tells the person it happened; a menu item cannot show that itself.
+    var copy: (String, String) -> Void = { string, _ in OpenActions.copy(string) }
 
     var body: some View {
         if let path = row.path {
             Button("Reveal in Finder") { OpenActions.reveal(path) }
             Button("Open in Terminal") { OpenActions.openInTerminal(path, bundleID: terminalBundleID) }
-            Button("Copy path") { OpenActions.copy(path.path) }
+            Button("Copy path") { copy(path.path, "Copied path") }
         } else {
-            Button("Copy branch name") { OpenActions.copy(row.title) }
+            Button("Copy branch name") { copy(row.title, "Copied branch name") }
         }
         if let url = row.prURL {
             Button("Open pull request") { OpenActions.open(url) }

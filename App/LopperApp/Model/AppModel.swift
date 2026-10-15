@@ -374,6 +374,17 @@ final class AppModel {
 
     private(set) var toolStatus: ToolStatus = .unknown
 
+    /// A pane another screen wants the Settings window to show. The window takes it when it appears or while
+    /// it is open, so "Manage folders" lands on Folders instead of wherever Settings was left.
+    private(set) var requestedSettingsPane: SettingsPane?
+
+    func requestSettingsPane(_ pane: SettingsPane) { requestedSettingsPane = pane }
+
+    func takeRequestedSettingsPane() -> SettingsPane? {
+        defer { requestedSettingsPane = nil }
+        return requestedSettingsPane
+    }
+
     var settingsFileURL: URL { store.url }
 
     func refreshToolStatus() async {
@@ -428,6 +439,32 @@ final class AppModel {
 
     func addThrowaway(name: String, repoRoot: URL) {
         updateSettings { $0 = $0.addingRepoDisposable(name, for: repoRoot) }
+        confirm("Added \(name) to this repository's throwaway names")
+    }
+
+    // MARK: Confirmations
+
+    /// A short message saying what an action just did, for actions that would otherwise be silent (a copy, a
+    /// menu item). In-place buttons confirm themselves; this is for the ones that cannot.
+    private(set) var confirmation: String?
+    var confirmationDuration: Duration = .seconds(2)
+    @ObservationIgnored var copyHandler: (String) -> Void = { OpenActions.copy($0) }
+    @ObservationIgnored private var confirmationTask: Task<Void, Never>?
+
+    func confirm(_ message: String) {
+        confirmation = message
+        confirmationTask?.cancel()
+        let duration = confirmationDuration
+        confirmationTask = Task { [weak self] in
+            try? await Task.sleep(for: duration)
+            guard !Task.isCancelled else { return }
+            self?.confirmation = nil
+        }
+    }
+
+    func copy(_ string: String, confirming message: String) {
+        copyHandler(string)
+        confirm(message)
     }
 
     // MARK: Scanning
@@ -757,8 +794,10 @@ final class AppModel {
         let failures = outcomes.compactMap { outcome -> String? in
             if case .failed(let message) = outcome { message } else { nil }
         }
+        let restored = outcomes.filter { if case .restored = $0 { true } else { false } }.count
         guard let first = failures.first else {
             notice = nil
+            if restored > 0 { confirm("Restored \(Plural.count(restored, "item"))") }
             return
         }
         notice = "Couldn't restore \(Plural.count(failures.count, "item")). \(first)"

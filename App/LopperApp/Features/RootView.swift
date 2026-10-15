@@ -58,7 +58,15 @@ struct RootView: View {
                 }
             }
         }
+        .overlay(alignment: .bottom) {
+            if let confirmation = model.confirmation {
+                ConfirmationPill(message: confirmation)
+                    .padding(.bottom, model.toast == nil ? 60 : 116)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         .animation(.snappy, value: model.toast)
+        .animation(.snappy, value: model.confirmation)
     }
 }
 
