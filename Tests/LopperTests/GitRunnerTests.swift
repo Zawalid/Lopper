@@ -60,4 +60,19 @@ final class GitRunnerTests: XCTestCase {
             // expected
         }
     }
+
+    func testCancellingTheCallerKillsTheProcessAndThrowsCancellation() async throws {
+        let runner = CommandRunner(executable: URL(fileURLWithPath: "/bin/sleep"), timeout: .seconds(30))
+        let started = ContinuousClock.now
+        let task = Task { try await runner.run(["10"]) }
+        try await Task.sleep(for: .milliseconds(200))
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("expected cancellation")
+        } catch is CancellationError {
+            // expected
+        }
+        XCTAssertLessThan(ContinuousClock.now - started, .seconds(5))
+    }
 }

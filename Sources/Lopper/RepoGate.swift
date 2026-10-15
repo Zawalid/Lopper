@@ -13,9 +13,15 @@ public actor RepoGate {
         let previous = tails[key]
         let task = Task<T, Error> {
             await previous?.value
+            try Task.checkCancellation()
             return try await body()
         }
         tails[key] = Task { _ = await task.result }
-        return try await task.value
+        // The work runs in its own unstructured task, so cancellation must be forwarded explicitly.
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 }

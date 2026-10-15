@@ -75,6 +75,23 @@ final class ScanTests: XCTestCase {
         XCTAssertEqual(failures, 1)
     }
 
+    func testRepoGateCancellationReleasesTheCallerPromptly() async throws {
+        let gate = RepoGate()
+        let started = ContinuousClock.now
+        let task = Task {
+            try await gate.run(key: "r") { try await Task.sleep(for: .seconds(5)) }
+        }
+        try await Task.sleep(for: .milliseconds(100))
+        task.cancel()
+        do {
+            try await task.value
+            XCTFail("expected cancellation")
+        } catch is CancellationError {
+            // expected
+        }
+        XCTAssertLessThan(ContinuousClock.now - started, .seconds(2))
+    }
+
     func testRepoGateRunsSameKeyWorkInOrder() async throws {
         let gate = RepoGate()
         let log = LockedLog()

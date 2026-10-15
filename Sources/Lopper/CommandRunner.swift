@@ -95,6 +95,8 @@ public struct CommandRunner: Sendable {
 
         let out = await stdoutData
         let err = await stderrData
+        // A cancelled caller terminated the process above; report cancellation, not a fake exit status.
+        try Task.checkCancellation()
         if timedOut.withLock({ $0 }) {
             throw CommandError.timedOut(command: command)
         }
