@@ -60,8 +60,12 @@ public struct Cleaner: Sendable {
 
     // MARK: Remove worktree
 
+    /// `refuseFolderOnlyWork` is for callers that promised the user nothing exists only in the folder (the
+    /// Agents page): the fresh check then also refuses uncommitted, untracked and ignored files, which a Review
+    /// verdict alone would let through even though removing the folder deletes them.
     public func removeWorktree(
-        repoRoot: URL, path: URL, approved: VerdictKind, batchID: UUID? = nil, now: Date = Date()
+        repoRoot: URL, path: URL, approved: VerdictKind, refuseFolderOnlyWork: Bool = false,
+        batchID: UUID? = nil, now: Date = Date()
     ) async -> CleanOutcome {
         await serialized(repoRoot) {
             let found: WorktreeEntry?
@@ -74,6 +78,12 @@ public struct Cleaner: Sendable {
             if entry.isMain { return .skipped(reason: "The main working directory is never removed") }
             if let skip = Self.skipReason(verdict: entry.verdict, approved: approved) {
                 return .skipped(reason: skip)
+            }
+            if refuseFolderOnlyWork,
+                entry.status.isDirty || !entry.status.extraFiles.isEmpty || entry.operationInProgress
+                    || entry.verdict.reasons.contains(.worktreeUnreadable)
+            {
+                return .skipped(reason: "Work that exists only in this folder appeared after you reviewed it")
             }
             await afterVerifyHook?()
             let label = entry.branch ?? "detached-\(entry.head.prefix(8))"
@@ -96,8 +106,18 @@ public struct Cleaner: Sendable {
                 var savedRef: String?
                 if entry.branch == nil && entry.verdict.kind != .safe {
                     let name = Self.savedBranchName(forWorktreeAt: entry.path, head: entry.head)
-                    try await git.runChecked(["update-ref", "refs/heads/\(name)", entry.head], in: repoRoot)
-                    savedRef = "refs/heads/\(name)"
+                    let ref = "refs/heads/\(name)"
+                    let existing = try await git.run(["rev-parse", "--verify", "--quiet", ref], in: repoRoot)
+                    if existing.succeeded {
+                        // Someone (an earlier removal) already saved this commit under this name: keep it and
+                        // never roll it back. A different commit under the name is never overwritten.
+                        let at = existing.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard at == entry.head else { throw CleanError.savedBranchTaken(name) }
+                    } else {
+                        // The empty old value makes the update create-only.
+                        try await git.runChecked(["update-ref", ref, entry.head, ""], in: repoRoot)
+                        savedRef = ref
+                    }
                 }
                 do {
                     // Never --force: git itself refuses to remove a worktree with local changes.
@@ -313,4 +333,5 @@ enum CleanError: Error, Equatable {
     case movedAfterVerification(String)
     case checkedOut(String)
     case restoreBlocked(String)
+    case savedBranchTaken(String)
 }

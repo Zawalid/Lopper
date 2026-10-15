@@ -18,6 +18,8 @@ public enum UserMessage {
             return "This item changed after you reviewed it, so it was left alone."
         case CleanError.checkedOut:
             return "A worktree started using this branch, so it was left alone."
+        case CleanError.savedBranchTaken:
+            return "A branch Lopper would save this work under already exists with different work, so nothing was removed."
         case let CleanError.restoreBlocked(reason):
             return "Can't restore this: \(reason)."
         case is CancellationError:

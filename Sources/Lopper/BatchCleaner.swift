@@ -69,7 +69,8 @@ public struct BatchCleaner: Sendable {
     }
 
     public func run(
-        items: [CleanupItem], batchID: UUID = UUID(), now: Date = Date(), control: BatchControl? = nil
+        items: [CleanupItem], batchID: UUID = UUID(), now: Date = Date(), control: BatchControl? = nil,
+        strictItemIDs: Set<String> = []
     ) -> AsyncStream<BatchEvent> {
         AsyncStream { continuation in
             let task = Task {
@@ -106,7 +107,9 @@ public struct BatchCleaner: Sendable {
                 for (repo, path, approved, branch) in worktrees {
                     if Task.isCancelled || control?.isStopRequested == true { cancelled = true; break }
                     let outcome = await cleaner.removeWorktree(
-                        repoRoot: repo, path: path, approved: approved, batchID: batchID, now: now)
+                        repoRoot: repo, path: path, approved: approved,
+                        refuseFolderOnlyWork: strictItemIDs.contains("worktree:\(path.path)"),
+                        batchID: batchID, now: now)
                     record(.worktree(repoRoot: repo, path: path, approved: approved, deleteBranch: branch), outcome)
                     if case .removed = outcome, let branch {
                         followUps.append((repo, branch, approved))

@@ -114,6 +114,15 @@ public struct AgentAssessment: Sendable, Equatable {
         isActivityMeasured && removal.keepsWorkOnABranch && (state == .unmerged || state == .abandoned)
     }
 
+    /// The sheet row's note, only when removal will really happen as described. A blocked or withheld row has
+    /// no note, so the sheet falls back to the engine's own reasons instead of contradicting what Remove does.
+    public var rowNote: String? {
+        switch removal {
+        case .reclaim, .keepBranch, .saveAsBranch: sheetNote
+        case .notOffered, .blocked: nil
+        }
+    }
+
     /// One sentence for the Review sheet and the inspector that says what removal does and keeps.
     public var sheetNote: String {
         switch removal {
@@ -152,7 +161,10 @@ public enum AgentAssessor {
             isUnreadable: reasons.contains(.worktreeUnreadable),
             isDetached: worktree.branch == nil)
 
-        let activity = [worktree.lastCommit, usage?.newestModification].compactMap { $0 }.max()
+        // A worktree made from main has an old HEAD commit and may have nothing written yet, so its creation
+        // time counts as activity too.
+        let activity = [worktree.lastCommit, worktree.createdAt, usage?.newestModification]
+            .compactMap { $0 }.max()
         let idle = activity.map { now.timeIntervalSince($0) }
         let measured = usage != nil || worktree.isPrunable
 

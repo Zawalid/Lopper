@@ -26,7 +26,8 @@ final class AgentAssessorTests: XCTestCase {
             head: "0123456789abcdef", branch: branch, isMain: isMain, isLocked: locked, isPrunable: prunable,
             status: WorktreeStatus(isDirty: dirty, extraFiles: extraFiles, disposablePaths: []),
             operationInProgress: operation, evidence: evidence, verdict: verdict, agentHint: nil,
-            ahead: ahead, lastCommit: lastCommit, createdAt: ago(days: 20))
+            ahead: ahead, lastCommit: lastCommit,
+            createdAt: (lastCommit ?? ago(days: 20)).addingTimeInterval(-86_400))
     }
 
     private func usage(_ modified: Date?) -> DiskUsage {
@@ -150,6 +151,28 @@ final class AgentAssessorTests: XCTestCase {
         let result = try assess(entry(prunable: true, lastCommit: ago(days: 8)), nil)
         XCTAssertTrue(result.isActivityMeasured)
         XCTAssertEqual(result.state, .finished)
+    }
+
+    func testRowNoteIsOnlyOfferedWhenRemovalActuallyHappensAsDescribed() throws {
+        let keep = try assess(entry(evidence: .none, ahead: 2, lastCommit: ago(days: 10)), usage(ago(days: 10)))
+        XCTAssertNotNil(keep.rowNote)
+        let blocked = try assess(entry(extraFiles: [".env.local"], lastCommit: ago(days: 30)), usage(ago(days: 30)))
+        XCTAssertNil(blocked.rowNote, "the sheet must not claim a blocked row is held back")
+        let active = try assess(entry(lastCommit: ago(minutes: 5)), usage(ago(minutes: 5)))
+        XCTAssertNil(active.rowNote)
+    }
+
+    func testCreationTimeCountsAsActivity() throws {
+        // Created ten minutes ago from main: the HEAD commit is old and nothing was written yet.
+        var fresh = entry(lastCommit: ago(days: 30))
+        fresh = WorktreeEntry(
+            repoRoot: fresh.repoRoot, path: fresh.path, head: fresh.head, branch: fresh.branch, isMain: false,
+            isLocked: false, isPrunable: false, status: fresh.status, operationInProgress: false,
+            evidence: fresh.evidence, verdict: fresh.verdict, agentHint: nil, ahead: 0,
+            lastCommit: ago(days: 30), createdAt: ago(minutes: 10))
+        let result = try assess(fresh, usage(nil))
+        XCTAssertEqual(result.state, .active)
+        XCTAssertFalse(result.isReclaimable)
     }
 
     func testPolicyReadsSettings() {
