@@ -23,6 +23,7 @@ struct InspectorContent: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 header(row)
                 banner(row)
+                if let pr = model.pullRequest(for: row) { PullRequestCard(pullRequest: pr) }
                 evidence(row)
                 UniqueWorkSection(row: row)
                 facts(row)
@@ -32,6 +33,7 @@ struct InspectorContent: View {
             }
             .padding(Theme.Spacing.lg)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .task(id: row.id) { await model.loadDetails(for: row) }
         } else {
             RepositoryPanel()
         }
@@ -41,6 +43,7 @@ struct InspectorContent: View {
 
     private func header(_ row: CleanupRow) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            TriageControls()
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
                 Text(row.title)
                     .font(.title3.weight(.semibold))
@@ -78,7 +81,7 @@ struct InspectorContent: View {
             Image(systemName: row.verdict.symbol)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(row.verdict.tint)
-            Text(InspectorInsights.banner(for: row))
+            Text(InspectorInsights.banner(for: row, pullRequest: model.pullRequest(for: row)))
                 .font(.callout.weight(.medium))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -120,6 +123,14 @@ struct InspectorContent: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                }
+            }
+            if let touched = InspectorInsights.lastTouched(commit: row.lastCommit, checkedOut: model.lastCheckedOut(for: row)),
+               touched.kind == .checkout {
+                GridRow {
+                    Text("Checked out").foregroundStyle(.secondary)
+                    Text(touched.date, format: .relative(presentation: .named))
+                        .help("The last time this branch was switched to or from")
                 }
             }
             if let tip = row.facts.tip {

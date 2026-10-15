@@ -521,6 +521,35 @@ final class AppModel {
         snapshots.first { $0.repo.root == row.repoRoot }?.repo.remoteURL
     }
 
+    // MARK: Item details
+
+    private var checkouts: [String: Date?] = [:]
+    private var pullRequests: [String: PullRequestStatus?] = [:]
+
+    func lastCheckedOut(for row: CleanupRow) -> Date? { checkouts[row.id] ?? nil }
+    func pullRequest(for row: CleanupRow) -> PullRequestStatus? { pullRequests[row.id] ?? nil }
+    func hasLoadedPullRequest(for row: CleanupRow) -> Bool { pullRequests[row.id] != nil }
+
+    /// Everything the details panel reads on demand for one item, in parallel and cached.
+    func loadDetails(for row: CleanupRow) async {
+        async let history: Void = loadHistory(for: row)
+        async let checkout: Void = loadCheckout(for: row)
+        async let request: Void = loadPullRequest(for: row)
+        _ = await (history, checkout, request)
+    }
+
+    private func loadCheckout(for row: CleanupRow) async {
+        guard checkouts[row.id] == nil else { return }
+        let date = await client.lastCheckedOut(branch: row.title, in: row.path ?? row.repoRoot)
+        checkouts[row.id] = .some(date)
+    }
+
+    private func loadPullRequest(for row: CleanupRow) async {
+        guard pullRequests[row.id] == nil else { return }
+        let status = await client.pullRequestStatus(branch: row.title, repoRoot: row.repoRoot)
+        pullRequests[row.id] = .some(status)
+    }
+
     // MARK: Branch history
 
     private var histories: [String: BranchHistory] = [:]

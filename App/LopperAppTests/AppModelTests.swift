@@ -397,6 +397,42 @@ final class AppModelTests: XCTestCase {
         XCTAssertNotNil(model.remoteURL(for: row))
     }
 
+    // MARK: Item details
+
+    func testDetailsAreLoadedOnceAndCached() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let row = model.allRows.first { $0.kind == .branch }!
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        client.checkouts[row.title] = date
+        client.pullRequests[row.title] = PullRequestStatus(
+            number: 61, title: "feat", state: .open, isDraft: false, review: .approved, checks: .passing, url: nil)
+
+        await model.loadDetails(for: row)
+        await model.loadDetails(for: row)
+
+        XCTAssertEqual(model.lastCheckedOut(for: row), date)
+        XCTAssertEqual(model.pullRequest(for: row)?.number, 61)
+        XCTAssertEqual(client.checkoutRequests, 1)
+        XCTAssertEqual(client.pullRequestRequests, 1)
+    }
+
+    func testAnItemWithoutAPullRequestIsRememberedAsHavingNone() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let row = model.allRows.first { $0.kind == .branch }!
+
+        XCTAssertFalse(model.hasLoadedPullRequest(for: row))
+        await model.loadDetails(for: row)
+        await model.loadDetails(for: row)
+
+        XCTAssertTrue(model.hasLoadedPullRequest(for: row))
+        XCTAssertNil(model.pullRequest(for: row))
+        XCTAssertEqual(client.pullRequestRequests, 1, "a missing pull request is not asked for again")
+    }
+
     // MARK: Branch history
 
     func testHistoryIsLoadedOnceAndServedFromTheCache() async {

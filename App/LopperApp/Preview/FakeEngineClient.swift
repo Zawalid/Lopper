@@ -24,6 +24,10 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     /// Scripted histories keyed by the ref that is asked for (the row's commit hash).
     var histories: [String: BranchHistory] = [:]
     private(set) var historyRequests = 0
+    var checkouts: [String: Date] = [:]
+    var pullRequests: [String: PullRequestStatus] = [:]
+    private(set) var checkoutRequests = 0
+    private(set) var pullRequestRequests = 0
     private(set) var restoredBatches: [UUID] = []
     private(set) var cleanedItems: [CleanupItem] = []
     private(set) var strictItemIDs: Set<String> = []
@@ -106,6 +110,16 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory {
         historyRequests += 1
         return histories[ref] ?? .empty
+    }
+
+    func lastCheckedOut(branch: String, in directory: URL) async -> Date? {
+        checkoutRequests += 1
+        return checkouts[branch]
+    }
+
+    func pullRequestStatus(branch: String, repoRoot: URL) async -> PullRequestStatus? {
+        pullRequestRequests += 1
+        return pullRequests[branch]
     }
 }
 #endif

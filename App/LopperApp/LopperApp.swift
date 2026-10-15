@@ -46,6 +46,45 @@ struct LopperCommands: Commands {
                 .keyboardShortcut("z")
                 .disabled(model.toast == nil)
         }
+        CommandMenu("Item") {
+            Button("Next Item") { model.focusNextRow() }
+                .keyboardShortcut("]")
+                .disabled(model.triagePosition?.nextID == nil)
+            Button("Previous Item") { model.focusPreviousRow() }
+                .keyboardShortcut("[")
+                .disabled(model.triagePosition?.previousID == nil)
+            Divider()
+            if let row = model.focusedRow {
+                let kept = model.isKeptBranch(row.title, in: row.repoRoot)
+                Button(kept ? "Stop Keeping Branch" : "Keep Branch") {
+                    if kept {
+                        model.stopKeepingBranch(row.title, in: row.repoRoot)
+                    } else {
+                        model.keepBranch(row.title, in: row.repoRoot)
+                    }
+                }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
+                .disabled(row.verdict == .protected && !kept)
+
+                Button(model.isSnoozed(row) ? "Wake Item" : "Snooze for a Week") {
+                    if model.isSnoozed(row) {
+                        model.wake(row)
+                    } else {
+                        model.snooze(row, for: .oneWeek)
+                    }
+                }
+                .keyboardShortcut("s", modifiers: [.command, .option])
+                .disabled(row.verdict == .protected)
+
+                Button("Copy Branch Name") { model.copy(row.title, confirming: "Copied branch name") }
+                    .keyboardShortcut("c", modifiers: [.command, .shift])
+                Button("Review and Clean Item") { model.beginClean(rows: [row]) }
+                    .keyboardShortcut(.delete, modifiers: [.command, .shift])
+                    .disabled(!row.isSelectable || model.isCleaning || model.isScanning)
+            } else {
+                Text("Select an item to see its actions")
+            }
+        }
         CommandGroup(after: .sidebar) {
             Button("Toggle Inspector") { model.showInspector.toggle() }
                 .keyboardShortcut("i")

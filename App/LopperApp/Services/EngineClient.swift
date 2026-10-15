@@ -17,6 +17,10 @@ protocol EngineClient: Sendable {
     func toolStatus() async -> ToolStatus
     /// Commits unique to `ref` against `base`, and the size of the change. Read-only and loaded per item.
     func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory
+    /// When the branch was last switched to or from, from the reflog of `directory`.
+    func lastCheckedOut(branch: String, in directory: URL) async -> Date?
+    /// The pull request that matters for a branch, nil when none exists or `gh` cannot say.
+    func pullRequestStatus(branch: String, repoRoot: URL) async -> PullRequestStatus?
 }
 
 /// The real engine. One shared gate serializes scans and removals per repository.
@@ -67,6 +71,15 @@ struct LiveEngineClient: EngineClient {
 
     func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory {
         await BranchHistoryReader.read(repoRoot: repoRoot, ref: ref, base: base, git: git)
+    }
+
+    func lastCheckedOut(branch: String, in directory: URL) async -> Date? {
+        await BranchTouch.lastCheckedOut(branch: branch, in: directory, git: git)
+    }
+
+    func pullRequestStatus(branch: String, repoRoot: URL) async -> PullRequestStatus? {
+        guard let provider = GhCliProvider() else { return nil }
+        return await provider.pullRequestStatus(forBranch: branch, in: repoRoot)
     }
 
     func toolStatus() async -> ToolStatus {

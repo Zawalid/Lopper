@@ -103,6 +103,86 @@ final class InspectorInsightsTests: XCTestCase {
         XCTAssertNil(check("untracked", in: row(kind: .worktree, facts: facts(.none))))
     }
 
+    // MARK: Pull request
+
+    private func pr(
+        _ state: PullRequestStatus.State = .open, draft: Bool = false,
+        review: PullRequestStatus.Review = .none, checks: PullRequestStatus.Checks = .none
+    ) -> PullRequestStatus {
+        PullRequestStatus(
+            number: 61, title: "feat: landing", state: state, isDraft: draft, review: review, checks: checks,
+            url: URL(string: "https://github.com/acme/api/pull/61"))
+    }
+
+    func testAnOpenPullRequestChangesWhatTheBannerAdvises() {
+        let banner = InspectorInsights.banner(for: row(facts: facts(.none)), pullRequest: pr())
+
+        XCTAssertEqual(
+            banner, "Needs your decision. It has an open pull request, #61, so it is probably still in use.")
+    }
+
+    func testAMergedOrClosedPullRequestLeavesTheBannerAlone() {
+        let plain = InspectorInsights.banner(for: row(facts: facts(.none)))
+
+        XCTAssertEqual(InspectorInsights.banner(for: row(facts: facts(.none)), pullRequest: pr(.merged)), plain)
+        XCTAssertEqual(InspectorInsights.banner(for: row(facts: facts(.none)), pullRequest: pr(.closed)), plain)
+    }
+
+    func testAnOpenPullRequestNeverMakesASafeItemLookDangerous() {
+        let safe = row(verdict: .safe, facts: facts(.ancestorOfDefault))
+
+        XCTAssertEqual(
+            InspectorInsights.banner(for: safe, pullRequest: pr()),
+            InspectorInsights.banner(for: safe))
+    }
+
+    func testPullRequestSummarySaysWhereItStands() {
+        XCTAssertEqual(
+            InspectorInsights.pullRequestSummary(pr(review: .approved, checks: .passing)).detail,
+            "Approved, checks passing")
+        XCTAssertEqual(
+            InspectorInsights.pullRequestSummary(pr(review: .changesRequested, checks: .failing)).detail,
+            "Changes requested, checks failing")
+        XCTAssertEqual(
+            InspectorInsights.pullRequestSummary(pr(review: .reviewRequired, checks: .pending)).detail,
+            "Waiting for review, checks running")
+        XCTAssertEqual(InspectorInsights.pullRequestSummary(pr(draft: true)).headline, "Draft pull request #61")
+        XCTAssertEqual(InspectorInsights.pullRequestSummary(pr()).headline, "Open pull request #61")
+        XCTAssertEqual(InspectorInsights.pullRequestSummary(pr(.merged)).headline, "Pull request #61 was merged")
+        XCTAssertEqual(
+            InspectorInsights.pullRequestSummary(pr(.closed)).headline, "Pull request #61 was closed without merging")
+    }
+
+    func testOnlyAnOpenPullRequestIsAWarning() {
+        XCTAssertEqual(InspectorInsights.pullRequestSummary(pr()).tone, .caution)
+        XCTAssertEqual(InspectorInsights.pullRequestSummary(pr(.merged)).tone, .neutral)
+        XCTAssertEqual(InspectorInsights.pullRequestSummary(pr(.closed)).tone, .neutral)
+    }
+
+    // MARK: Last touched
+
+    func testACheckoutNewerThanTheLastCommitIsWhatHasBeenWorkedOn() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let commit = now.addingTimeInterval(-40 * 86_400)
+        let checkout = now.addingTimeInterval(-2 * 86_400)
+
+        let touched = InspectorInsights.lastTouched(commit: commit, checkedOut: checkout)
+
+        XCTAssertEqual(touched?.date, checkout)
+        XCTAssertEqual(touched?.kind, .checkout)
+    }
+
+    func testAnOlderCheckoutIsIgnoredInFavourOfTheCommit() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let commit = now.addingTimeInterval(-2 * 86_400)
+        let checkout = now.addingTimeInterval(-40 * 86_400)
+
+        XCTAssertEqual(InspectorInsights.lastTouched(commit: commit, checkedOut: checkout)?.kind, .commit)
+        XCTAssertEqual(InspectorInsights.lastTouched(commit: commit, checkedOut: nil)?.date, commit)
+        XCTAssertEqual(InspectorInsights.lastTouched(commit: nil, checkedOut: checkout)?.kind, .checkout)
+        XCTAssertNil(InspectorInsights.lastTouched(commit: nil, checkedOut: nil))
+    }
+
     // MARK: Facts
 
     func testDivergenceReadsAheadAndBehindTheDefaultBranch() {

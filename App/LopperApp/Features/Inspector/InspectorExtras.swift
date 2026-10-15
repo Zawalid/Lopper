@@ -4,6 +4,100 @@ import Lopper
 /// Everything the details panel offers beyond the verdict itself, one small view each so the panel reads as a
 /// list of sections and each can be previewed and tested on its own.
 
+// MARK: Triage
+
+/// "3 of 8" with previous and next, so the Review list can be worked through without going back to the table.
+struct TriageControls: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if let position = model.triagePosition, position.total > 1 {
+            HStack(spacing: Theme.Spacing.xs) {
+                Text("\(position.index) of \(position.total)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                Button { model.focusPreviousRow() } label: { Image(systemName: "chevron.up") }
+                    .buttonStyle(.lopperIcon)
+                    .disabled(position.previousID == nil)
+                    .help("Previous item (Command-[)")
+                    .accessibilityLabel("Previous item")
+                Button { model.focusNextRow() } label: { Image(systemName: "chevron.down") }
+                    .buttonStyle(.lopperIcon)
+                    .disabled(position.nextID == nil)
+                    .help("Next item (Command-])")
+                    .accessibilityLabel("Next item")
+            }
+        }
+    }
+}
+
+// MARK: Pull request
+
+/// The pull request for this branch, when there is one. An open one is drawn as a caution.
+struct PullRequestCard: View {
+    let pullRequest: PullRequestStatus
+
+    var body: some View {
+        let summary = InspectorInsights.pullRequestSummary(pullRequest)
+        let tint: Color = summary.tone == .caution ? .blue : .secondary
+        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+            GitHubMarkView(size: 15).foregroundStyle(tint).padding(.top, 2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(summary.headline).font(.callout.weight(.medium))
+                Text(pullRequest.title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                if let detail = summary.detail {
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            if let url = pullRequest.url {
+                Button { OpenActions.open(url) } label: { Image(systemName: "arrow.up.right") }
+                    .buttonStyle(.lopperIcon)
+                    .help("Open on GitHub")
+                    .accessibilityLabel("Open pull request on GitHub")
+            }
+        }
+        .padding(Theme.Spacing.md)
+        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(tint.opacity(0.25)))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+// MARK: Snooze
+
+/// Puts an item aside for a while. Nothing about it changes; it just stops asking for attention.
+struct SnoozeMenu: View {
+    let row: CleanupRow
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if let until = model.snoozedUntil(row), model.isSnoozed(row) {
+            Button { model.wake(row) } label: {
+                ActionLabel(title: "Snoozed until \(until.formatted(.dateTime.month(.abbreviated).day())). Wake now") {
+                    Image(systemName: "bell.slash")
+                }
+            }
+            .buttonStyle(.lopperSecondary)
+        } else if row.verdict != .protected {
+            Menu {
+                ForEach(SnoozeDuration.allCases) { duration in
+                    Button(duration.title) { model.snooze(row, for: duration) }
+                }
+            } label: {
+                ActionLabel(title: "Snooze") { Image(systemName: "clock") }
+            }
+            .menuStyle(.button)
+            .buttonStyle(.lopperSecondary)
+            .help("Stop asking about this item for a while (Option-Command-S)")
+        }
+    }
+}
+
 // MARK: Actions
 
 /// Everything you can do with the item besides removing it, laid out as one tidy block: the main open action
@@ -19,6 +113,7 @@ struct InspectorActions: View {
                 CopyMenu(row: row)
             }
             KeepBranchButton(row: row)
+            SnoozeMenu(row: row)
         }
         .frame(maxWidth: .infinity)
     }
