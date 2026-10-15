@@ -20,7 +20,9 @@ struct OverviewContent: View {
         VStack(spacing: Theme.Spacing.xl) {
             banners
             hero(totals)
+            statStrip(totals)
             cards
+            activity
             foldersFooter
         }
         .padding(32)
@@ -74,15 +76,81 @@ struct OverviewContent: View {
                 summary: summary(totals),
                 actionTitle: "Review and clean",
                 footnote: "Every removal can be undone for \(model.settings.trashRetentionDays) days",
+                secondaryTitle: model.repositoryWithMostToReview.map { _ in "Look at the \(totals.review) to review" },
+                secondaryAction: {
+                    if let repo = model.repositoryWithMostToReview { model.openRepository(repo.id, showing: .review) }
+                },
+                freshness: model.lastScan,
+                onRescan: { model.startScan() },
                 action: { model.beginCleanAllSafe() })
         }
     }
 
     private func summary(_ totals: Totals) -> String {
-        let repos = model.summaries.filter(\.hasSafeItems).count
-        return "\(Plural.count(totals.safeBranches, "branch", "branches")) and "
-            + "\(Plural.count(totals.safeWorktrees, "worktree")) across "
-            + "\(Plural.count(repos, "repository", "repositories")) are safe to remove"
+        OverviewInsights.safeSummary(
+            branches: totals.safeBranches, worktrees: totals.safeWorktrees,
+            repositories: model.summaries.filter(\.hasSafeItems).count)
+    }
+
+    @ViewBuilder
+    private func statStrip(_ totals: Totals) -> some View {
+        if case .ready = model.overviewState {
+            HStack(spacing: Theme.Spacing.md) {
+                StatTile(
+                    title: "Safe to remove", value: "\(totals.safe)", symbol: "checkmark.circle",
+                    tint: VerdictKind.safe.tint, action: { model.beginCleanAllSafe() })
+                StatTile(
+                    title: "Need a look", value: "\(totals.review)", symbol: "eye",
+                    tint: VerdictKind.review.tint,
+                    action: model.repositoryWithMostToReview.map { repo in
+                        { model.openRepository(repo.id, showing: .review) }
+                    })
+                StatTile(
+                    title: "Protected", value: "\(totals.protected)", symbol: "lock",
+                    tint: VerdictKind.protected.tint)
+                if totals.reclaimableBytes > 0 {
+                    StatTile(
+                        title: "Can be reclaimed", value: SizeFormat.string(totals.reclaimableBytes),
+                        symbol: "internaldrive", tint: .blue)
+                } else {
+                    // Sizes arrive after the scan; until then a dash would only look broken.
+                    StatTile(
+                        title: "Repositories", value: "\(totals.repositories)",
+                        symbol: "shippingbox", tint: .blue)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var activity: some View {
+        let batches = OverviewInsights.recentActivity(history: model.history)
+        if !batches.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                HStack {
+                    Text("Recent activity").font(.headline)
+                    Spacer()
+                    Button("See all") { model.route = .history }.buttonStyle(.link)
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(batches.enumerated()), id: \.element.id) { index, batch in
+                        if index > 0 { Divider() }
+                        ActivityRow(batch: batch) {
+                            if let id = batch.batchID { model.restoreBatch(id) }
+                        }
+                    }
+                }
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
+
+                let removed = OverviewInsights.lifetimeRemoved(history: model.history)
+                if removed > 0 {
+                    Text("\(Plural.count(removed, "item")) removed with Lopper so far")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -105,7 +173,10 @@ struct OverviewContent: View {
     private func grid(_ summaries: [RepoSummary]) -> some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)], spacing: Theme.Spacing.lg) {
             ForEach(summaries) { summary in
-                RepoCard(summary: summary) { model.route = .repo(summary.id) }
+                RepoCard(
+                    summary: summary,
+                    onClean: { model.beginCleanSafe(inRepo: summary.id) },
+                    action: { model.route = .repo(summary.id) })
             }
         }
     }
@@ -124,5 +195,41 @@ struct OverviewContent: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, Theme.Spacing.md)
+    }
+}
+
+private struct ActivityRow: View {
+    let batch: ActivityBatch
+    let onUndo: () -> Void
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Image(systemName: "arrow.uturn.backward.circle")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(Plural.count(batch.itemCount, "item")) removed")
+                    .font(.callout.weight(.medium))
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: Theme.Spacing.md)
+            if batch.canRestore {
+                Button("Undo", action: onUndo)
+                    .controlSize(.small)
+            } else {
+                Text("Restored").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.vertical, Theme.Spacing.sm)
+    }
+
+    private var subtitle: String {
+        let when = batch.date.formatted(.relative(presentation: .named))
+        let repos = batch.repoNames.prefix(3).joined(separator: ", ")
+        return repos.isEmpty ? when : "\(repos) · \(when)"
     }
 }

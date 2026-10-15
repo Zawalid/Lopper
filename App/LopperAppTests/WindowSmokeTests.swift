@@ -129,6 +129,27 @@ final class WindowSmokeTests: XCTestCase {
         assertPanesInsideWindow(window, "after reset")
     }
 
+    func testOverviewWithRecentActivityRendersInARealWindow() async {
+        let batch = UUID()
+        let history = [
+            UndoRecord(
+                timestamp: Date().addingTimeInterval(-3_600), repoPath: Fixtures.root.path,
+                action: .deleteBranch, branch: "feat/old", tip: "abc", upstream: nil, worktreePath: nil,
+                trashRef: "refs/lopper/old", status: .completed, batchID: batch),
+            UndoRecord(
+                timestamp: Date().addingTimeInterval(-3_500), repoPath: Fixtures.root.path,
+                action: .deleteBranch, branch: "feat/older", tip: "def", upstream: nil, worktreePath: nil,
+                trashRef: "refs/lopper/older", status: .restored, batchID: batch),
+        ]
+        let model = AppModel.preview(history: history, route: .overview)
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump(0.6)
+
+        assertPanesInsideWindow(window, "overview with activity")
+        XCTAssertEqual(OverviewInsights.recentActivity(history: model.history).first?.itemCount, 2)
+    }
+
     func testHidingTheOpenRepositoryReturnsToTheOverviewWithoutCrashing() async {
         let model = await readyModel()
         let window = makeWindow(model: model)

@@ -507,6 +507,48 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.settings.repos[Fixtures.root.path], RepoOverrides(defaultBranch: "trunk"))
     }
 
+    func testCleaningOneRepositoryTakesOnlyItsSafeRows() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let id = Fixtures.sample.repo.id
+
+        model.beginCleanSafe(inRepo: id)
+
+        let rows = model.clean?.rows ?? []
+        XCTAssertFalse(rows.isEmpty)
+        XCTAssertTrue(rows.allSatisfy { $0.verdict == .safe && $0.repoRoot == Fixtures.sample.repo.root })
+    }
+
+    func testCleaningARepositoryThatHasNothingSafeOpensNoSheet() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.beginCleanSafe(inRepo: "/does/not/exist")
+
+        XCTAssertNil(model.clean)
+    }
+
+    func testOpeningARepositoryCanSetTheVerdictFilterAtTheSameTime() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.openRepository(Fixtures.sample.repo.id, showing: .review)
+
+        XCTAssertEqual(model.route, .repo(Fixtures.sample.repo.id))
+        XCTAssertEqual(model.verdictFilter, .review)
+    }
+
+    func testTheFirstRepositoryWithItemsToReviewIsTheOneWithTheMost() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        XCTAssertEqual(model.repositoryWithMostToReview?.id, Fixtures.sample.repo.id)
+    }
+
     func testToolStatusComesFromTheEngineClient() async {
         let (model, _) = makeModel([])
         XCTAssertEqual(model.toolStatus, .unknown)

@@ -51,6 +51,10 @@ struct ReclaimHero: View {
     let summary: String
     let actionTitle: String?
     let footnote: String?
+    var secondaryTitle: String?
+    var secondaryAction: (() -> Void)?
+    var freshness: Date?
+    var onRescan: (() -> Void)?
     let action: () -> Void
 
     var body: some View {
@@ -68,16 +72,34 @@ struct ReclaimHero: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if let actionTitle {
-                Button(actionTitle, action: action)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .padding(.top, Theme.Spacing.sm)
+                HStack(spacing: Theme.Spacing.md) {
+                    Button(actionTitle, action: action)
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    if let secondaryTitle, let secondaryAction {
+                        Button(secondaryTitle, action: secondaryAction)
+                            .buttonStyle(.bordered)
+                            .controlSize(.large)
+                    }
+                }
+                .padding(.top, Theme.Spacing.sm)
             }
-            if let footnote {
-                Text(footnote)
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+            HStack(spacing: Theme.Spacing.sm) {
+                if let footnote {
+                    Text(footnote)
+                }
+                if let freshness {
+                    if footnote != nil { Text("·") }
+                    TimelineView(.periodic(from: .now, by: 30)) { context in
+                        Text(OverviewInsights.freshness(of: freshness, now: context.date))
+                    }
+                    if let onRescan {
+                        Button("Rescan", action: onRescan).buttonStyle(.link)
+                    }
+                }
             }
+            .font(.caption)
+            .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.xl)
@@ -87,28 +109,30 @@ struct ReclaimHero: View {
 
 struct RepoCard: View {
     let summary: RepoSummary
+    var onClean: (() -> Void)?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 HStack {
-                    Text(summary.name).font(.headline)
-                    Spacer()
+                    Text(summary.name)
+                        .font(.headline)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 0)
                     if summary.failure != nil {
                         Image(systemName: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
                             .help(summary.failure ?? "")
-                    } else if summary.reclaimableBytes > 0 {
-                        Text(SizeFormat.string(summary.reclaimableBytes))
-                            .font(.callout.monospacedDigit())
-                            .foregroundStyle(.secondary)
                     }
                 }
+                .padding(.trailing, quickCleanTitle == nil ? 0 : 84)
                 HealthBar(safe: summary.safe, review: summary.review, protected: summary.protected)
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             .padding(Theme.Spacing.md)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -117,13 +141,71 @@ struct RepoCard: View {
             .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
         }
         .buttonStyle(.plain)
+        // A sibling of the card button, not inside it, so the click goes to exactly one of them.
+        .overlay(alignment: .topTrailing) {
+            if let onClean, let title = quickCleanTitle {
+                Button(title, action: onClean)
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .padding(Theme.Spacing.sm)
+                    .help("Review these \(summary.safe) safe items, then remove them")
+            }
+        }
         .accessibilityLabel("\(summary.name), \(summary.safe) safe, \(summary.review) to review")
+    }
+
+    private var quickCleanTitle: String? {
+        summary.failure == nil && summary.safe > 0 ? "Clean \(summary.safe)" : nil
     }
 
     private var detail: String {
         if let failure = summary.failure { return failure }
         if summary.defaultBranch == nil { return "Default branch unknown" }
-        return "\(summary.safe) safe, \(summary.review) to review, \(summary.protected) protected"
+        var text = "\(summary.safe) safe · \(summary.review) review · \(summary.protected) protected"
+        if summary.reclaimableBytes > 0 { text += " · " + SizeFormat.string(summary.reclaimableBytes) }
+        return text
+    }
+}
+
+/// One number in the strip under the hero. It is a button only when there is somewhere sensible to go.
+struct StatTile: View {
+    let title: String
+    let value: String
+    let symbol: String
+    let tint: Color
+    var action: (() -> Void)?
+
+    var body: some View {
+        let content = HStack(spacing: Theme.Spacing.md) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: 30, height: 30)
+                .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(value)
+                    .font(.title3.weight(.semibold).monospacedDigit())
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
+
+        if let action {
+            Button(action: action) { content.hoverHighlight(cornerRadius: Theme.cardRadius) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(title): \(value)")
+        } else {
+            content
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(title): \(value)")
+        }
     }
 }
 

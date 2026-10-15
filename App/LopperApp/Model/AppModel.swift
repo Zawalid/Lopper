@@ -498,6 +498,26 @@ final class AppModel {
         beginClean(rows: allRows.filter { $0.verdict == .safe })
     }
 
+    /// Opens the review sheet with one repository's safe items. The sheet is still the only way anything is
+    /// removed, so a button on a card is a shortcut to the same safety step and not around it.
+    func beginCleanSafe(inRepo id: String) {
+        beginClean(rows: rows(forRepo: id).filter { $0.verdict == .safe })
+    }
+
+    /// Opens a repository, optionally narrowed to one verdict.
+    func openRepository(_ id: String, showing filter: VerdictFilter = .all) {
+        verdictFilter = filter
+        route = .repo(id)
+    }
+
+    /// Where to look first when there is something to review.
+    var repositoryWithMostToReview: RepoSummary? {
+        summaries.filter { $0.review > 0 }.min {
+            if $0.review != $1.review { return $0.review > $1.review }
+            return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+    }
+
     func beginCleanChecked() {
         beginClean(rows: checkedRows)
     }
