@@ -6,6 +6,7 @@ struct SidebarView: View {
     @State private var query = ""
     @State private var tidyExpanded = false
     @State private var collapsedGroups: Set<String> = []
+    @FocusState private var filterFocused: Bool
 
     var body: some View {
         let preferences = model.preferences
@@ -26,11 +27,15 @@ struct SidebarView: View {
 
                 Section {
                     if SidebarLayout.showsSearch(repositoryCount: model.summaries.count) {
-                        TextField("Filter repositories", text: $query)
-                            .textFieldStyle(.roundedBorder)
-                            .controlSize(.small)
+                        FilterField(
+                            query: $query,
+                            isFocused: $filterFocused,
+                            matchCount: sections.reduce(0) { $0 + $1.repos.count },
+                            totalCount: model.summaries.count,
+                            onSubmit: {
+                                if let first = sections.first?.repos.first { model.route = .repo(first.id) }
+                            })
                             .listRowSeparator(.hidden)
-                            .accessibilityLabel("Filter repositories")
                     }
 
                     ForEach(sections) { section in
@@ -67,6 +72,14 @@ struct SidebarView: View {
 
             SidebarFooter()
         }
+        .background {
+            // Shift-Command-F: Command-F belongs to the search field for branches in the repository view.
+            Button("Filter Repositories") { filterFocused = true }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+        }
     }
 
     /// Searching opens everything so a match is never hidden inside a collapsed group.
@@ -85,6 +98,62 @@ struct SidebarView: View {
                 collapsedGroups.insert(section.id)
             }
         }
+    }
+}
+
+/// A search field that looks like part of the sidebar: magnifier, clear button, result count while
+/// filtering, Escape to clear, Return to open the first match.
+private struct FilterField: View {
+    @Binding var query: String
+    var isFocused: FocusState<Bool>.Binding
+    let matchCount: Int
+    let totalCount: Int
+    let onSubmit: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+
+            TextField("Filter", text: $query)
+                .textFieldStyle(.plain)
+                .font(.callout)
+                .focused(isFocused)
+                .onSubmit(onSubmit)
+                .onExitCommand {
+                    query = ""
+                    isFocused.wrappedValue = false
+                }
+
+            if !query.isEmpty {
+                Text("\(matchCount) of \(totalCount)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                Button {
+                    query = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear filter")
+                .accessibilityLabel("Clear filter")
+            }
+        }
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, 5)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(isFocused.wrappedValue ? 0.10 : 0.06)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(isFocused.wrappedValue ? 0.7 : 0), lineWidth: 1.5))
+        .animation(.easeOut(duration: 0.12), value: isFocused.wrappedValue)
+        .help("Filter repositories (Shift-Command-F)")
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Filter repositories")
     }
 }
 
