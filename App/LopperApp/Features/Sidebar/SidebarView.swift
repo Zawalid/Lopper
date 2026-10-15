@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Lopper
 
 struct SidebarView: View {
@@ -144,12 +145,16 @@ private struct FilterField: View {
         }
         .padding(.horizontal, Theme.Spacing.sm)
         .padding(.vertical, 5)
+        // The same color the editing field draws for itself, so the capsule and the text area are one surface
+        // and not a lighter box around a darker one.
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.primary.opacity(isFocused.wrappedValue ? 0.10 : 0.06)))
+                .fill(Color(nsColor: .textBackgroundColor)))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.accentColor.opacity(isFocused.wrappedValue ? 0.7 : 0), lineWidth: 1.5))
+                .strokeBorder(
+                    isFocused.wrappedValue ? Color.accentColor.opacity(0.8) : Color.primary.opacity(0.12),
+                    lineWidth: isFocused.wrappedValue ? 1.5 : 1))
         .animation(.easeOut(duration: 0.12), value: isFocused.wrappedValue)
         .help("Filter repositories (Shift-Command-F)")
         .accessibilityElement(children: .contain)
