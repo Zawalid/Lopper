@@ -36,11 +36,11 @@ public struct Cleaner: Sendable {
         repoRoot: URL, name: String, approved: VerdictKind, now: Date = Date()
     ) async -> CleanOutcome {
         await serialized(repoRoot) {
-            let snapshot: RepoSnapshot
-            do { snapshot = try await inspector.inspect(repoRoot: repoRoot, now: now) } catch {
+            let found: BranchEntry?
+            do { found = try await inspector.inspectBranch(repoRoot: repoRoot, name: name) } catch {
                 return .failed(message: "Could not inspect repository: \(error)")
             }
-            guard let entry = snapshot.branches.first(where: { $0.name == name }) else {
+            guard let entry = found else {
                 return .skipped(reason: "Branch \(name) no longer exists")
             }
             if let skip = Self.skipReason(verdict: entry.verdict, approved: approved) {
@@ -64,12 +64,11 @@ public struct Cleaner: Sendable {
         repoRoot: URL, path: URL, approved: VerdictKind, now: Date = Date()
     ) async -> CleanOutcome {
         await serialized(repoRoot) {
-            let snapshot: RepoSnapshot
-            do { snapshot = try await inspector.inspect(repoRoot: repoRoot, now: now) } catch {
+            let found: WorktreeEntry?
+            do { found = try await inspector.inspectWorktree(repoRoot: repoRoot, path: path) } catch {
                 return .failed(message: "Could not inspect repository: \(error)")
             }
-            let target = path.canonicalized.path
-            guard let entry = snapshot.worktrees.first(where: { $0.path.canonicalized.path == target }) else {
+            guard let entry = found else {
                 return .skipped(reason: "Worktree \(path.path) no longer exists")
             }
             if entry.isMain { return .skipped(reason: "The main working directory is never removed") }

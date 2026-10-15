@@ -332,4 +332,36 @@ final class RepoInspectorTests: XCTestCase {
         XCTAssertEqual(entry.evidence, .none)
         XCTAssertEqual(entry.verdict.kind, .review)
     }
+
+    func testTargetedInspectionMatchesTheFullSnapshot() async throws {
+        let repo = try baseRepo()
+        try repo.git("checkout", "-b", "merged")
+        try repo.commit("m", files: ["m.txt": "m"])
+        try repo.git("checkout", "main")
+        try repo.git("merge", "--no-ff", "-m", "merge merged", "merged")
+        try repo.git("checkout", "-b", "wip")
+        try repo.commit("w", files: ["w.txt": "w"])
+        try repo.git("checkout", "main")
+        let wt = repo.sandbox.appendingPathComponent("wt-feature")
+        try repo.git("worktree", "add", "-b", "feature", wt.path)
+        try "untracked".write(to: wt.appendingPathComponent("notes.txt"), atomically: true, encoding: .utf8)
+        let inspector = RepoInspector()
+
+        let snapshot = try await inspector.inspect(repoRoot: repo.root)
+
+        XCTAssertGreaterThanOrEqual(snapshot.branches.count, 4)
+        for expected in snapshot.branches {
+            let single = try await inspector.inspectBranch(repoRoot: repo.root, name: expected.name)
+            XCTAssertEqual(single, expected, expected.name)
+        }
+        for expected in snapshot.worktrees {
+            let single = try await inspector.inspectWorktree(repoRoot: repo.root, path: expected.path)
+            XCTAssertEqual(single, expected, expected.path.path)
+        }
+        let missingBranch = try await inspector.inspectBranch(repoRoot: repo.root, name: "no-such-branch")
+        XCTAssertNil(missingBranch)
+        let missingWorktree = try await inspector.inspectWorktree(
+            repoRoot: repo.root, path: repo.sandbox.appendingPathComponent("no-such-worktree"))
+        XCTAssertNil(missingWorktree)
+    }
 }

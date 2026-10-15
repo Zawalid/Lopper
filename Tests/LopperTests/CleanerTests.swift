@@ -296,4 +296,23 @@ final class CleanerTests: XCTestCase {
         guard case .failed = outcome else { return XCTFail("\(outcome)") }
         XCTAssertTrue(FileManager.default.fileExists(atPath: wt.appendingPathComponent("w.txt").path))
     }
+
+    func testBulkCleanTimeDoesNotGrowWithTheNumberOfOtherBranches() async throws {
+        // Re-verifying one branch must not re-inspect every branch in the repository: with 30 branches
+        // that turned a bulk clean into minutes.
+        let repo = try baseRepo()
+        for index in 0..<30 {
+            try repo.git("branch", "merged-\(index)")
+        }
+        let (cleaner, _) = makeCleaner(repo)
+        let started = ContinuousClock.now
+
+        for index in 0..<30 {
+            let outcome = await cleaner.deleteBranch(
+                repoRoot: repo.root, name: "merged-\(index)", approved: .safe)
+            guard case .removed = outcome else { return XCTFail("merged-\(index): \(outcome)") }
+        }
+
+        XCTAssertLessThan(ContinuousClock.now - started, .seconds(25))
+    }
 }
