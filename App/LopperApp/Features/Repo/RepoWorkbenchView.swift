@@ -63,6 +63,9 @@ struct RepoWorkbenchView: View {
         .navigationTitle(summary?.name ?? "Repository")
         .navigationSubtitle(subtitle(summary))
         .searchable(text: $model.searchText, placement: .toolbar, prompt: "Search branches and worktrees")
+        // Fill the column whatever is inside. Without this an empty state is only as tall as its text, and the
+        // filter bar and selection bar attached below float to the middle of the window with it.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Filters sit above the table rather than in the toolbar: the toolbar already carries the title,
         // search, rescan and inspector, and a segmented control there squeezed the title and subtitle.
         .safeAreaInset(edge: .top, spacing: 0) { FilterBar() }

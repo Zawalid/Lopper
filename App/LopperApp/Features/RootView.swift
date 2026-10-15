@@ -34,7 +34,7 @@ struct RootView: View {
                 }
             }
         }
-        .frame(minWidth: 980, minHeight: 520)
+        .frame(minWidth: 1040, minHeight: 520)
         .task { model.startScan() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.scanIfStale()

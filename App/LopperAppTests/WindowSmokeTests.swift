@@ -47,6 +47,30 @@ final class WindowSmokeTests: XCTestCase {
     /// Every column of the split views (sidebar, table, inspector) must lie inside the window. SwiftUI's own
     /// minimum size does not catch this: a table whose columns ask for more than the space left makes the
     /// split view overflow, and the sidebar and inspector end up clipped by the window edge.
+    private func assertPanesInsideWindow(_ window: NSWindow, _ label: String, file: StaticString = #filePath, line: UInt = #line) {
+        guard let content = window.contentView else { return XCTFail("no content view", file: file, line: line) }
+        var splitViews: [NSSplitView] = []
+        func collect(_ view: NSView) {
+            if let split = view as? NSSplitView { splitViews.append(split) }
+            view.subviews.forEach(collect)
+        }
+        collect(content)
+        XCTAssertFalse(splitViews.isEmpty, "expected the navigation split view (\(label))", file: file, line: line)
+
+        for split in splitViews {
+            let frame = split.convert(split.bounds, to: content)
+            XCTAssertGreaterThanOrEqual(frame.minX, -0.5, "\(label): split view starts left of the window", file: file, line: line)
+            XCTAssertLessThanOrEqual(frame.maxX, content.bounds.width + 0.5,
+                "\(label): split view is \(frame.width) wide in a window \(content.bounds.width) wide", file: file, line: line)
+            for pane in split.arrangedSubviews where !split.isSubviewCollapsed(pane) {
+                let paneFrame = split.convert(pane.frame, to: content)
+                XCTAssertGreaterThanOrEqual(paneFrame.minX, -0.5, "\(label): a pane is clipped on the left: \(paneFrame)", file: file, line: line)
+                XCTAssertLessThanOrEqual(paneFrame.maxX, content.bounds.width + 0.5,
+                    "\(label): a pane is clipped on the right: \(paneFrame) in a window \(content.bounds.width) wide", file: file, line: line)
+            }
+        }
+    }
+
     func testRepositoryWorkbenchStaysInsideTheWindow() async {
         let model = await readyModel()
         model.showInspector = true
@@ -54,26 +78,23 @@ final class WindowSmokeTests: XCTestCase {
         defer { window.close() }
         model.route = .repo(Fixtures.root.path)
         await pump(0.8)
+        assertPanesInsideWindow(window, "default size")
+    }
 
-        guard let content = window.contentView else { return XCTFail("no content view") }
-        var splitViews: [NSSplitView] = []
-        func collect(_ view: NSView) {
-            if let split = view as? NSSplitView { splitViews.append(split) }
-            view.subviews.forEach(collect)
-        }
-        collect(content)
-        XCTAssertFalse(splitViews.isEmpty, "expected the navigation split view")
+    /// People drag the window edge. Every width on the way, wider and narrower, must keep the panes inside.
+    func testPanesStayInsideTheWindowWhileItIsResized() async {
+        let model = await readyModel()
+        model.showInspector = true
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        model.route = .repo(Fixtures.root.path)
+        await pump(0.6)
 
-        for split in splitViews {
-            let frame = split.convert(split.bounds, to: content)
-            XCTAssertGreaterThanOrEqual(frame.minX, -0.5, "split view starts left of the window")
-            XCTAssertLessThanOrEqual(frame.maxX, content.bounds.width + 0.5, "split view ends right of the window")
-            for pane in split.arrangedSubviews where !split.isSubviewCollapsed(pane) {
-                let paneFrame = split.convert(pane.frame, to: content)
-                XCTAssertGreaterThanOrEqual(paneFrame.minX, -0.5, "a pane is clipped on the left: \(paneFrame)")
-                XCTAssertLessThanOrEqual(paneFrame.maxX, content.bounds.width + 0.5,
-                    "a pane is clipped on the right: \(paneFrame) in a window \(content.bounds.width) wide")
-            }
+        let minimum = window.contentMinSize.width
+        for width in [1400, 1200, 1000, minimum + 40, minimum, 1100, 1080] as [CGFloat] {
+            window.setContentSize(NSSize(width: width, height: 700))
+            await pump(0.4)
+            assertPanesInsideWindow(window, "resized to \(width)")
         }
     }
 
