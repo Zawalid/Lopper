@@ -24,6 +24,7 @@ struct InspectorContent: View {
                 header(row)
                 banner(row)
                 evidence(row)
+                UniqueWorkSection(row: row)
                 facts(row)
                 if !row.extraFiles.isEmpty { untracked(row) }
                 openActions(row)
@@ -172,32 +173,11 @@ struct InspectorContent: View {
 
     private func openActions(_ row: CleanupRow) -> some View {
         FlowLayout(spacing: Theme.Spacing.sm) {
-            if let url = row.prURL {
-                action("Pull request", "arrow.up.right.square") { OpenActions.open(url) }
-            }
-            if let path = row.path {
-                action("Reveal", "folder") { OpenActions.reveal(path) }
-                action("Terminal", "terminal") {
-                    OpenActions.openInTerminal(path, bundleID: model.preferences.terminalBundleID)
-                }
-                if OpenActions.installed(model.preferences.editorBundleID) {
-                    action("Editor", "chevron.left.forwardslash.chevron.right") {
-                        OpenActions.openInEditor(path, bundleID: model.preferences.editorBundleID)
-                    }
-                }
-                FeedbackButton(title: "Copy path", systemImage: "doc.on.doc", successTitle: "Copied") {
-                    OpenActions.copy(path.path)
-                }
-                .buttonStyle(.lopperSecondary)
-                .controlSize(.small)
-            }
+            OpenWithMenu(row: row)
+            GitHubMenu(row: row)
+            CopyMenu(row: row)
+            KeepBranchButton(row: row)
         }
-    }
-
-    private func action(_ title: String, _ symbol: String, _ perform: @escaping () -> Void) -> some View {
-        Button(action: perform) { Label(title, systemImage: symbol) }
-            .buttonStyle(.lopperSecondary)
-            .controlSize(.small)
     }
 }
 

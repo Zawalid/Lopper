@@ -457,6 +457,11 @@ final class AppModel {
         }
     }
 
+    /// The repository's remote, for building GitHub links from a row.
+    func remoteURL(for row: CleanupRow) -> String? {
+        snapshots.first { $0.repo.root == row.repoRoot }?.repo.remoteURL
+    }
+
     // MARK: Branch history
 
     private var histories: [String: BranchHistory] = [:]

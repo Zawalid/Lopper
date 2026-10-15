@@ -18,6 +18,19 @@ enum OpenActions {
         open(folder, withBundleID: bundleID)
     }
 
+    /// Opens a folder in any installed app, for the "Open with" menu.
+    static func openWith(_ folder: URL, bundleID: String) {
+        open(folder, withBundleID: bundleID)
+    }
+
+    /// The app's own icon at menu size, so the list looks like Finder's "Open With".
+    static func icon(forBundleID bundleID: String) -> NSImage? {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        let image = NSWorkspace.shared.icon(forFile: url.path)
+        image.size = NSSize(width: 16, height: 16)
+        return image
+    }
+
     static func copy(_ string: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(string, forType: .string)

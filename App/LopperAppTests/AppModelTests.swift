@@ -333,6 +333,18 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(model.isKeptBranch("main", in: Fixtures.root))
     }
 
+    // MARK: Remote
+
+    func testRemoteURLComesFromTheRowsRepository() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let row = model.allRows[0]
+
+        XCTAssertEqual(model.remoteURL(for: row), Fixtures.sample.repo.remoteURL)
+        XCTAssertNotNil(model.remoteURL(for: row))
+    }
+
     // MARK: Branch history
 
     func testHistoryIsLoadedOnceAndServedFromTheCache() async {
