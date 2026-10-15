@@ -77,9 +77,14 @@ public struct Cleaner: Sendable {
                 timestamp: now, repoPath: repoRoot.path, action: .removeWorktree, branch: entry.branch,
                 tip: entry.head, upstream: nil, worktreePath: entry.path.path,
                 trashRef: Self.trashRef(now: now, label: label), status: .pending)
+            let folderGone = entry.isPrunable && !FileManager.default.fileExists(atPath: entry.path.path)
             return await execute(record: &record, repoRoot: repoRoot) {
+                if folderGone {
+                    // Nothing on disk is left to lose: dropping the registration is all that remains.
+                    return try await git.runChecked(["worktree", "prune"], in: repoRoot)
+                }
                 // Never --force: git itself refuses to remove a worktree with local changes.
-                try await git.runChecked(["worktree", "remove", entry.path.path], in: repoRoot)
+                return try await git.runChecked(["worktree", "remove", entry.path.path], in: repoRoot)
             }
         }
     }

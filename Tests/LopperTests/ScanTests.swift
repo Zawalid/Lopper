@@ -39,6 +39,13 @@ final class ScanTests: XCTestCase {
         XCTAssertEqual(found.map(\.path), [real.appendingPathComponent("app").path])
     }
 
+    func testCanonicalizedResolvesSymlinksForPathsThatDoNotExist() {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-missing-\(UUID().uuidString)/a/b")
+        XCTAssertTrue(missing.canonicalized.path.hasPrefix("/private/var/"), missing.canonicalized.path)
+        XCTAssertTrue(missing.canonicalized.path.hasSuffix("/a/b"))
+    }
+
     func testSubmoduleIsNotTreatedAsRepo() throws {
         let fixture = try TestRepo()
         let base = fixture.sandbox.appendingPathComponent("code")

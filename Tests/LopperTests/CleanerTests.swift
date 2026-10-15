@@ -241,4 +241,23 @@ final class CleanerTests: XCTestCase {
         guard case .restored = await cleaner.restore(record) else { return XCTFail() }
         XCTAssertTrue(FileManager.default.fileExists(atPath: wt.appendingPathComponent("d.txt").path))
     }
+
+    func testWorktreeWhoseFolderIsGoneIsPrunedInsteadOfGettingStuck() async throws {
+        let repo = try baseRepo()
+        let wt = repo.sandbox.appendingPathComponent("wt-vanished")
+        try repo.git("worktree", "add", "-b", "vanished", wt.path)
+        try FileManager.default.removeItem(at: wt)
+        let (cleaner, _) = makeCleaner(repo)
+
+        // The caller (a UI row, a saved setting) may hold the /var alias of /private/var, and the
+        // folder no longer exists, so the path cannot be resolved by asking the file system.
+        let alias = URL(fileURLWithPath: String(wt.path.dropFirst("/private".count)))
+        XCTAssertTrue(wt.path.hasPrefix("/private/var/"))
+
+        let outcome = await cleaner.removeWorktree(repoRoot: repo.root, path: alias, approved: .safe)
+
+        guard case .removed = outcome else { return XCTFail("\(outcome)") }
+        XCTAssertFalse(try repo.git("worktree", "list").contains("wt-vanished"))
+        XCTAssertTrue(branchExists(repo, "vanished"), "pruning a registration keeps the branch")
+    }
 }

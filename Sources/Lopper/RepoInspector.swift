@@ -79,7 +79,11 @@ public struct RepoInspector: Sendable {
             // flag is not trusted: only a folder that is really gone has nothing left to lose.
             let folderMissing = !FileManager.default.fileExists(atPath: entry.path)
             if !folderMissing {
-                if let read = await worktreeStatus(at: url) {
+                // A prunable folder that still exists has lost its .git file: running git inside it
+                // would answer for the enclosing repository, so it is never read.
+                if entry.isPrunable {
+                    unreadable = true
+                } else if let read = await worktreeStatus(at: url) {
                     status = read
                     operation = await operationInProgress(at: url)
                 } else {

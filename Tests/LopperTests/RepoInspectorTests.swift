@@ -283,4 +283,22 @@ final class RepoInspectorTests: XCTestCase {
         XCTAssertEqual(snapshot.branches.count, 61)
         XCTAssertLessThan(ContinuousClock.now - started, .seconds(30))
     }
+
+    func testPrunableWorktreeThatStillExistsOnDiskIsUnreadable() async throws {
+        let repo = try baseRepo()
+        let wt = repo.root.appendingPathComponent(".claude/worktrees/nested")
+        try FileManager.default.createDirectory(
+            at: wt.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try repo.git("worktree", "add", "-b", "nested", wt.path)
+        // Without its .git file the folder is no longer a worktree. Git reports it prunable, and a
+        // `git status` run inside it would silently answer for the enclosing repository instead.
+        try FileManager.default.removeItem(at: wt.appendingPathComponent(".git"))
+
+        let snapshot = try await inspect(repo)
+
+        let entry = try worktree(snapshot, named: "nested")
+        XCTAssertTrue(entry.isPrunable)
+        XCTAssertEqual(entry.verdict.kind, .review)
+        XCTAssertTrue(entry.verdict.reasons.contains(.worktreeUnreadable), "\(entry.verdict.reasons)")
+    }
 }
