@@ -97,11 +97,15 @@ enum DiskInsights {
                     let label = branch ?? first.checkoutRoot.lastPathComponent
                     name = "\(repoName) / \(label)"
                 }
+                let sorted = items.sorted { $0.bytes > $1.bytes }
+                let generated = sorted.reduce(Int64(0)) { $0 + $1.bytes }
                 let usage = sizes[first.checkoutRoot.path] ?? sizes[path]
+                // A folder cannot be smaller than the folders inside it: a smaller number means the
+                // measurement is stale or incomplete, and a wrong split is worse than none.
+                let footprint = usage.flatMap { $0.total >= generated ? $0.total : nil }
                 return DiskProject(
                     id: path, name: name, repoName: repoName, path: first.checkoutRoot, location: first.location,
-                    artifacts: items.sorted { $0.bytes > $1.bytes },
-                    footprint: usage?.total, lastEdited: usage?.newestModification)
+                    artifacts: sorted, footprint: footprint, lastEdited: usage?.newestModification)
             }
             .sorted {
                 if $0.buildBytes != $1.buildBytes { return $0.buildBytes > $1.buildBytes }

@@ -51,6 +51,16 @@ final class DiskInsightsTests: XCTestCase {
         XCTAssertFalse(project.isUntouched(now: now, staleDays: 60))
     }
 
+    func testAMeasurementSmallerThanTheGeneratedFoldersIsIgnored() {
+        let item = artifact("node_modules", bytes: 400, in: "/code/api")
+        let sizes = ["/code/api": DiskUsage(total: 100, disposable: 0, newestModification: days(1))]
+
+        let project = DiskInsights.projects(artifacts: [item], sizes: sizes)[0]
+
+        XCTAssertNil(project.footprint)
+        XCTAssertNil(project.sourceBytes)
+    }
+
     func testAnUnmeasuredProjectIsNeverCalledUntouched() {
         let project = DiskInsights.projects(artifacts: [artifact("dist", bytes: 5, in: "/code/api")], sizes: [:])[0]
         XCTAssertNil(project.footprint)

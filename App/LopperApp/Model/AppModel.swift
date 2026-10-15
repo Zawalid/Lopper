@@ -1017,6 +1017,8 @@ extension AppModel {
             .appendingPathComponent("lopper-preview-settings.json"))
         let client = FakeEngineClient(snapshots: snapshots)
         client.historyRecords = history
+        // A rescan (the window starts one) must find the same folders the preview was given.
+        client.artifactsByRoot = Dictionary(grouping: artifacts, by: { $0.checkoutRoot.path })
         let model = AppModel(
             client: client,
             store: store,
