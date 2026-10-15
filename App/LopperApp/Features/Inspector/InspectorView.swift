@@ -105,6 +105,7 @@ struct InspectorContent: View {
                     Button("Throwaway") {
                         model.addThrowaway(name: (file as NSString).lastPathComponent.trimmingCharacters(in: CharacterSet(charactersIn: "/")), repoRoot: row.repoRoot)
                     }
+                    .buttonStyle(.lopperSecondary)
                     .controlSize(.small)
                     .help("Always treat this name as disposable in \(row.repoName)")
                 }
@@ -132,6 +133,6 @@ struct InspectorContent: View {
                 Button { OpenActions.copy(row.title) } label: { Label("Copy branch name", systemImage: "doc.on.doc") }
             }
         }
-        .buttonStyle(.link)
+        .buttonStyle(.lopperLink)
     }
 }

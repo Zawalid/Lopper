@@ -74,11 +74,11 @@ struct ReclaimHero: View {
             if let actionTitle {
                 HStack(spacing: Theme.Spacing.md) {
                     Button(actionTitle, action: action)
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.lopperPrimary)
                         .controlSize(.large)
                     if let secondaryTitle, let secondaryAction {
                         Button(secondaryTitle, action: secondaryAction)
-                            .buttonStyle(.bordered)
+                            .buttonStyle(.lopperSecondary)
                             .controlSize(.large)
                     }
                 }
@@ -94,7 +94,7 @@ struct ReclaimHero: View {
                         Text(OverviewInsights.freshness(of: freshness, now: context.date))
                     }
                     if let onRescan {
-                        Button("Rescan", action: onRescan).buttonStyle(.link)
+                        Button("Rescan", action: onRescan).buttonStyle(.lopperLink)
                     }
                 }
             }
@@ -140,12 +140,12 @@ struct RepoCard: View {
             .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
             .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.lopperCard)
         // A sibling of the card button, not inside it, so the click goes to exactly one of them.
         .overlay(alignment: .topTrailing) {
             if let onClean, let title = quickCleanTitle {
                 Button(title, action: onClean)
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.lopperSecondary)
                     .controlSize(.small)
                     .padding(Theme.Spacing.sm)
                     .help("Review these \(summary.safe) safe items, then remove them")
@@ -198,8 +198,8 @@ struct StatTile: View {
         .contentShape(RoundedRectangle(cornerRadius: Theme.cardRadius))
 
         if let action {
-            Button(action: action) { content.hoverHighlight(cornerRadius: Theme.cardRadius) }
-                .buttonStyle(.plain)
+            Button(action: action) { content }
+                .buttonStyle(.lopperCard)
                 .accessibilityLabel("\(title): \(value)")
         } else {
             content
@@ -222,12 +222,11 @@ struct Banner: View {
             Text(message).font(.callout)
             Spacer(minLength: Theme.Spacing.md)
             if let actionTitle, let action {
-                Button(actionTitle, action: action).buttonStyle(.link)
+                Button(actionTitle, action: action).buttonStyle(.lopperLink)
             }
             if let onDismiss {
                 Button(action: onDismiss) { Image(systemName: "xmark") }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .buttonStyle(.lopperIcon)
                     .accessibilityLabel("Dismiss")
             }
         }
@@ -270,10 +269,9 @@ struct UndoToastView: View {
         HStack(spacing: Theme.Spacing.md) {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             Text(message).font(.callout)
-            Button("Undo", action: onUndo).buttonStyle(.link)
+            Button("Undo", action: onUndo).buttonStyle(.lopperLink)
             Button(action: onDismiss) { Image(systemName: "xmark") }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+                .buttonStyle(.lopperIcon)
                 .accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, Theme.Spacing.lg)

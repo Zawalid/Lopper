@@ -48,6 +48,7 @@ struct OnboardingView: View {
                             Label(abbreviated(url), systemImage: "folder")
                                 .frame(maxWidth: 260, alignment: .leading)
                         }
+                        .buttonStyle(.lopperSecondary)
                         .controlSize(.large)
                     }
                 }
@@ -57,7 +58,7 @@ struct OnboardingView: View {
             Button("Choose folders…") {
                 FolderPicker.choose { model.setRoots($0) }
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.lopperPrimary)
             .controlSize(.large)
             .padding(.top, Theme.Spacing.sm)
         }

@@ -130,7 +130,7 @@ struct OverviewContent: View {
                 HStack {
                     Text("Recent activity").font(.headline)
                     Spacer()
-                    Button("See all") { model.route = .history }.buttonStyle(.link)
+                    Button("See all") { model.route = .history }.buttonStyle(.lopperLink)
                 }
                 VStack(spacing: 0) {
                     ForEach(Array(batches.enumerated()), id: \.element.id) { index, batch in
@@ -189,9 +189,9 @@ struct OverviewContent: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Button("Add folder…") { FolderPicker.choose { model.addRoots($0) } }
-                .buttonStyle(.link)
+                .buttonStyle(.lopperLink)
             SettingsLink { Text("Manage folders") }
-                .buttonStyle(.link)
+                .buttonStyle(.lopperLink)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, Theme.Spacing.md)
@@ -218,6 +218,7 @@ private struct ActivityRow: View {
             Spacer(minLength: Theme.Spacing.md)
             if batch.canRestore {
                 Button("Undo", action: onUndo)
+                    .buttonStyle(.lopperSecondary)
                     .controlSize(.small)
             } else {
                 Text("Restored").font(.caption).foregroundStyle(.tertiary)

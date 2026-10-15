@@ -14,6 +14,7 @@ struct HoverHighlight: ViewModifier {
                     .fill(Color.primary.opacity(isPressed ? 0.14 : (isHovering ? 0.08 : 0))))
             .contentShape(Rectangle())
             .onHover { isHovering = $0 }
+            .pointerCursor()
             .animation(.easeOut(duration: 0.12), value: isHovering)
     }
 }

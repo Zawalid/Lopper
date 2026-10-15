@@ -311,6 +311,7 @@ private struct SidebarRepoRow: View {
             }
         }
         .padding(.vertical, showsDetails ? 2 : 0)
+        .pointerCursor()
         .help(RowMapper.abbreviated(summary.root))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(summary.name). \(summary.countsDescription)"))
