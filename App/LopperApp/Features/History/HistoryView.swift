@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 import Lopper
 
 /// What was removed, when, why it was safe, and how to bring it back. Same structure as Agents and Disk:
@@ -116,6 +117,7 @@ struct HistoryContent: View {
                     message: "Everything Lopper removes shows up here, and can be restored for \(retentionDays) days.")
             } else {
                 VStack(spacing: 0) {
+                    FreedChart(weeks: HistoryBuilder.weeklyFreed(entries: entries, now: now))
                     HistoryFilterBar(
                         entries: entries, filter: $filter,
                         selected: entries.first { $0.id == selection }, onRestore: onRestore)
@@ -183,6 +185,45 @@ struct HistoryContent: View {
                     onRestore(entry)
                 }
             }
+        }
+    }
+}
+
+/// Space given back per week: the page's proof that cleaning up is working.
+private struct FreedChart: View {
+    let weeks: [HistoryWeek]
+
+    var body: some View {
+        if weeks.contains(where: { $0.bytes > 0 }) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                Text("Space given back per week")
+                    .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Chart(weeks) { week in
+                    BarMark(
+                        x: .value("Week", week.start, unit: .weekOfYear),
+                        y: .value("Freed", week.bytes))
+                        .foregroundStyle(Color.green.gradient)
+                        .cornerRadius(3)
+                }
+                .chartYAxis {
+                    AxisMarks(position: .leading) { value in
+                        AxisGridLine()
+                        if let bytes = value.as(Int64.self) {
+                            AxisValueLabel(SizeFormat.string(bytes))
+                        }
+                    }
+                }
+                .chartXAxis {
+                    AxisMarks(values: .stride(by: .weekOfYear, count: 2)) { _ in
+                        AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    }
+                }
+                .frame(height: 84)
+            }
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.top, Theme.Spacing.md)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Space given back per week, last \(weeks.count) weeks")
         }
     }
 }

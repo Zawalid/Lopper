@@ -302,4 +302,34 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertEqual(cleanup?.restorableCount, 2)
         XCTAssertNil(HistoryBuilder.cleanup(containing: alone, in: entries), "a single removal is not a cleanup")
     }
+
+    // MARK: Freed over time
+
+    func testWeeklyFreedBucketsRemovalsByWeekOldestFirstWithEmptyWeeksKept() {
+        let entries = HistoryBuilder.entries(from: [
+            record(.removeWorktree, branch: "a", daysAgo: 1, bytes: 100),
+            record(.removeWorktree, branch: "b", daysAgo: 2, bytes: 50),
+            record(.removeWorktree, branch: "c", daysAgo: 16, bytes: 400),
+            record(.removeWorktree, branch: "back", daysAgo: 1, status: .restored, bytes: 999),
+        ])
+
+        let weeks = HistoryBuilder.weeklyFreed(entries: entries, now: now, weeks: 4, calendar: calendar)
+
+        XCTAssertEqual(weeks.count, 4)
+        XCTAssertEqual(weeks.map(\.start), weeks.map(\.start).sorted(), "oldest first")
+        XCTAssertEqual(weeks.last?.bytes, 150, "restored removals free nothing")
+        XCTAssertEqual(weeks.last?.count, 2)
+        XCTAssertEqual(weeks.reduce(0) { $0 + $1.bytes }, 550)
+        XCTAssertTrue(weeks.contains { $0.bytes == 0 }, "quiet weeks stay on the axis")
+    }
+
+    func testWeeklyFreedIgnoresRemovalsOlderThanTheWindow() {
+        let entries = HistoryBuilder.entries(from: [
+            record(.removeWorktree, branch: "old", daysAgo: 200, bytes: 1_000),
+        ])
+
+        let weeks = HistoryBuilder.weeklyFreed(entries: entries, now: now, weeks: 8, calendar: calendar)
+
+        XCTAssertEqual(weeks.reduce(0) { $0 + $1.bytes }, 0)
+    }
 }

@@ -69,6 +69,15 @@ struct HistorySummary: Equatable {
     var nextExpiry: Date?
 }
 
+/// Space given back in one calendar week.
+struct HistoryWeek: Identifiable, Equatable {
+    let start: Date
+    let bytes: Int64
+    let count: Int
+
+    var id: Date { start }
+}
+
 struct HistoryFilter: Equatable {
     enum Range: CaseIterable, Identifiable {
         case all, day, week, month
@@ -231,6 +240,25 @@ enum HistoryBuilder {
             }
         }
         return summary
+    }
+
+    /// The last `weeks` weeks, oldest first, with what was removed in each and not restored since. Quiet weeks
+    /// are kept so the chart's axis is honest.
+    static func weeklyFreed(
+        entries: [HistoryEntry], now: Date, weeks: Int = 12, calendar: Calendar = .current
+    ) -> [HistoryWeek] {
+        guard weeks > 0, let thisWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return [] }
+        let starts = (0..<weeks).reversed().compactMap {
+            calendar.date(byAdding: .weekOfYear, value: -$0, to: thisWeek)
+        }
+        var bytes = [Date: Int64](), counts = [Date: Int]()
+        for entry in entries where entry.status != .restored {
+            guard let start = calendar.dateInterval(of: .weekOfYear, for: entry.date)?.start,
+                  starts.contains(start) else { continue }
+            bytes[start, default: 0] += entry.bytes ?? 0
+            counts[start, default: 0] += 1
+        }
+        return starts.map { HistoryWeek(start: $0, bytes: bytes[$0] ?? 0, count: counts[$0] ?? 0) }
     }
 
     /// "Today 20:00", "Yesterday 22:00", "10 Jan": when something was removed, in the width of a table column.
