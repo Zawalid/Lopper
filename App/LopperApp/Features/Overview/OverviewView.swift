@@ -14,6 +14,7 @@ struct OverviewView: View {
 struct OverviewContent: View {
     @Environment(AppModel.self) private var model
     @State private var dismissedGitHubBanner = false
+    @State private var tidyExpanded = false
 
     var body: some View {
         let totals = model.totals
@@ -206,22 +207,46 @@ struct OverviewContent: View {
                 }
             }
             if !tidy.isEmpty {
-                DisclosureGroup("\(Plural.count(tidy.count, "repository", "repositories")) already tidy") {
-                    FlowLayout(spacing: Theme.Spacing.sm) {
-                        ForEach(tidy) { summary in
-                            Button { model.route = .repo(summary.id) } label: {
-                                Text(summary.name)
-                                    .font(.callout)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                            }
-                            .buttonStyle(.lopperSecondary)
-                            .controlSize(.small)
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    // The whole row is the button, so it opens wherever it is clicked.
+                    Button {
+                        withAnimation(.easeOut(duration: 0.18)) { tidyExpanded.toggle() }
+                    } label: {
+                        HStack(spacing: Theme.Spacing.sm) {
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11, weight: .semibold))
+                                .rotationEffect(.degrees(tidyExpanded ? 90 : 0))
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 14)
+                            Text("\(Plural.count(tidy.count, "repository", "repositories")) already tidy")
+                                .foregroundStyle(.secondary)
+                            Spacer(minLength: 0)
                         }
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
+                        .hoverHighlight(cornerRadius: Theme.controlRadius)
                     }
-                    .padding(.top, Theme.Spacing.sm)
+                    .buttonStyle(.plain)
+                    .accessibilityValue(tidyExpanded ? "Expanded" : "Collapsed")
+                    .accessibilityHint("Shows or hides the repositories with nothing to do")
+
+                    if tidyExpanded {
+                        FlowLayout(spacing: Theme.Spacing.sm) {
+                            ForEach(tidy) { summary in
+                                Button { model.route = .repo(summary.id) } label: {
+                                    Text(summary.name)
+                                        .font(.callout)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 4)
+                                }
+                                .buttonStyle(.lopperSecondary)
+                                .controlSize(.small)
+                            }
+                        }
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .transition(.opacity)
+                    }
                 }
-                .foregroundStyle(.secondary)
             }
         }
     }
