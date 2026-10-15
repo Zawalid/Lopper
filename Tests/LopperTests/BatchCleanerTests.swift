@@ -110,4 +110,35 @@ final class BatchCleanerTests: XCTestCase {
         let remaining = (0..<8).filter { branchExists(repo, "merged-\($0)") }.count
         XCTAssertGreaterThanOrEqual(remaining, 4, "cancelling must stop the batch early, not finish it")
     }
+
+    func testStopRequestFinishesTheItemInFlightThenStopsAndStillReportsAFinishedBatch() async throws {
+        let repo = try baseRepo()
+        for index in 0..<8 { try repo.git("branch", "merged-\(index)") }
+        let (batch, cleaner, _) = makeBatchCleaner(repo)
+        let items = (0..<8).map {
+            CleanupItem.branch(repoRoot: repo.root, name: "merged-\($0)", approved: .safe)
+        }
+        let control = BatchControl()
+
+        var summary: BatchSummary?
+        for await event in batch.run(items: items, control: control) {
+            switch event {
+            case .itemFinished(let index, _, _) where index == 0:
+                control.requestStop()
+            case .finished(let result):
+                summary = result
+            default:
+                break
+            }
+        }
+
+        let result = try XCTUnwrap(summary, "the stream must still deliver .finished after a stop")
+        XCTAssertTrue(result.wasCancelled)
+        XCTAssertGreaterThanOrEqual(result.removed, 1)
+        XCTAssertLessThan(result.removed, 8)
+        XCTAssertEqual(result.failed, 0, "nothing in flight may be aborted")
+        // Everything that was removed before the stop is still undoable as one batch.
+        let outcomes = await cleaner.restoreBatch(result.batchID)
+        XCTAssertEqual(outcomes.count, result.removed)
+    }
 }

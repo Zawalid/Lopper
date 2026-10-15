@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// One thing the user asked to remove.
 public enum CleanupItem: Sendable, Equatable, Identifiable {
@@ -42,6 +43,22 @@ public enum BatchEvent: Sendable, Equatable {
     case finished(BatchSummary)
 }
 
+/// A cooperative stop signal. Unlike cancelling the consuming task, it never interrupts the item that is
+/// being removed: the batch finishes that item, then stops, and still delivers `.finished`.
+public final class BatchControl: Sendable {
+    private let stopRequested = OSAllocatedUnfairLock(initialState: false)
+
+    public init() {}
+
+    public func requestStop() {
+        stopRequested.withLock { $0 = true }
+    }
+
+    public var isStopRequested: Bool {
+        stopRequested.withLock { $0 }
+    }
+}
+
 /// Runs a user-approved set of removals through `Cleaner`, worktrees before branches, one at a time,
 /// reporting progress and stopping between items when cancelled.
 public struct BatchCleaner: Sendable {
@@ -51,7 +68,9 @@ public struct BatchCleaner: Sendable {
         self.cleaner = cleaner
     }
 
-    public func run(items: [CleanupItem], batchID: UUID = UUID(), now: Date = Date()) -> AsyncStream<BatchEvent> {
+    public func run(
+        items: [CleanupItem], batchID: UUID = UUID(), now: Date = Date(), control: BatchControl? = nil
+    ) -> AsyncStream<BatchEvent> {
         AsyncStream { continuation in
             let task = Task {
                 var worktrees: [(URL, URL, VerdictKind, String?)] = []
@@ -85,7 +104,7 @@ public struct BatchCleaner: Sendable {
 
                 var followUps: [(URL, String, VerdictKind)] = []
                 for (repo, path, approved, branch) in worktrees {
-                    if Task.isCancelled { cancelled = true; break }
+                    if Task.isCancelled || control?.isStopRequested == true { cancelled = true; break }
                     let outcome = await cleaner.removeWorktree(
                         repoRoot: repo, path: path, approved: approved, batchID: batchID, now: now)
                     record(.worktree(repoRoot: repo, path: path, approved: approved, deleteBranch: branch), outcome)
@@ -95,7 +114,7 @@ public struct BatchCleaner: Sendable {
                 }
                 if !cancelled {
                     for (repo, name, approved) in branches + followUps {
-                        if Task.isCancelled { cancelled = true; break }
+                        if Task.isCancelled || control?.isStopRequested == true { cancelled = true; break }
                         let outcome = await cleaner.deleteBranch(
                             repoRoot: repo, name: name, approved: approved, batchID: batchID, now: now)
                         record(.branch(repoRoot: repo, name: name, approved: approved), outcome)

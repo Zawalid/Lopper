@@ -97,7 +97,7 @@ public struct ScanService: Sendable {
             }
             return .snapshot(snapshot)
         } catch {
-            return .failure(repoRoot: repo, message: String(describing: error))
+            return .failure(repoRoot: repo, message: UserMessage.describe(error))
         }
     }
 }

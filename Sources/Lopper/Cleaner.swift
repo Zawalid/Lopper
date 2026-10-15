@@ -38,7 +38,7 @@ public struct Cleaner: Sendable {
         await serialized(repoRoot) {
             let found: BranchEntry?
             do { found = try await inspector.inspectBranch(repoRoot: repoRoot, name: name) } catch {
-                return .failed(message: "Could not inspect repository: \(error)")
+                return .failed(message: "Could not read this repository. \(UserMessage.describe(error))")
             }
             guard let entry = found else {
                 return .skipped(reason: "Branch \(name) no longer exists")
@@ -66,7 +66,7 @@ public struct Cleaner: Sendable {
         await serialized(repoRoot) {
             let found: WorktreeEntry?
             do { found = try await inspector.inspectWorktree(repoRoot: repoRoot, path: path) } catch {
-                return .failed(message: "Could not inspect repository: \(error)")
+                return .failed(message: "Could not read this repository. \(UserMessage.describe(error))")
             }
             guard let entry = found else {
                 return .skipped(reason: "Worktree \(path.path) no longer exists")
@@ -125,7 +125,7 @@ public struct Cleaner: Sendable {
             }
             return outcome
         } catch {
-            return .failed(message: String(describing: error))
+            return .failed(message: UserMessage.describe(error))
         }
     }
 
@@ -163,7 +163,7 @@ public struct Cleaner: Sendable {
         do {
             return try await gate.run(key: repoRoot.path) { await body() }
         } catch {
-            return .failed(message: String(describing: error))
+            return .failed(message: UserMessage.describe(error))
         }
     }
 
@@ -189,13 +189,13 @@ public struct Cleaner: Sendable {
         do {
             try await git.runChecked(["update-ref", record.trashRef, record.tip], in: repoRoot)
         } catch {
-            return .failed(message: "Could not create keep-alive ref, nothing was changed: \(error)")
+            return .failed(message: "Nothing was changed. \(UserMessage.describe(error))")
         }
         do {
             try await undoLog.append(record)
         } catch {
             _ = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
-            return .failed(message: "Could not write the undo log, nothing was changed: \(error)")
+            return .failed(message: "Nothing was changed because the undo log could not be written.")
         }
         do {
             _ = try await command()
@@ -206,7 +206,7 @@ public struct Cleaner: Sendable {
             record.status = .failed
             record.detail = String(describing: error)
             try? await undoLog.append(record)
-            return .failed(message: String(describing: error))
+            return .failed(message: UserMessage.describe(error))
         }
     }
 
@@ -244,10 +244,10 @@ public struct Cleaner: Sendable {
 
     private func restoreWorktree(_ record: UndoRecord, in repoRoot: URL) async throws {
         guard let path = record.worktreePath else {
-            throw CommandError.launchFailed("Record has no worktree path")
+            throw CleanError.restoreBlocked("the record has no worktree path")
         }
         if FileManager.default.fileExists(atPath: path) {
-            throw CommandError.launchFailed("\(path) already exists")
+            throw CleanError.restoreBlocked("\(path) already exists")
         }
         guard let branch = record.branch else {
             try await git.runChecked(["worktree", "add", "--detach", path, record.tip], in: repoRoot)
@@ -275,4 +275,5 @@ public struct Cleaner: Sendable {
 enum CleanError: Error, Equatable {
     case movedAfterVerification(String)
     case checkedOut(String)
+    case restoreBlocked(String)
 }
