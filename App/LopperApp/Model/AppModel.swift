@@ -833,6 +833,11 @@ final class AppModel {
         // Every agent worktree is removed under the Agents page's promise: nothing may exist only in its
         // folder at the moment of removal, however it was approved.
         let strictIDs = Set(state.includedRows.filter { $0.agent != nil }.compactMap { $0.cleanupItem?.id })
+        // What each removal frees, for History. Only worktrees have a size of their own.
+        var sizeHints: [String: Int64] = [:]
+        for row in state.includedRows {
+            if let item = row.cleanupItem, let size = row.size { sizeHints[item.id] = size }
+        }
         guard !items.isEmpty else { return }
         state.phase = .running(done: 0, total: items.count)
         clean = state
@@ -847,7 +852,7 @@ final class AppModel {
 
         cleanTask = Task {
             for await event in client.clean(
-                items, settings: settings, control: control, strictItemIDs: strictIDs
+                items, settings: settings, control: control, strictItemIDs: strictIDs, sizeHints: sizeHints
             ) {
                 guard var current = clean else { break }
                 switch event {
@@ -930,7 +935,10 @@ final class AppModel {
         let failures = outcomes.compactMap { outcome -> String? in
             if case .failed(let message) = outcome { message } else { nil }
         }
-        let restored = outcomes.filter { if case .restored = $0 { true } else { false } }.count
+        // A worktree and its branch are two records and one item.
+        let restored = HistoryCounts.items(in: outcomes.compactMap { outcome -> UndoRecord? in
+            if case .restored(let record) = outcome { record } else { nil }
+        })
         guard let first = failures.first else {
             notice = nil
             if restored > 0 { confirm("Restored \(Plural.count(restored, "item"))") }
@@ -942,6 +950,18 @@ final class AppModel {
     func restoreBatch(_ id: UUID) {
         Task {
             report(await client.restoreBatch(id))
+            history = await client.history()
+            startScan()
+        }
+    }
+
+    /// Restores one history entry: the branch first, so a worktree can be re-attached to it.
+    func restore(_ entry: HistoryEntry) {
+        let records = entry.records.filter { $0.status == .completed }
+        Task {
+            var outcomes: [RestoreOutcome] = []
+            for record in records { outcomes.append(await client.restore(record)) }
+            report(outcomes)
             history = await client.history()
             startScan()
         }

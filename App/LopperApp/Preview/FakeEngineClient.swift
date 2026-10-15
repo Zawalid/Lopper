@@ -27,6 +27,8 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     /// Scripted histories keyed by the ref that is asked for (the row's commit hash).
     var histories: [String: BranchHistory] = [:]
     private(set) var historyRequests = 0
+    private(set) var lastSizeHints: [String: Int64] = [:]
+    private(set) var restoredRecords: [UndoRecord] = []
     var checkouts: [String: Date] = [:]
     var pullRequests: [String: PullRequestStatus] = [:]
     private(set) var checkoutRequests = 0
@@ -64,9 +66,11 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     }
 
     func clean(
-        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>
+        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>,
+        sizeHints: [String: Int64]
     ) -> AsyncStream<BatchEvent> {
         cleanedItems = items
+        lastSizeHints = sizeHints
         self.strictItemIDs = strictItemIDs
         let outcome = cleanOutcome
         let emits = emitsBranchFollowUps
@@ -117,7 +121,10 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     }
 
     func restore(_ record: UndoRecord) async -> RestoreOutcome {
-        .failed(message: "not used")
+        restoredRecords.append(record)
+        var restored = record
+        restored.status = .restored
+        return .restored(restored)
     }
 
     func toolStatus() async -> ToolStatus { tools }

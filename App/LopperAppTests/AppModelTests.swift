@@ -527,6 +527,73 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(model.branchHistory(for: RowMapper.rows(for: Fixtures.sample, sizes: [:])[0]))
     }
 
+    // MARK: History entries
+
+    private func undoRecord(
+        _ action: UndoAction, branch: String, batch: UUID = UUID(), status: UndoStatus = .completed
+    ) -> UndoRecord {
+        UndoRecord(
+            timestamp: Date(), repoPath: "/code/api", action: action, branch: branch, tip: "abc", upstream: nil,
+            worktreePath: action == .removeWorktree ? "/code/wt/\(branch)" : nil,
+            trashRef: "refs/lopper/\(UUID().uuidString)", status: status, batchID: batch)
+    }
+
+    func testRestoringAnEntryBringsBackTheBranchBeforeTheWorktree() async {
+        let (model, client) = makeModel([])
+        let batch = UUID()
+        let worktree = undoRecord(.removeWorktree, branch: "feat/a", batch: batch)
+        let branch = undoRecord(.deleteBranch, branch: "feat/a", batch: batch)
+        let entry = HistoryBuilder.entries(from: [worktree, branch])[0]
+
+        model.restore(entry)
+        await waitUntil { client.restoredRecords.count == 2 }
+
+        XCTAssertEqual(client.restoredRecords.map(\.action), [.deleteBranch, .removeWorktree])
+        await waitUntil { model.confirmation != nil }
+        XCTAssertEqual(model.confirmation, "Restored 1 item", "a worktree and its branch are one thing")
+    }
+
+    func testRestoringAnEntryOnlyTouchesRecordsThatAreStillRemoved() async {
+        let (model, client) = makeModel([])
+        let batch = UUID()
+        let entry = HistoryBuilder.entries(from: [
+            undoRecord(.removeWorktree, branch: "feat/a", batch: batch, status: .restored),
+            undoRecord(.deleteBranch, branch: "feat/a", batch: batch),
+        ])[0]
+
+        model.restore(entry)
+        await waitUntil { client.restoredRecords.count == 1 }
+
+        XCTAssertEqual(client.restoredRecords.map(\.action), [.deleteBranch])
+    }
+
+    func testRestoringABatchCountsItemsNotRecords() async {
+        let (model, client) = makeModel([])
+        let batch = UUID()
+        client.restoreBatchOutcomes = [
+            .restored(undoRecord(.deleteBranch, branch: "feat/a", batch: batch)),
+            .restored(undoRecord(.removeWorktree, branch: "feat/a", batch: batch)),
+            .restored(undoRecord(.deleteBranch, branch: "feat/b", batch: batch)),
+        ]
+
+        model.restoreBatch(batch)
+        await waitUntil { model.confirmation != nil }
+
+        XCTAssertEqual(model.confirmation, "Restored 2 items")
+    }
+
+    func testCleaningHandsTheEngineTheSizeOfEachWorktreeItRemoves() async {
+        let (model, client) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
+        model.startScan()
+        await settle(model, sizes: 1)
+
+        model.beginCleanAllSafe()
+        model.runClean()
+        await waitUntil { model.clean?.phase == .finished }
+
+        XCTAssertEqual(client.lastSizeHints["worktree:/code/wt/feat/in-worktree"], 52_000_000)
+    }
+
     // MARK: Confirmations
 
     func testAConfirmationAppearsAndClearsItself() async {

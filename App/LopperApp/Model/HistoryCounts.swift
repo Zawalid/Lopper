@@ -15,7 +15,7 @@ enum HistoryCounts {
     }
 
     /// Same batch, same repository, same branch name. Records without a batch are never paired.
-    private static func key(_ record: UndoRecord) -> String? {
+    static func key(_ record: UndoRecord) -> String? {
         guard let batch = record.batchID, let branch = record.branch else { return nil }
         return "\(batch.uuidString)|\(record.repoPath)|\(branch)"
     }

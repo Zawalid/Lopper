@@ -9,7 +9,8 @@ protocol EngineClient: Sendable {
     /// `strictItemIDs` are worktree items that must be refused if work that exists only in the folder has
     /// appeared since they were reviewed.
     func clean(
-        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>
+        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>,
+        sizeHints: [String: Int64]
     ) -> AsyncStream<BatchEvent>
     func history() async -> [UndoRecord]
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
@@ -52,9 +53,11 @@ struct LiveEngineClient: EngineClient {
     }
 
     func clean(
-        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>
+        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>,
+        sizeHints: [String: Int64]
     ) -> AsyncStream<BatchEvent> {
-        BatchCleaner(cleaner: cleaner(settings)).run(items: items, control: control, strictItemIDs: strictItemIDs)
+        BatchCleaner(cleaner: cleaner(settings)).run(
+            items: items, control: control, strictItemIDs: strictItemIDs, sizeHints: sizeHints)
     }
 
     func history() async -> [UndoRecord] {
