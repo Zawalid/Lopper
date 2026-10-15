@@ -114,6 +114,22 @@ extension AppModel {
             visibleDiskProjects.flatMap(\.clearable), title: "Clear generated folders")
     }
 
+    var diskDuplicates: [DiskDuplicate] {
+        DiskInsights.duplicates(artifacts: artifacts)
+    }
+
+    func beginClear(duplicate: DiskDuplicate) {
+        beginDiskClear(
+            duplicate.clearableInWorktrees,
+            title: "Clear \(duplicate.name) in \(Plural.count(duplicate.clearableInWorktrees.count, "worktree"))")
+    }
+
+    func setDiskReinstall(_ enabled: Bool) {
+        guard var state = diskClear, state.phase == .review else { return }
+        state.reinstall = enabled
+        diskClear = state
+    }
+
     func beginClearDeveloperCaches() {
         beginDiskClear(developerCaches, title: "Clear developer caches")
     }
@@ -196,6 +212,29 @@ extension AppModel {
                 }
                 current.phase = .running(done: index + 1, total: items.count)
                 diskClear = current
+            }
+            if diskClear?.reinstall == true, diskClear?.isStopping != true {
+                let targets = (diskClear?.reinstallTargets ?? []).filter { target in
+                    // Only projects whose folder was actually cleared.
+                    items.contains { $0.projectDirectory == target.directory } && (diskClear?.removed ?? 0) > 0
+                }
+                let base = items.count
+                for (index, target) in targets.enumerated() {
+                    guard diskClear?.isStopping != true else { break }
+                    diskClear?.phase = .running(done: base + index, total: base + targets.count)
+                    let outcome = await client.reinstall(in: target.directory, how: target.how)
+                    switch outcome {
+                    case .done:
+                        diskClear?.reinstalled += 1
+                    case .unsupported:
+                        break
+                    case .failed(let message):
+                        diskClear?.outcomes.append(ItemOutcome(
+                            id: "reinstall:\(target.directory.path)",
+                            title: "\(target.how) in \(target.directory.lastPathComponent)",
+                            status: .failed, message: message))
+                    }
+                }
             }
             guard var finished = diskClear else { return }
             finished.phase = .finished

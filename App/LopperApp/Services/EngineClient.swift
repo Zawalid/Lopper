@@ -11,6 +11,8 @@ protocol EngineClient: Sendable {
     func artifacts(in root: URL, repoRoot: URL, location: ArtifactLocation, names: Set<String>) async -> [DiskArtifact]
     /// Tool caches in the home folder (Xcode build data, npm cache, ...), as clearable folders.
     func developerCaches() async -> [DiskArtifact]
+    /// Runs the lockfile install that brings a cleared folder back.
+    func reinstall(in directory: URL, how: String) async -> Reinstaller.Outcome
     /// Free and total space of the disk the home folder is on.
     func volumeSpace() -> VolumeSpace?
     /// Moves one generated folder to the Trash after re-checking it, recording an undo entry.
@@ -71,6 +73,10 @@ struct LiveEngineClient: EngineClient {
 
     func developerCaches() async -> [DiskArtifact] {
         await DeveloperCaches.scan()
+    }
+
+    func reinstall(in directory: URL, how: String) async -> Reinstaller.Outcome {
+        await Reinstaller().reinstall(in: directory, how: how)
     }
 
     func volumeSpace() -> VolumeSpace? {

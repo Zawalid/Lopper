@@ -139,4 +139,46 @@ final class DiskInsightsTests: XCTestCase {
         XCTAssertEqual(
             DiskInsights.filter(projects, untouchedOnly: false, query: "  ", now: now, staleDays: 30).count, 2)
     }
+
+    func testDuplicatesNeedThreeCopiesAndTwoClearableOnesInWorktrees() {
+        let items = [
+            artifact("node_modules", bytes: 500, in: "/code/api"),
+            artifact("node_modules", bytes: 400, in: "/code/wt/a", location: .worktree(branch: "a")),
+            artifact("node_modules", bytes: 300, in: "/code/wt/b", location: .worktree(branch: "b")),
+            artifact(".next", bytes: 90, in: "/code/api", kind: .frameworkCache),
+            artifact(".next", bytes: 80, in: "/code/wt/a", location: .worktree(branch: "a"), kind: .frameworkCache),
+        ]
+
+        let found = DiskInsights.duplicates(artifacts: items)
+
+        XCTAssertEqual(found.count, 1)
+        XCTAssertEqual(found[0].name, "node_modules")
+        XCTAssertEqual(found[0].copies, 3)
+        XCTAssertEqual(found[0].totalBytes, 1_200)
+        XCTAssertEqual(found[0].freeableBytes, 700, "the main folder's copy stays")
+        XCTAssertEqual(found[0].clearableInWorktrees.map(\.bytes), [400, 300])
+    }
+
+    func testBlockedWorktreeCopiesDoNotCountAsFreeable() {
+        let items = [
+            artifact("node_modules", bytes: 500, in: "/code/api"),
+            artifact("node_modules", bytes: 400, in: "/code/wt/a", location: .worktree(branch: "a"),
+                     removal: .blocked(reason: "no lockfile")),
+            artifact("node_modules", bytes: 300, in: "/code/wt/b", location: .worktree(branch: "b")),
+        ]
+
+        XCTAssertTrue(DiskInsights.duplicates(artifacts: items).isEmpty)
+    }
+
+    func testReinstallTargetsAreOnePerProjectAndOnlyForKnownCommands() {
+        let items = [
+            artifact("node_modules", bytes: 5, in: "/code/api"),
+            artifact("node_modules", bytes: 5, in: "/code/web", removal: .offered(regenerate: "pnpm install")),
+            artifact(".next", bytes: 5, in: "/code/api", kind: .frameworkCache,
+                     removal: .offered(regenerate: "your next build or dev run")),
+        ]
+        let state = DiskClearState(title: "t", artifacts: items)
+
+        XCTAssertEqual(state.reinstallTargets.map(\.how), ["npm ci", "pnpm install"])
+    }
 }

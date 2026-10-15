@@ -73,6 +73,11 @@ private struct DiskReady: View {
                     .padding(.horizontal, Theme.Spacing.lg)
                     .padding(.bottom, Theme.Spacing.sm)
             }
+            if let top = model.diskDuplicates.first, !model.diskUntouchedOnly {
+                DuplicateInsight(duplicate: top)
+                    .padding(.horizontal, Theme.Spacing.lg)
+                    .padding(.bottom, Theme.Spacing.sm)
+            }
             Controls()
             Divider()
             if projects.isEmpty {
@@ -146,6 +151,23 @@ private struct VolumeBar: View {
             .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// The cheapest saving on the page, said in one line: copies that worktrees hold of what the main folder has.
+private struct DuplicateInsight: View {
+    let duplicate: DiskDuplicate
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Banner(
+            symbol: "square.on.square",
+            message: "\(duplicate.repoName) holds \(duplicate.copies) copies of \(duplicate.name), "
+                + "\(SizeFormat.string(duplicate.totalBytes)) together. The "
+                + "\(duplicate.clearableInWorktrees.count) in worktrees can go: "
+                + "\(SizeFormat.string(duplicate.freeableBytes)).",
+            actionTitle: "Clear the \(duplicate.clearableInWorktrees.count)",
+            action: { model.beginClear(duplicate: duplicate) })
     }
 }
 

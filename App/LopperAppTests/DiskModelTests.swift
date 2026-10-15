@@ -215,4 +215,45 @@ final class DiskModelTests: XCTestCase {
         XCTAssertEqual(model.diskClear?.artifacts.count, 2)
         XCTAssertEqual(model.diskClear?.title, "Clear developer caches")
     }
+
+    func testReinstallRunsOncePerProjectAfterTheFoldersAreCleared() async {
+        let (model, client) = makeModel()
+        model.startScan()
+        await settle(model)
+        model.beginClear(project: mainPath)
+        model.setDiskReinstall(true)
+
+        model.runDiskClear()
+        await waitUntil { model.diskClear?.phase == .finished }
+
+        XCTAssertEqual(client.reinstalls, ["npm ci in /code/api"])
+        XCTAssertEqual(model.diskClear?.reinstalled, 1)
+    }
+
+    func testNothingIsReinstalledUnlessAskedFor() async {
+        let (model, client) = makeModel()
+        model.startScan()
+        await settle(model)
+        model.beginClear(project: mainPath)
+
+        model.runDiskClear()
+        await waitUntil { model.diskClear?.phase == .finished }
+
+        XCTAssertTrue(client.reinstalls.isEmpty)
+    }
+
+    func testAFailedReinstallIsReportedWithItsMessage() async {
+        let (model, client) = makeModel()
+        client.reinstallOutcome = .failed("lockfile out of date")
+        model.startScan()
+        await settle(model)
+        model.beginClear(project: mainPath)
+        model.setDiskReinstall(true)
+
+        model.runDiskClear()
+        await waitUntil { model.diskClear?.phase == .finished }
+
+        XCTAssertEqual(model.diskClear?.problemCount, 1)
+        XCTAssertEqual(model.diskClear?.outcomes.last?.message, "lockfile out of date")
+    }
 }

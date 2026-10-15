@@ -37,7 +37,7 @@ struct DiskReviewSheet: View {
     private func title(_ state: DiskClearState) -> String {
         switch state.phase {
         case .review: state.title
-        case .running: "Moving to the Trash…"
+        case .running: "Working…"
         case .finished: state.removed > 0 ? "Done" : "Nothing was cleared"
         }
     }
@@ -60,40 +60,79 @@ struct DiskReviewSheet: View {
     private func content(_ state: DiskClearState) -> some View {
         switch state.phase {
         case .review:
-            List {
-                ForEach(groups(state), id: \.name) { group in
-                    Section(group.name) {
-                        ForEach(group.items) { artifact in
-                            ReviewFolderRow(artifact: artifact, isIncluded: !state.excluded.contains(artifact.id))
+            VStack(spacing: 0) {
+                if !state.reinstallTargets.isEmpty {
+                    Toggle(isOn: Binding(
+                        get: { state.reinstall }, set: { model.setDiskReinstall($0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Reinstall afterwards")
+                            Text("Runs \(commands(state)) again in \(Plural.count(state.reinstallTargets.count, "project")), "
+                                + "from the lockfile.")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                    .toggleStyle(.checkbox)
+                    .padding(Theme.Spacing.md)
+                    Divider()
                 }
+                reviewList(state)
             }
         case .running(let done, let total):
             VStack(spacing: Theme.Spacing.md) {
                 ProgressView(value: Double(done), total: Double(max(total, 1))).frame(maxWidth: 320)
-                Text(state.outcomes.last.map { last in
-                    switch last.status {
-                    case .removed: "Moved \(last.title)"
-                    case .skipped: "Left \(last.title) alone"
-                    case .failed: "Couldn't move \(last.title)"
-                    }
-                } ?? "Starting…")
+                Text(runningLine(state))
                     .font(.callout).foregroundStyle(.secondary)
             }
         case .finished:
-            if state.problemCount == 0 {
-                EmptyState(
-                    symbol: "checkmark.circle", title: "All set",
-                    message: "Undo from the toast or History, or use Put Back in the Trash.")
-            } else {
-                List {
-                    Section("Not moved") {
-                        ForEach(state.outcomes.filter { $0.status != .removed }) { outcome in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(outcome.title)
-                                Text(outcome.message ?? "").font(.caption).foregroundStyle(.secondary)
-                            }
+            finishedContent(state)
+        }
+    }
+
+    private func commands(_ state: DiskClearState) -> String {
+        var seen: [String] = []
+        for target in state.reinstallTargets where !seen.contains(target.how) { seen.append(target.how) }
+        return seen.joined(separator: ", ")
+    }
+
+    private func runningLine(_ state: DiskClearState) -> String {
+        if let last = state.outcomes.last {
+            switch last.status {
+            case .removed: return "Moved \(last.title)"
+            case .skipped: return "Left \(last.title) alone"
+            case .failed: return "Couldn't move \(last.title)"
+            }
+        }
+        return "Starting…"
+    }
+
+    private func reviewList(_ state: DiskClearState) -> some View {
+        List {
+            ForEach(groups(state), id: \.name) { group in
+                Section(group.name) {
+                    ForEach(group.items) { artifact in
+                        ReviewFolderRow(artifact: artifact, isIncluded: !state.excluded.contains(artifact.id))
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func finishedContent(_ state: DiskClearState) -> some View {
+        if state.problemCount == 0 {
+            EmptyState(
+                symbol: "checkmark.circle", title: "All set",
+                message: state.reinstalled > 0
+                    ? "Reinstalled in \(Plural.count(state.reinstalled, "project")). Undo from the toast or History."
+                    : "Undo from the toast or History, or use Put Back in the Trash.")
+        } else {
+            List {
+                Section("Needs a look") {
+                    ForEach(state.outcomes.filter { $0.status != .removed }) { outcome in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(outcome.title)
+                            Text(outcome.message ?? "").font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }

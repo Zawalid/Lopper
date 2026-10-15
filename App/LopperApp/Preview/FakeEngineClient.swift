@@ -67,6 +67,14 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         measureLock.withLock { measurementLog }
     }
 
+    var reinstallOutcome: Reinstaller.Outcome = .done
+    private(set) var reinstalls: [String] = []
+
+    func reinstall(in directory: URL, how: String) async -> Reinstaller.Outcome {
+        measureLock.withLock { reinstalls.append("\(how) in \(directory.path)") }
+        return reinstallOutcome
+    }
+
     var caches: [DiskArtifact] = []
     var volume: VolumeSpace?
 

@@ -69,6 +69,20 @@ struct DiskKindGroup: Identifiable, Equatable {
     }
 }
 
+/// The same generated folder repeated across a repository's main folder and its worktrees: the cheapest space
+/// to give back, because the main copy stays.
+struct DiskDuplicate: Identifiable, Equatable {
+    let id: String
+    let repoName: String
+    let name: String
+    let copies: Int
+    let totalBytes: Int64
+    /// The copies inside worktrees that can be cleared.
+    let clearableInWorktrees: [DiskArtifact]
+
+    var freeableBytes: Int64 { clearableInWorktrees.reduce(0) { $0 + $1.bytes } }
+}
+
 struct DiskTotals: Equatable {
     var projects = 0
     var folders = 0
@@ -121,6 +135,24 @@ enum DiskInsights {
             .sorted { $0.bytes > $1.bytes }
     }
 
+    /// Folders with the same name repeated in at least three places of one repository, biggest saving first.
+    static func duplicates(artifacts: [DiskArtifact]) -> [DiskDuplicate] {
+        let repository = artifacts.filter { $0.location != .developerCache }
+        return Dictionary(grouping: repository) { "\($0.repoRoot.path)|\($0.name)" }
+            .compactMap { key, items -> DiskDuplicate? in
+                let clearable = items.filter { item in
+                    if case .worktree = item.location, item.removal.isOffered { return true }
+                    return false
+                }
+                guard items.count >= 3, clearable.count >= 2 else { return nil }
+                return DiskDuplicate(
+                    id: key, repoName: items[0].repoRoot.lastPathComponent, name: items[0].name,
+                    copies: items.count, totalBytes: items.reduce(0) { $0 + $1.bytes },
+                    clearableInWorktrees: clearable.sorted { $0.bytes > $1.bytes })
+            }
+            .sorted { $0.freeableBytes > $1.freeableBytes }
+    }
+
     static func totals(of projects: [DiskProject], now: Date, staleDays: Int) -> DiskTotals {
         var totals = DiskTotals()
         for project in projects {
@@ -167,8 +199,23 @@ struct DiskClearState: Equatable {
     var reclaimedBytes: Int64 = 0
     var batchID: UUID?
     var isStopping = false
+    /// Run the lockfile install again in each project once its folder is cleared.
+    var reinstall = false
+    var reinstalled = 0
 
     var included: [DiskArtifact] { artifacts.filter { !excluded.contains($0.id) } }
     var includedBytes: Int64 { included.reduce(0) { $0 + $1.bytes } }
     var problemCount: Int { outcomes.filter { $0.status != .removed }.count }
+
+    /// Folders in the list whose install command Lopper knows how to run again: one per project and command.
+    var reinstallTargets: [(directory: URL, how: String)] {
+        var seen = Set<String>()
+        var targets: [(directory: URL, how: String)] = []
+        for artifact in included {
+            guard case .offered(let how) = artifact.removal, Reinstaller.isSupported(how) else { continue }
+            let key = "\(artifact.projectDirectory.path)|\(how)"
+            if seen.insert(key).inserted { targets.append((artifact.projectDirectory, how)) }
+        }
+        return targets
+    }
 }
