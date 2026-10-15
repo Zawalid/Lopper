@@ -81,7 +81,7 @@ final class AppPreferences {
     /// The stored keys. `editorBundleID` and `showCountInMenuBar` keep the names earlier builds used.
     enum Key: String, CaseIterable {
         case appearance, showInDock, showCountInMenuBar, editorBundleID, terminalBundleID, lastRoute, inspectorVisible
-        case sidebarGrouping, sidebarSort, sidebarShowsDetails, sidebarShowsTidy
+        case sidebarGrouping, sidebarSort, sidebarShowsDetails, sidebarShowsTidy, snoozedItems
     }
 
     /// Things a preference does to the running application, injectable so tests do not change their host.
@@ -121,6 +121,7 @@ final class AppPreferences {
     private(set) var sidebarSort: SidebarSort
     private(set) var sidebarShowsDetails: Bool
     private(set) var sidebarShowsTidy: Bool
+    private(set) var snoozes: Snoozes
 
     /// The instance the running app uses: real defaults, real effects.
     static let standard = AppPreferences(
@@ -148,6 +149,7 @@ final class AppPreferences {
         sidebarSort = store.string(forKey: Key.sidebarSort.rawValue).flatMap(SidebarSort.init(rawValue:)) ?? .attention
         sidebarShowsDetails = store.bool(forKey: Key.sidebarShowsDetails.rawValue) ?? true
         sidebarShowsTidy = store.bool(forKey: Key.sidebarShowsTidy.rawValue) ?? true
+        snoozes = Snoozes(encoded: store.string(forKey: Key.snoozedItems.rawValue)).pruned(now: Date())
     }
 
     /// Applies the stored appearance and Dock presence; called once as the app starts.
@@ -216,6 +218,16 @@ final class AppPreferences {
         guard value != sidebarShowsTidy else { return }
         sidebarShowsTidy = value
         store.set(value, forKey: Key.sidebarShowsTidy.rawValue)
+    }
+
+    func snooze(_ id: String, until date: Date) {
+        snoozes = snoozes.snoozing(id, until: date).pruned(now: Date())
+        store.set(snoozes.encoded, forKey: Key.snoozedItems.rawValue)
+    }
+
+    func wake(_ id: String) {
+        snoozes = snoozes.waking(id)
+        store.set(snoozes.encoded, forKey: Key.snoozedItems.rawValue)
     }
 
     func resetSidebarOptions() {

@@ -442,6 +442,48 @@ final class AppModel {
         confirm("Added \(name) to this repository's throwaway names")
     }
 
+    // MARK: Triage and snooze
+
+    /// The rows being worked through: the open repository's list as the workbench shows it.
+    private var triageRows: [CleanupRow] {
+        guard case .repo(let id) = route else { return [] }
+        return visibleRows(forRepo: id)
+    }
+
+    var triagePosition: TriagePosition? {
+        guard let focusedRowID else { return nil }
+        return Triage.position(of: focusedRowID, in: triageRows.map(\.id))
+    }
+
+    func focusNextRow() {
+        if let next = triagePosition?.nextID { focusedRowID = next }
+    }
+
+    func focusPreviousRow() {
+        if let previous = triagePosition?.previousID { focusedRowID = previous }
+    }
+
+    func isSnoozed(_ row: CleanupRow, now: Date = Date()) -> Bool {
+        preferences.snoozes.isSnoozed(row.id, now: now)
+    }
+
+    func snoozedUntil(_ row: CleanupRow) -> Date? { preferences.snoozes.until(for: row.id) }
+
+    func snooze(_ row: CleanupRow, for duration: SnoozeDuration, now: Date = Date()) {
+        preferences.snooze(row.id, until: duration.date(from: now))
+        confirm("Snoozed for \(duration.phrase)")
+    }
+
+    func wake(_ row: CleanupRow) {
+        preferences.wake(row.id)
+        confirm("Back on the list")
+    }
+
+    /// Rows that should still ask for attention: everything except what was put aside.
+    func rowsToConsider(now: Date = Date()) -> [CleanupRow] {
+        allRows.filter { !preferences.snoozes.isSnoozed($0.id, now: now) }
+    }
+
     // MARK: Keeping a branch
 
     /// Whether this exact branch name is in the repository's own protected list. Matching a global pattern such

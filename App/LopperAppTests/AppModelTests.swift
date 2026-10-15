@@ -281,6 +281,58 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(model.notice)
     }
 
+    // MARK: Triage and snooze
+
+    func testTheFocusedRowKnowsItsPlaceInTheRepositoryQueue() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        model.route = .repo(Fixtures.sample.repo.id)
+        let visible = model.visibleRows(forRepo: Fixtures.sample.repo.id)
+        XCTAssertGreaterThan(visible.count, 1)
+
+        model.focusedRowID = visible[0].id
+        XCTAssertEqual(model.triagePosition?.index, 1)
+        XCTAssertEqual(model.triagePosition?.total, visible.count)
+        XCTAssertNil(model.triagePosition?.previousID)
+
+        model.focusNextRow()
+        XCTAssertEqual(model.focusedRowID, visible[1].id)
+        model.focusPreviousRow()
+        XCTAssertEqual(model.focusedRowID, visible[0].id)
+    }
+
+    func testStepPastTheLastRowStaysPut() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        model.route = .repo(Fixtures.sample.repo.id)
+        let last = model.visibleRows(forRepo: Fixtures.sample.repo.id).last!
+        model.focusedRowID = last.id
+
+        model.focusNextRow()
+
+        XCTAssertEqual(model.focusedRowID, last.id)
+    }
+
+    func testSnoozingAnItemHidesItFromWorthALookUntilItWakes() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let review = model.allRows.first { $0.verdict == .review }!
+        let now = Date()
+
+        model.snooze(review, for: .oneWeek, now: now)
+
+        XCTAssertTrue(model.isSnoozed(review, now: now))
+        XCTAssertFalse(model.rowsToConsider(now: now).contains { $0.id == review.id })
+        XCTAssertEqual(model.confirmation, "Snoozed for a week")
+
+        model.wake(review)
+        XCTAssertFalse(model.isSnoozed(review, now: now))
+        XCTAssertTrue(model.rowsToConsider(now: now).contains { $0.id == review.id })
+    }
+
     // MARK: Keeping a branch
 
     func testKeepingABranchAddsItToThatRepositorysProtectedListAlongsideTheGlobalOnes() async {

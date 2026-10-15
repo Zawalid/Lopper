@@ -26,7 +26,7 @@ final class AppPreferencesTests: XCTestCase {
             AppPreferences.Key.allCases.map(\.rawValue).sorted(),
             ["appearance", "editorBundleID", "inspectorVisible", "lastRoute", "showCountInMenuBar",
              "showInDock", "sidebarGrouping", "sidebarShowsDetails", "sidebarShowsTidy", "sidebarSort",
-             "terminalBundleID"])
+             "snoozedItems", "terminalBundleID"])
     }
 
     func testSidebarGroupingDefaultsToAttentionAndIsRemembered() {
@@ -68,6 +68,29 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.sidebarSort, .attention)
         XCTAssertTrue(prefs.sidebarShowsDetails)
         XCTAssertTrue(prefs.sidebarShowsTidy)
+    }
+
+    func testSnoozesAreRememberedAndExpiredOnesAreDroppedAtLoad() {
+        let store = MemoryPreferenceStore()
+        let now = Date()
+        let (first, _) = make(store: store)
+        first.snooze("keep", until: now.addingTimeInterval(86_400))
+        first.snooze("gone", until: now.addingTimeInterval(-60))
+
+        let (second, _) = make(store: store)
+
+        XCTAssertTrue(second.snoozes.isSnoozed("keep", now: now))
+        XCTAssertNil(second.snoozes.until(for: "gone"))
+    }
+
+    func testWakingASnoozedItemIsRemembered() {
+        let store = MemoryPreferenceStore()
+        let (first, _) = make(store: store)
+        first.snooze("item", until: Date().addingTimeInterval(86_400))
+        first.wake("item")
+
+        let (second, _) = make(store: store)
+        XCTAssertNil(second.snoozes.until(for: "item"))
     }
 
     func testAnUnknownStoredGroupingFallsBackToAttention() {

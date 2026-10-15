@@ -261,7 +261,7 @@ struct OverviewContent: View {
 
     @ViewBuilder
     private func worthALook(_ totals: Totals) -> some View {
-        let highlights = OverviewInsights.reviewHighlights(rows: model.allRows)
+        let highlights = OverviewInsights.reviewHighlights(rows: model.rowsToConsider())
         if !highlights.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 HStack {
