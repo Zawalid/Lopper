@@ -238,4 +238,27 @@ final class AgentsModelTests: XCTestCase {
         let row = model.agentRows.first { $0.title == "claude/just-now" }
         XCTAssertEqual(row?.assessment.state, .finished)
     }
+
+    func testAKeptWorktreeLeavesEveryBulkSetAndIsRemembered() {
+        let model = measuredModel()
+        let target = model.reclaimableAgentRows[0]
+        XCTAssertEqual(model.reclaimableAgentRows.count, 2)
+
+        model.setWorktreeKept(target.row, true)
+
+        XCTAssertEqual(model.reclaimableAgentRows.count, 1)
+        XCTAssertFalse(model.reclaimableAgentRows.contains { $0.id == target.id })
+        XCTAssertTrue(model.agentRows.first { $0.id == target.id }?.assessment.isKept == true)
+        XCTAssertEqual(model.agentsSummary.reclaimable, 1)
+
+        model.setWorktreeKept(target.row, false)
+        XCTAssertEqual(model.reclaimableAgentRows.count, 2)
+    }
+
+    func testToolTotalsAddUpCountAndSizePerTool() {
+        let totals = AgentToolTotal.totals(of: measuredModel().agentRows)
+
+        XCTAssertEqual(totals.reduce(0) { $0 + $1.count }, measuredModel().agentRows.count)
+        XCTAssertEqual(totals.map(\.bytes), totals.map(\.bytes).sorted(by: >))
+    }
 }

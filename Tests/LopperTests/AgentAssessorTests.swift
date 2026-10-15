@@ -175,6 +175,31 @@ final class AgentAssessorTests: XCTestCase {
         XCTAssertFalse(result.isReclaimable)
     }
 
+    func testAWorktreeThePersonKeptIsNeverOfferedHoweverFinishedItIs() throws {
+        let kept = entry(path: "/code/api/.claude/worktrees/keep-me", lastCommit: ago(days: 3))
+        var policy = AgentPolicy()
+        policy.keptPaths = ["/code/api/.claude/worktrees/keep-me"]
+
+        let result = try assess(kept, usage(ago(days: 3)), policy: policy)
+
+        XCTAssertEqual(result.state, .protected)
+        XCTAssertTrue(result.isKept)
+        XCTAssertFalse(result.isReclaimable)
+        XCTAssertFalse(result.isReviewReclaimable)
+        XCTAssertFalse(result.canReview)
+        XCTAssertEqual(result.removal, .notOffered)
+    }
+
+    func testOtherWorktreesAreUnaffectedByTheKeptList() throws {
+        var policy = AgentPolicy()
+        policy.keptPaths = ["/somewhere/else"]
+
+        let result = try assess(entry(lastCommit: ago(days: 3)), usage(ago(days: 3)), policy: policy)
+
+        XCTAssertFalse(result.isKept)
+        XCTAssertEqual(result.state, .finished)
+    }
+
     func testPolicyReadsSettings() {
         var settings = Settings()
         settings.agentFinishedGraceMinutes = 30

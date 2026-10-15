@@ -26,7 +26,7 @@ final class AppPreferencesTests: XCTestCase {
             AppPreferences.Key.allCases.map(\.rawValue).sorted(),
             ["appearance", "editorBundleID", "inspectorVisible", "lastRoute", "showCountInMenuBar",
              "showInDock", "sidebarGrouping", "sidebarShowsDetails", "sidebarShowsTidy", "sidebarSort",
-             "snoozedItems", "terminalBundleID"])
+             "snoozedItems", "keptWorktrees", "terminalBundleID"].sorted())
     }
 
     func testSidebarGroupingDefaultsToAttentionAndIsRemembered() {
@@ -68,6 +68,18 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.sidebarSort, .attention)
         XCTAssertTrue(prefs.sidebarShowsDetails)
         XCTAssertTrue(prefs.sidebarShowsTidy)
+    }
+
+    func testKeptWorktreesAreRemembered() {
+        let store = MemoryPreferenceStore()
+        let (first, _) = make(store: store)
+        first.setWorktreeKept("/code/api/.claude/worktrees/a", true)
+        first.setWorktreeKept("/code/api/.claude/worktrees/b", true)
+        first.setWorktreeKept("/code/api/.claude/worktrees/b", false)
+
+        let (second, _) = make(store: store)
+
+        XCTAssertEqual(second.keptWorktrees, ["/code/api/.claude/worktrees/a"])
     }
 
     func testSnoozesAreRememberedAndExpiredOnesAreDroppedAtLoad() {

@@ -705,7 +705,16 @@ final class AppModel {
 
     // MARK: Agents
 
-    var agentPolicy: AgentPolicy { AgentPolicy(settings: settings) }
+    var agentPolicy: AgentPolicy {
+        var policy = AgentPolicy(settings: settings)
+        policy.keptPaths = preferences.keptWorktrees
+        return policy
+    }
+
+    func setWorktreeKept(_ row: CleanupRow, _ kept: Bool) {
+        guard let path = row.path?.path else { return }
+        preferences.setWorktreeKept(path, kept)
+    }
 
     /// Every detected agent worktree, loudest first, then oldest activity first.
     var agentRows: [AgentRow] {

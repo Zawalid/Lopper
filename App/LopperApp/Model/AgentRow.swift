@@ -85,6 +85,23 @@ struct AgentsSummary: Equatable {
     var measuring = 0
 }
 
+/// What one tool's worktrees add up to, for the totals row on the Agents page.
+struct AgentToolTotal: Identifiable, Equatable {
+    let tool: AgentTool
+    let count: Int
+    let bytes: Int64
+
+    var id: AgentTool { tool }
+
+    static func totals(of rows: [AgentRow]) -> [AgentToolTotal] {
+        Dictionary(grouping: rows.map { ($0.assessment.detection.tool, $0) }, by: \.0)
+            .map { tool, pairs in
+                AgentToolTotal(tool: tool, count: pairs.count, bytes: pairs.reduce(0) { $0 + ($1.1.row.size ?? 0) })
+            }
+            .sorted { ($0.bytes, $0.count) > ($1.bytes, $1.count) }
+    }
+}
+
 enum AgentsPageState: Equatable {
     case needsFolders
     case scanning

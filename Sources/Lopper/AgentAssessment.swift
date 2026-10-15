@@ -17,6 +17,8 @@ public struct AgentPolicy: Sendable, Equatable {
     public var finishedGrace: TimeInterval
     /// Unmerged but fully committed work idle for this long is Abandoned.
     public var abandonedAfter: TimeInterval
+    /// Worktree folders the person asked Lopper to keep. Never offered for removal, whatever their state.
+    public var keptPaths: Set<String> = []
 
     public init(finishedGrace: TimeInterval = 7_200, abandonedAfter: TimeInterval = 30 * 86_400) {
         self.finishedGrace = finishedGrace
@@ -98,6 +100,8 @@ public struct AgentAssessment: Sendable, Equatable {
     /// False while the folder has not been walked yet. Nothing is bulk-eligible until it is measured.
     public let isActivityMeasured: Bool
     public let removal: AgentRemoval
+    /// The person asked Lopper to keep this worktree.
+    public let isKept: Bool
 
     /// Part of "Reclaim finished".
     public var isReclaimable: Bool {
@@ -168,8 +172,9 @@ public enum AgentAssessor {
         let idle = activity.map { now.timeIntervalSince($0) }
         let measured = usage != nil || worktree.isPrunable
 
+        let isKept = policy.keptPaths.contains(worktree.path.path)
         let state: AgentState
-        if worktree.verdict.kind == .protected {
+        if worktree.verdict.kind == .protected || isKept {
             state = .protected
         } else if let idle, idle >= policy.finishedGrace {
             if work.existsOnlyInFolder || work.isComparisonUnknown {
@@ -186,7 +191,7 @@ public enum AgentAssessor {
         return AgentAssessment(
             detection: detection, state: state, uniqueWork: work, lastActivity: activity,
             createdAt: worktree.createdAt, isActivityMeasured: measured,
-            removal: removal(for: state, worktree: worktree, work: work))
+            removal: removal(for: state, worktree: worktree, work: work), isKept: isKept)
     }
 
     private static func removal(for state: AgentState, worktree: WorktreeEntry, work: UniqueWork) -> AgentRemoval {

@@ -83,7 +83,7 @@ final class AppPreferences {
     /// The stored keys. `editorBundleID` and `showCountInMenuBar` keep the names earlier builds used.
     enum Key: String, CaseIterable {
         case appearance, showInDock, showCountInMenuBar, editorBundleID, terminalBundleID, lastRoute, inspectorVisible
-        case sidebarGrouping, sidebarSort, sidebarShowsDetails, sidebarShowsTidy, snoozedItems
+        case sidebarGrouping, sidebarSort, sidebarShowsDetails, sidebarShowsTidy, snoozedItems, keptWorktrees
     }
 
     /// Things a preference does to the running application, injectable so tests do not change their host.
@@ -124,6 +124,8 @@ final class AppPreferences {
     private(set) var sidebarShowsDetails: Bool
     private(set) var sidebarShowsTidy: Bool
     private(set) var snoozes: Snoozes
+    /// Agent worktree folders the person asked Lopper to keep.
+    private(set) var keptWorktrees: Set<String>
 
     /// The instance the running app uses: real defaults, real effects.
     static let standard = AppPreferences(
@@ -152,6 +154,9 @@ final class AppPreferences {
         sidebarShowsDetails = store.bool(forKey: Key.sidebarShowsDetails.rawValue) ?? true
         sidebarShowsTidy = store.bool(forKey: Key.sidebarShowsTidy.rawValue) ?? true
         snoozes = Snoozes(encoded: store.string(forKey: Key.snoozedItems.rawValue)).pruned(now: Date())
+        keptWorktrees = Set(
+            store.string(forKey: Key.keptWorktrees.rawValue)
+                .flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? [])
     }
 
     /// Applies the stored appearance and Dock presence; called once as the app starts.
@@ -230,6 +235,16 @@ final class AppPreferences {
     func wake(_ id: String) {
         snoozes = snoozes.waking(id)
         store.set(snoozes.encoded, forKey: Key.snoozedItems.rawValue)
+    }
+
+    func setWorktreeKept(_ path: String, _ kept: Bool) {
+        var updated = keptWorktrees
+        if kept { updated.insert(path) } else { updated.remove(path) }
+        guard updated != keptWorktrees else { return }
+        keptWorktrees = updated
+        if let data = try? JSONEncoder().encode(updated.sorted()), let text = String(data: data, encoding: .utf8) {
+            store.set(text, forKey: Key.keptWorktrees.rawValue)
+        }
     }
 
     func resetSidebarOptions() {

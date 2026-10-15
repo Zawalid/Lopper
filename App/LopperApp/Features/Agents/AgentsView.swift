@@ -81,7 +81,9 @@ struct AgentsContent: View {
                 .width(28)
                 TableColumn("Worktree", value: \.title) { item in WorktreeCell(item: item) }
                     .width(min: 100)
-                TableColumn("State", value: \.stateSort) { item in StateChip(state: item.assessment.state) }
+                TableColumn("State", value: \.stateSort) { item in
+                    StateChip(state: item.assessment.state, isKept: item.assessment.isKept)
+                }
                     .width(min: 90, ideal: 104)
                 TableColumn("Only here") { item in OnlyHereCell(work: item.assessment.uniqueWork) }
                     .width(min: 84, ideal: 150)
@@ -101,6 +103,12 @@ struct AgentsContent: View {
                     if item.assessment.canReview {
                         Divider()
                         Button("Review and remove…") { model.beginReview(row: item.row) }
+                    }
+                    Divider()
+                    if item.assessment.isKept {
+                        Button("Stop keeping this worktree") { model.setWorktreeKept(item.row, false) }
+                    } else if item.row.path != nil {
+                        Button("Keep this worktree") { model.setWorktreeKept(item.row, true) }
                     }
                     if let path = item.row.path, !model.clearableArtifacts(inCheckout: path.path).isEmpty {
                         Divider()
@@ -161,6 +169,23 @@ private struct HeaderStrip: View {
                     }
                 }
             }
+            let tools = AgentToolTotal.totals(of: model.agentRows)
+            if !tools.isEmpty {
+                HStack(spacing: Theme.Spacing.md) {
+                    ForEach(tools) { total in
+                        HStack(spacing: 5) {
+                            AgentToolIcon(tool: total.tool, size: 14)
+                            Text("\(total.tool.label) \(total.count)")
+                            if total.bytes > 0 {
+                                Text(SizeFormat.string(total.bytes)).foregroundStyle(.tertiary)
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
             if model.failedRepositoryCount > 0 {
                 Banner(
                     symbol: "exclamationmark.triangle",
@@ -211,6 +236,7 @@ private struct AgentFilterBar: View {
 
 struct StateChip: View {
     let state: AgentState
+    var isKept = false
 
     private var tint: Color {
         switch state {
@@ -221,14 +247,14 @@ struct StateChip: View {
     }
 
     var body: some View {
-        Label(state.label, systemImage: state.symbol)
+        Label(isKept ? "Kept" : state.label, systemImage: isKept ? "pin.fill" : state.symbol)
             .font(.caption.weight(state == .unmerged ? .bold : .medium))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .foregroundStyle(tint)
             .background(tint.opacity(0.15), in: Capsule())
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("State: \(state.label)")
+            .accessibilityLabel("State: \(isKept ? "Kept by you" : state.label)")
     }
 }
 
@@ -245,7 +271,9 @@ private struct AgentCheckCell: View {
         } else {
             Image(systemName: "lock")
                 .foregroundStyle(.tertiary)
-                .help(item.assessment.sheetNote.isEmpty ? item.assessment.state.label : item.assessment.sheetNote)
+                .help(item.assessment.isKept
+                    ? "You asked Lopper to keep this worktree."
+                    : item.assessment.sheetNote.isEmpty ? item.assessment.state.label : item.assessment.sheetNote)
                 .accessibilityLabel("Not part of Reclaim finished")
         }
     }
