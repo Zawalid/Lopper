@@ -2,7 +2,7 @@ import Foundation
 
 /// Reads merged pull requests through the GitHub CLI (`gh`). One call per repository.
 public struct GhCliProvider: PRProvider {
-    private let runner: CommandRunner
+    let runner: CommandRunner
 
     private static let candidatePaths = [
         "/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh",
