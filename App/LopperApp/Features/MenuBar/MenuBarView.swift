@@ -1,0 +1,75 @@
+import SwiftUI
+import AppKit
+
+struct MenuBarLabel: View {
+    @Environment(AppModel.self) private var model
+    @AppStorage("showCountInMenuBar") private var showCount = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "scissors")
+            if showCount, model.totals.safe > 0 {
+                Text("\(model.totals.safe)").monospacedDigit()
+            }
+        }
+    }
+}
+
+struct MenuBarView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        let totals = model.totals
+        VStack(spacing: Theme.Spacing.md) {
+            if model.isScanning && model.snapshots.isEmpty {
+                ProgressView().controlSize(.small)
+                Text("Scanning…").foregroundStyle(.secondary)
+            } else if totals.safe == 0 {
+                Image(systemName: "checkmark.seal").font(.title).foregroundStyle(.secondary)
+                Text("All tidy").font(.headline)
+            } else {
+                Text("Ready to reclaim").font(.caption).foregroundStyle(.secondary)
+                Text(SizeFormat.string(totals.reclaimableBytes))
+                    .font(.system(size: 34, weight: .semibold))
+                    .monospacedDigit()
+                Text("\(Plural.count(totals.safeBranches, "branch", "branches")) and \(Plural.count(totals.safeWorktrees, "worktree")) are safe to remove")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                Button("Review and clean") {
+                    openMain()
+                    model.beginCleanAllSafe()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            }
+            Divider()
+            HStack {
+                Text(lastScanText).font(.caption).foregroundStyle(.tertiary)
+                Spacer()
+                Button { model.startScan() } label: { Image(systemName: "arrow.clockwise") }
+                    .buttonStyle(.plain)
+                    .help("Rescan")
+                    .accessibilityLabel("Rescan")
+                Button("Open Lopper") { openMain() }.buttonStyle(.link)
+            }
+            Button("Quit Lopper") { NSApp.terminate(nil) }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .font(.caption)
+        }
+        .padding(Theme.Spacing.lg)
+        .frame(width: 300)
+    }
+
+    private var lastScanText: String {
+        guard let date = model.lastScan else { return model.isScanning ? "Scanning…" : "Not scanned yet" }
+        return "Scanned " + date.formatted(.relative(presentation: .named))
+    }
+
+    private func openMain() {
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
+    }
+}
