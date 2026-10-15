@@ -97,6 +97,43 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.toast?.removed, 4)
     }
 
+    func testAWorktreeAndItsBranchCountAsOneItemRemoved() async {
+        let (model, client) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
+        client.emitsBranchFollowUps = true
+        model.startScan()
+        await settle(model, sizes: 1)
+        model.beginCleanAllSafe()
+        let selected = model.clean?.includedRows.count ?? 0
+        model.runClean()
+        await waitUntil { model.clean?.phase == .finished }
+
+        XCTAssertGreaterThan(client.cleanedItems.count, 0)
+        XCTAssertEqual(model.clean?.removedCount, selected, "what was selected is what was removed, not the git steps")
+        XCTAssertEqual(model.toast?.removed, selected)
+        XCTAssertEqual(model.clean?.problemCount, 0)
+    }
+
+    func testAFailedFollowUpBranchDeletionIsReportedAsNotRemovedButTheRowStillCounts() async {
+        let (model, client) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
+        client.emitsBranchFollowUps = true
+        let base = client.cleanOutcome
+        client.cleanOutcome = { item in
+            if case .branch(_, let name, _) = item, name == "feat/in-worktree" {
+                return .failed(message: "branch is checked out elsewhere")
+            }
+            return base(item)
+        }
+        model.startScan()
+        await settle(model, sizes: 1)
+        model.beginCleanAllSafe()
+        let selected = model.clean?.includedRows.count ?? 0
+        model.runClean()
+        await waitUntil { model.clean?.phase == .finished }
+
+        XCTAssertEqual(model.clean?.removedCount, selected)
+        XCTAssertEqual(model.clean?.problemCount, 1)
+    }
+
     func testExcludedRowsAreNotCleaned() async {
         let (model, client) = makeModel([Fixtures.sample])
         model.startScan()
@@ -395,6 +432,39 @@ final class AppModelTests: XCTestCase {
 
         XCTAssertEqual(model.remoteURL(for: row), Fixtures.sample.repo.remoteURL)
         XCTAssertNotNil(model.remoteURL(for: row))
+    }
+
+    // MARK: GitHub CLI note
+
+    private func snapshot(remote: String?, prDetection: Bool) -> RepoSnapshot {
+        RepoSnapshot(
+            repo: Repo(root: URL(fileURLWithPath: "/code/r"), name: "r", defaultBranch: "main", remoteURL: remote),
+            branches: [], worktrees: [], prDetectionAvailable: prDetection, scannedAt: Date())
+    }
+
+    func testTheGitHubCliNoteAppearsOnlyForRepositoriesThatLiveOnGitHub() async {
+        let github = makeModel([snapshot(remote: "git@github.com:acme/r.git", prDetection: false)]).0
+        github.startScan()
+        await settle(github)
+        XCTAssertTrue(github.prDetectionNote)
+
+        let local = makeModel([snapshot(remote: nil, prDetection: false)]).0
+        local.startScan()
+        await settle(local)
+        XCTAssertFalse(local.prDetectionNote, "a repository with no remote has no pull requests to find")
+
+        let gitlab = makeModel([snapshot(remote: "git@gitlab.com:acme/r.git", prDetection: false)]).0
+        gitlab.startScan()
+        await settle(gitlab)
+        XCTAssertFalse(gitlab.prDetectionNote, "the GitHub CLI cannot help with another host")
+    }
+
+    func testTheNoteStaysAwayWhenPullRequestDetectionWorks() async {
+        let working = makeModel([snapshot(remote: "git@github.com:acme/r.git", prDetection: true)]).0
+        working.startScan()
+        await settle(working)
+
+        XCTAssertFalse(working.prDetectionNote)
     }
 
     // MARK: Item details

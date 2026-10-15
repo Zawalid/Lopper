@@ -69,6 +69,8 @@ struct CleanState: Equatable {
     var excluded: Set<String> = []
     var phase: Phase = .review
     var outcomes: [ItemOutcome] = []
+    /// Selected rows that were removed. Not the git steps: a worktree and its branch are two steps and one row.
+    var removedRows = 0
     var reclaimedBytes: Int64 = 0
     var batchID: UUID?
 
@@ -77,7 +79,7 @@ struct CleanState: Equatable {
 
     var includedRows: [CleanupRow] { rows.filter { !excluded.contains($0.id) } }
     var includedBytes: Int64 { includedRows.reduce(0) { $0 + ($1.size ?? 0) } }
-    var removedCount: Int { outcomes.filter { $0.status == .removed }.count }
+    var removedCount: Int { removedRows }
     var problemCount: Int { outcomes.filter { $0.status != .removed }.count }
 }
 
@@ -320,8 +322,12 @@ final class AppModel {
             : Plural.count(totals.safe, "item")
     }
 
+    /// Worth telling someone only when a repository could have pull requests (it lives on GitHub) and the
+    /// lookup failed. A repository with no remote, or one on another host, has nothing for `gh` to find.
     var prDetectionNote: Bool {
-        !snapshots.isEmpty && snapshots.contains { !$0.prDetectionAvailable }
+        snapshots.contains { snapshot in
+            !snapshot.prDetectionAvailable && RemoteLinks.repository(remoteURL: snapshot.repo.remoteURL) != nil
+        }
     }
 
     // MARK: Settings
@@ -852,7 +858,10 @@ final class AppModel {
                     let row = rowsByItemID[item.id]
                     let title = row?.title ?? Self.title(of: item)
                     current.outcomes.append(Self.outcome(id: item.id, title: title, outcome))
-                    if case .removed = outcome { current.reclaimedBytes += row?.size ?? 0 }
+                    if case .removed = outcome, row != nil {
+                        current.reclaimedBytes += row?.size ?? 0
+                        current.removedRows += 1
+                    }
                     if case .running(_, let total) = current.phase {
                         current.phase = .running(done: current.outcomes.count, total: total)
                     }
@@ -860,8 +869,10 @@ final class AppModel {
                     current.phase = .finished
                     current.batchID = summary.batchID
                     if summary.removed > 0 {
+                        // The toast counts what was selected, so it matches the sheet and History.
                         toast = UndoToast(
-                            id: summary.batchID, removed: summary.removed, reclaimed: current.reclaimedBytes)
+                            id: summary.batchID, removed: max(current.removedRows, 1),
+                            reclaimed: current.reclaimedBytes)
                     }
                 }
                 clean = current

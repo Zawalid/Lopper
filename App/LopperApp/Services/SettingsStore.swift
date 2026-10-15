@@ -14,8 +14,7 @@ final class SettingsStore: @unchecked Sendable {
     private var task: Task<Void, Never>?
 
     static var standard: SettingsStore {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return SettingsStore(url: base.appendingPathComponent("Lopper/settings.json"))
+        SettingsStore(url: LopperSupport.directory().appendingPathComponent("settings.json"))
     }
 
     init(

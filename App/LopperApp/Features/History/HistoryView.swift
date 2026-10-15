@@ -36,7 +36,7 @@ struct HistoryView: View {
                         } label: {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(Plural.count(group.records.count, "item") + " removed").font(.headline)
+                                    Text(Plural.count(HistoryCounts.items(in: group.records), "item") + " removed").font(.headline)
                                     Text(group.date, format: .dateTime.day().month().hour().minute())
                                         .font(.caption)
                                         .foregroundStyle(.secondary)

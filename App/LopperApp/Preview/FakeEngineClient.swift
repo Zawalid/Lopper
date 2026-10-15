@@ -15,6 +15,9 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
             tip: "abc", upstream: nil, worktreePath: nil, trashRef: "refs/lopper/trash/1/x",
             status: .completed))
     }
+    /// Like the real batch cleaner: a worktree that carries its branch is followed by a second event for the
+    /// branch deletion, so one selected row produces two events.
+    var emitsBranchFollowUps = false
     var scanDelay: Duration = .zero
     var cleanItemDelay: Duration = .zero
     var restoreBatchOutcomes: [RestoreOutcome] = []
@@ -66,11 +69,18 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         cleanedItems = items
         self.strictItemIDs = strictItemIDs
         let outcome = cleanOutcome
+        let emits = emitsBranchFollowUps
         let delay = cleanItemDelay
         let batchID = UUID()
         return AsyncStream { continuation in
             let task = Task {
-                continuation.yield(.started(batchID: batchID, total: items.count))
+                let followUps = emits ? items.compactMap { item -> CleanupItem? in
+                    if case .worktree(let repo, _, let approved, let branch?) = item {
+                        return .branch(repoRoot: repo, name: branch, approved: approved)
+                    }
+                    return nil
+                } : []
+                continuation.yield(.started(batchID: batchID, total: items.count + followUps.count))
                 var records: [UndoRecord] = []
                 var removed = 0, skipped = 0, failed = 0
                 var stopped = false
@@ -84,6 +94,11 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
                     case .failed: failed += 1
                     }
                     continuation.yield(.itemFinished(index: index, item: item, outcome: result))
+                }
+                for (offset, followUp) in followUps.enumerated() where !stopped {
+                    let result = outcome(followUp)
+                    if case .removed(let record) = result { removed += 1; records.append(record) }
+                    continuation.yield(.itemFinished(index: items.count + offset, item: followUp, outcome: result))
                 }
                 continuation.yield(.finished(BatchSummary(
                     batchID: batchID, removed: removed, skipped: skipped, failed: failed,

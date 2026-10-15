@@ -58,9 +58,10 @@ public actor UndoLog {
         self.url = url
     }
 
-    public static var defaultURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Lopper/undo-log.jsonl")
+    public static var defaultURL: URL { url(in: LopperSupport.directory()) }
+
+    static func url(in directory: URL) -> URL {
+        directory.appendingPathComponent("undo-log.jsonl")
     }
 
     public func append(_ record: UndoRecord) throws {

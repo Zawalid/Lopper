@@ -58,3 +58,12 @@ Signing and notarization need an Apple Developer account; see the plan, Task 13.
   screen, `DesignSystem/` shared components, `Preview/` debug-only sample data and previews.
 - `App/project.yml`: describes the Xcode project; `App/Lopper.xcodeproj` is generated and not committed.
 - `docs/`: specs, plans, roadmap, verification notes.
+
+## Trying the Agents page on real worktrees
+
+Never point a build under test at your real folders. `scripts/make-agent-fixtures.sh <empty dir>` builds a
+scratch repository with agent worktrees in every state (finished, active, unmerged, uncommitted, abandoned,
+detached) in the Claude Code, Codex and Cursor layouts. Start the app with `LOPPER_SUPPORT_DIR` set to a
+folder holding a `settings.json` that lists only the scratch folder (the script prints how). That variable
+redirects the settings file and the undo log, so nothing real is read or written. Removals, undo and the
+saved-branch path then run against real git on throwaway data.

@@ -63,6 +63,24 @@ final class OverviewInsightsTests: XCTestCase {
         XCTAssertEqual(withoutBatch.first?.canRestore, false)
     }
 
+    func testActivityCountsAWorktreeAndItsBranchAsOneItem() {
+        let batch = UUID()
+        let history = [
+            UndoRecord(
+                timestamp: now, repoPath: "/code/api", action: .removeWorktree, branch: "feat/a", tip: "abc",
+                upstream: nil, worktreePath: "/code/wt/a", trashRef: "r1", status: .completed, batchID: batch),
+            UndoRecord(
+                timestamp: now, repoPath: "/code/api", action: .deleteBranch, branch: "feat/a", tip: "abc",
+                upstream: nil, worktreePath: nil, trashRef: "r2", status: .completed, batchID: batch),
+        ]
+
+        let activity = OverviewInsights.recentActivity(history: history)
+
+        XCTAssertEqual(activity.first?.itemCount, 1)
+        XCTAssertEqual(activity.first?.removedCount, 1)
+        XCTAssertEqual(OverviewInsights.lifetimeRemoved(history: history), 1)
+    }
+
     // MARK: Lifetime
 
     func testLifetimeCountsRemovedItemsAndNotRestoredFailedOrPendingOnes() {

@@ -43,7 +43,7 @@ enum OverviewInsights {
         let grouped = Dictionary(grouping: shown) { $0.batchID ?? $0.id }
         var batches: [ActivityBatch] = []
         for (key, records) in grouped {
-            let removed = records.filter { $0.status == .completed || $0.status == .expired }.count
+            let removed = HistoryCounts.items(in: records.filter { $0.status == .completed || $0.status == .expired })
             let names = Set(records.map { URL(fileURLWithPath: $0.repoPath).lastPathComponent })
             let batchID = records.first?.batchID
             let hasCompleted = records.contains { $0.status == .completed }
@@ -51,7 +51,7 @@ enum OverviewInsights {
                 id: key,
                 batchID: batchID,
                 date: records.map(\.timestamp).max() ?? .distantPast,
-                itemCount: records.count,
+                itemCount: HistoryCounts.items(in: records),
                 removedCount: removed,
                 repoNames: names.sorted(),
                 canRestore: batchID != nil && hasCompleted))
@@ -103,7 +103,7 @@ enum OverviewInsights {
 
     /// Items Lopper has removed and that are still removed: restored ones came back, failed ones never left.
     static func lifetimeRemoved(history: [UndoRecord]) -> Int {
-        history.filter { $0.status == .completed || $0.status == .expired }.count
+        HistoryCounts.items(in: history.filter { $0.status == .completed || $0.status == .expired })
     }
 
     /// "5 branches and 2 worktrees in 1 repository are safe to remove", naming only what there is.

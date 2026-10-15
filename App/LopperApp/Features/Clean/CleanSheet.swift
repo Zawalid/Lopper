@@ -10,6 +10,9 @@ struct CleanSheet: View {
                 header(state)
                 Divider()
                 content(state)
+                    // The middle always takes the room that is left, so the header stays at the top and the
+                    // footer at the bottom even when the finished state has little to show.
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
                 footer(state)
             }
@@ -167,10 +170,13 @@ struct ReviewRow: View {
             Image(systemName: row.kind.symbol).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 1) {
                 Text(row.title).lineLimit(1)
+                // Two lines: for an agent worktree this is where the saved branch's name appears, and a note
+                // cut off at "lopper/saved/detached..." hides exactly what the person needs to read.
                 Text(row.agent?.rowNote ?? row.reasons.first ?? row.evidence)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if row.verdict == .review { VerdictChip(kind: .review) }
