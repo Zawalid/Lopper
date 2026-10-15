@@ -31,6 +31,22 @@ public struct BranchEntry: Sendable, Equatable, Identifiable {
     public let evidence: MergeEvidence
     public let verdict: Verdict
 
+    public init(
+        repoRoot: URL, name: String, tip: String, upstream: String?, lastCommit: Date,
+        ahead: Int, behind: Int, checkedOutAt: URL?, evidence: MergeEvidence, verdict: Verdict
+    ) {
+        self.repoRoot = repoRoot
+        self.name = name
+        self.tip = tip
+        self.upstream = upstream
+        self.lastCommit = lastCommit
+        self.ahead = ahead
+        self.behind = behind
+        self.checkedOutAt = checkedOutAt
+        self.evidence = evidence
+        self.verdict = verdict
+    }
+
     public func isStale(now: Date, staleDays: Int) -> Bool {
         now.timeIntervalSince(lastCommit) > TimeInterval(staleDays) * 86_400
     }
@@ -50,6 +66,25 @@ public struct WorktreeEntry: Sendable, Equatable, Identifiable {
     public let evidence: MergeEvidence
     public let verdict: Verdict
     public let agentHint: String?
+
+    public init(
+        repoRoot: URL, path: URL, head: String, branch: String?, isMain: Bool, isLocked: Bool,
+        isPrunable: Bool, status: WorktreeStatus, operationInProgress: Bool, evidence: MergeEvidence,
+        verdict: Verdict, agentHint: String?
+    ) {
+        self.repoRoot = repoRoot
+        self.path = path
+        self.head = head
+        self.branch = branch
+        self.isMain = isMain
+        self.isLocked = isLocked
+        self.isPrunable = isPrunable
+        self.status = status
+        self.operationInProgress = operationInProgress
+        self.evidence = evidence
+        self.verdict = verdict
+        self.agentHint = agentHint
+    }
 }
 
 public struct RepoSnapshot: Sendable, Equatable {
@@ -59,6 +94,17 @@ public struct RepoSnapshot: Sendable, Equatable {
     /// False when no provider was configured or the provider failed (gh missing, not signed in, ...).
     public let prDetectionAvailable: Bool
     public let scannedAt: Date
+
+    public init(
+        repo: Repo, branches: [BranchEntry], worktrees: [WorktreeEntry],
+        prDetectionAvailable: Bool, scannedAt: Date
+    ) {
+        self.repo = repo
+        self.branches = branches
+        self.worktrees = worktrees
+        self.prDetectionAvailable = prDetectionAvailable
+        self.scannedAt = scannedAt
+    }
 }
 
 public enum AgentHint {
