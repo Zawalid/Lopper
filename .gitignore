@@ -3,3 +3,6 @@
 xcuserdata/
 DerivedData/
 .DS_Store
+
+build/
+App/Lopper.xcodeproj/

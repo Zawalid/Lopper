@@ -1,0 +1,59 @@
+name: Lopper
+options:
+  bundleIdPrefix: dev.lopper
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  Lopper:
+    path: ..
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+targets:
+  LopperApp:
+    type: application
+    platform: macOS
+    sources:
+      - LopperApp
+    dependencies:
+      - package: Lopper
+        product: Lopper
+    settings:
+      base:
+        PRODUCT_NAME: Lopper
+        PRODUCT_MODULE_NAME: LopperApp
+        PRODUCT_BUNDLE_IDENTIFIER: dev.lopper.app
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Lopper
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  LopperAppTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - LopperAppTests
+    dependencies:
+      - target: LopperApp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.lopper.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Lopper.app/Contents/MacOS/Lopper"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+schemes:
+  Lopper:
+    build:
+      targets:
+        LopperApp: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - LopperAppTests
