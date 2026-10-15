@@ -22,8 +22,16 @@ struct SidebarView: View {
                 set: { if let route = $0 { model.route = route } }
             )) {
                 Section {
-                    Label("Overview", systemImage: "square.grid.2x2").tag(Route.overview)
-                    Label("History", systemImage: "clock.arrow.circlepath").tag(Route.history)
+                    ForEach(PrimaryRoute.allCases) { item in
+                        HStack(spacing: Theme.Spacing.sm) {
+                            Label(item.title, systemImage: item.symbol)
+                            if item == .agents, model.agentsSummary.reclaimable > 0 {
+                                Spacer(minLength: Theme.Spacing.sm)
+                                CountBadge(count: model.agentsSummary.reclaimable, kind: .safe)
+                            }
+                        }
+                        .tag(item.route)
+                    }
                 }
 
                 Section {

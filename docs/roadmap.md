@@ -29,7 +29,7 @@ Sidebar: **Overview**, **Agents**, **Disk**, **History**, then **Repositories**.
 | Menu bar popover | Same glance, same one-click clean | done |
 | Onboarding | Choose folders, first scan | done (basic) |
 | Settings | See section 4 | partial |
-| Agents | Worktrees made by AI tools: age, unmerged work, size, finished or abandoned, reclaim all finished | planned |
+| Agents | Worktrees made by AI tools: age, unmerged work, size, finished or abandoned, reclaim all finished | done |
 | Disk | Where space goes: biggest worktrees, build folders; reclaim artifacts without removing the worktree | planned |
 | Rules and schedule | "Delete branches merged more than 14 days ago", run weekly, digest notification | planned |
 | What's new, About, Updates | Release notes, version, check for updates | planned |

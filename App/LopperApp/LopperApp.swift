@@ -49,12 +49,10 @@ struct LopperCommands: Commands {
         CommandGroup(after: .sidebar) {
             Button("Toggle Inspector") { model.showInspector.toggle() }
                 .keyboardShortcut("i")
-            Button("Overview") { model.route = .overview }
-                .keyboardShortcut("1")
-            Button("Agents") { model.route = .agents }
-                .keyboardShortcut("2")
-            Button("History") { model.route = .history }
-                .keyboardShortcut("3")
+            ForEach(PrimaryRoute.allCases) { item in
+                Button(item.title) { model.route = item.route }
+                    .keyboardShortcut(KeyEquivalent(item.shortcutDigit))
+            }
         }
     }
 }
