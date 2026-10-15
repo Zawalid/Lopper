@@ -111,6 +111,24 @@ final class WindowSmokeTests: XCTestCase {
         }
     }
 
+    func testSidebarDetailsSortAndTidyOptionsDoNotCrashAndStayInsideTheWindow() async {
+        let model = await readyModel()
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump()
+
+        for sort in SidebarSort.allCases {
+            model.preferences.setSidebarSort(sort)
+            model.preferences.setSidebarShowsDetails(sort != .name)
+            model.preferences.setSidebarShowsTidy(sort != .size)
+            await pump(0.3)
+            assertPanesInsideWindow(window, "sort \(sort.rawValue)")
+        }
+        model.preferences.resetSidebarOptions()
+        await pump(0.3)
+        assertPanesInsideWindow(window, "after reset")
+    }
+
     func testHidingTheOpenRepositoryReturnsToTheOverviewWithoutCrashing() async {
         let model = await readyModel()
         let window = makeWindow(model: model)

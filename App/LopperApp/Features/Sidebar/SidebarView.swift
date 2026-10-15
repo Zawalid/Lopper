@@ -5,12 +5,14 @@ struct SidebarView: View {
     @Environment(AppModel.self) private var model
     @State private var query = ""
     @State private var tidyExpanded = false
-    @State private var collapsedFolders: Set<String> = []
+    @State private var collapsedGroups: Set<String> = []
 
     var body: some View {
-        let grouping = model.preferences.sidebarGrouping
+        let preferences = model.preferences
         let sections = SidebarLayout.sections(
-            summaries: model.summaries, grouping: grouping, folders: model.settings.roots, query: query)
+            summaries: model.summaries, grouping: preferences.sidebarGrouping, folders: model.settings.roots,
+            query: query, sort: preferences.sidebarSort, showsTidy: preferences.sidebarShowsTidy)
+        let showsGroupHeaders = preferences.sidebarGrouping != .flat
 
         VStack(spacing: 0) {
             List(selection: Binding<Route?>(
@@ -22,126 +24,219 @@ struct SidebarView: View {
                     Label("History", systemImage: "clock.arrow.circlepath").tag(Route.history)
                 }
 
-                if SidebarLayout.showsSearch(repositoryCount: model.summaries.count) {
-                    TextField("Filter repositories", text: $query)
-                        .textFieldStyle(.roundedBorder)
-                        .controlSize(.small)
-                        .listRowSeparator(.hidden)
-                        .accessibilityLabel("Filter repositories")
-                }
-
-                ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
-                    Section(isExpanded: expansion(for: section)) {
-                        ForEach(section.repos) { summary in
-                            SidebarRepoRow(summary: summary, isTidy: section.isTidy)
-                                .tag(Route.repo(summary.id))
-                                .contextMenu { RepoContextMenu(summary: summary) }
-                        }
-                    } header: {
-                        SectionHeader(section: section, showsGroupingMenu: index == 0)
+                Section {
+                    if SidebarLayout.showsSearch(repositoryCount: model.summaries.count) {
+                        TextField("Filter repositories", text: $query)
+                            .textFieldStyle(.roundedBorder)
+                            .controlSize(.small)
+                            .listRowSeparator(.hidden)
+                            .accessibilityLabel("Filter repositories")
                     }
-                }
 
-                if sections.isEmpty && !query.isEmpty {
-                    Text("No repositories match")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                    ForEach(sections) { section in
+                        let expanded = isExpanded(section)
+                        if showsGroupHeaders {
+                            GroupHeader(title: section.title, count: section.repos.count, isExpanded: expanded) {
+                                toggle(section)
+                            }
+                            .listRowSeparator(.hidden)
+                        }
+                        if expanded || !showsGroupHeaders {
+                            ForEach(section.repos) { summary in
+                                SidebarRepoRow(
+                                    summary: summary,
+                                    isTidy: section.isTidy,
+                                    showsDetails: preferences.sidebarShowsDetails,
+                                    includesFolder: preferences.sidebarGrouping != .folder)
+                                    .tag(Route.repo(summary.id))
+                                    .contextMenu { RepoContextMenu(summary: summary) }
+                            }
+                        }
+                    }
+
+                    if sections.isEmpty {
+                        Text(query.isEmpty ? "Nothing to show" : "No repositories match")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                } header: {
+                    RepositoriesHeader()
                 }
             }
             .listStyle(.sidebar)
 
-            ScanStatus()
-            Divider()
             SidebarFooter()
         }
     }
 
     /// Searching opens everything so a match is never hidden inside a collapsed group.
-    private func expansion(for section: SidebarSection) -> Binding<Bool> {
-        Binding(
-            get: {
-                if !query.isEmpty { return true }
-                return section.isTidy ? tidyExpanded : !collapsedFolders.contains(section.id)
-            },
-            set: { expanded in
-                if section.isTidy {
-                    tidyExpanded = expanded
-                } else if expanded {
-                    collapsedFolders.remove(section.id)
-                } else {
-                    collapsedFolders.insert(section.id)
-                }
-            })
+    private func isExpanded(_ section: SidebarSection) -> Bool {
+        if !query.isEmpty { return true }
+        return section.isTidy ? tidyExpanded : !collapsedGroups.contains(section.id)
+    }
+
+    private func toggle(_ section: SidebarSection) {
+        withAnimation(.easeOut(duration: 0.15)) {
+            if section.isTidy {
+                tidyExpanded.toggle()
+            } else if collapsedGroups.contains(section.id) {
+                collapsedGroups.remove(section.id)
+            } else {
+                collapsedGroups.insert(section.id)
+            }
+        }
     }
 }
 
-private struct SectionHeader: View {
-    let section: SidebarSection
-    let showsGroupingMenu: Bool
+/// A whole row is the button, so the group opens wherever it is clicked.
+private struct GroupHeader: View {
+    let title: String
+    let count: Int
+    let isExpanded: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Theme.Spacing.xs) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .foregroundStyle(.tertiary)
+                    .frame(width: 12)
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text("\(count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 3)
+            .padding(.horizontal, 2)
+            .hoverHighlight()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), \(count)")
+        .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+        .accessibilityHint("Shows or hides these repositories")
+    }
+}
+
+private struct RepositoriesHeader: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.xs) {
-            Text(section.title)
-            Text("\(section.repos.count)")
-                .monospacedDigit()
-                .foregroundStyle(.tertiary)
+        HStack {
+            Text("Repositories")
             Spacer(minLength: 0)
-            if showsGroupingMenu {
-                Menu {
-                    Picker("Group by", selection: Binding(
-                        get: { model.preferences.sidebarGrouping },
-                        set: { model.preferences.setSidebarGrouping($0) }
-                    )) {
-                        ForEach(SidebarGrouping.allCases) { grouping in
-                            Label(grouping.title, systemImage: grouping.symbol).tag(grouping)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                } label: {
-                    Image(systemName: "line.3.horizontal.decrease")
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("Group repositories")
-                .accessibilityLabel("Group repositories")
-            }
+            SidebarOptionsMenu()
         }
+    }
+}
+
+/// Group, sort and what to show, in one menu next to the section title.
+private struct SidebarOptionsMenu: View {
+    @Environment(AppModel.self) private var model
+    @State private var isHovering = false
+
+    var body: some View {
+        let preferences = model.preferences
+        Menu {
+            Menu("Group by") {
+                Picker("Group by", selection: Binding(
+                    get: { preferences.sidebarGrouping },
+                    set: { preferences.setSidebarGrouping($0) }
+                )) {
+                    ForEach(SidebarGrouping.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            }
+            Menu("Sort by") {
+                Picker("Sort by", selection: Binding(
+                    get: { preferences.sidebarSort },
+                    set: { preferences.setSidebarSort($0) }
+                )) {
+                    ForEach(SidebarSort.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            }
+            Menu("Show") {
+                Toggle("Details", isOn: Binding(
+                    get: { preferences.sidebarShowsDetails },
+                    set: { preferences.setSidebarShowsDetails($0) }))
+                Toggle("Tidy repositories", isOn: Binding(
+                    get: { preferences.sidebarShowsTidy },
+                    set: { preferences.setSidebarShowsTidy($0) }))
+            }
+            Divider()
+            Button("Reset to Defaults") { preferences.resetSidebarOptions() }
+        } label: {
+            Image(systemName: "slider.horizontal.3")
+                .font(.system(size: 12))
+                .frame(width: 24, height: 22)
+                .hoverHighlight()
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Group, sort and choose what to show")
+        .accessibilityLabel("Sidebar options")
+    }
+}
+
+/// One small capsule per kind of count, so safe and review read as the same sort of thing.
+private struct CountBadge: View {
+    let count: Int
+    let kind: VerdictKind
+
+    var body: some View {
+        Text("\(count)")
+            .font(.caption2.weight(.semibold).monospacedDigit())
+            .foregroundStyle(kind.tint)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background(kind.tint.opacity(0.16), in: Capsule())
+            .help("\(count) \(kind == .safe ? "safe to remove" : "to review")")
     }
 }
 
 private struct SidebarRepoRow: View {
     let summary: RepoSummary
     let isTidy: Bool
+    let showsDetails: Bool
+    let includesFolder: Bool
 
     var body: some View {
         HStack(spacing: Theme.Spacing.sm) {
-            Label {
-                Text(summary.name).lineLimit(1).truncationMode(.middle)
-            } icon: {
-                Image(systemName: summary.failure == nil ? "shippingbox" : "exclamationmark.triangle")
+            Image(systemName: summary.failure == nil ? "shippingbox" : "exclamationmark.triangle")
+                .foregroundStyle(summary.failure == nil ? Color.secondary : VerdictKind.review.tint)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(summary.name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .foregroundStyle(isTidy ? .secondary : .primary)
+                if showsDetails {
+                    Text(summary.detailLine(includingFolder: includesFolder))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
-            .foregroundStyle(isTidy ? .secondary : .primary)
 
             Spacer(minLength: Theme.Spacing.xs)
 
-            if summary.review > 0 {
-                Circle()
-                    .fill(VerdictKind.review.tint)
-                    .frame(width: 6, height: 6)
-                    .help("\(summary.review) to review")
-            }
-            if summary.safe > 0 {
-                Text("\(summary.safe)")
-                    .font(.caption2.weight(.semibold).monospacedDigit())
-                    .foregroundStyle(VerdictKind.safe.tint)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 1)
-                    .background(VerdictKind.safe.tint.opacity(0.18), in: Capsule())
-                    .help("\(summary.safe) safe to remove")
+            HStack(spacing: 4) {
+                if summary.safe > 0 { CountBadge(count: summary.safe, kind: .safe) }
+                if summary.review > 0 { CountBadge(count: summary.review, kind: .review) }
             }
         }
+        .padding(.vertical, showsDetails ? 2 : 0)
         .help(RowMapper.abbreviated(summary.root))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: "\(summary.name). \(summary.countsDescription)"))
@@ -165,8 +260,48 @@ private struct RepoContextMenu: View {
     }
 }
 
-/// Scan progress, or when idle what could be reclaimed. A caption and a thin bar rather than a toolbar item,
-/// which macOS draws as its own glass bubble next to the title.
+// MARK: Footer
+
+private struct SidebarFooter: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScanStatus()
+            Divider()
+            HStack(spacing: 2) {
+                Button {
+                    FolderPicker.choose { model.addRoots($0) }
+                } label: {
+                    Label("Add folder", systemImage: "plus")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(SidebarButtonStyle())
+                .help("Add a folder to scan (Command-O)")
+
+                Button {
+                    model.startScan()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(SidebarButtonStyle())
+                .disabled(model.isScanning || model.isCleaning)
+                .help("Rescan (Command-R)")
+                .accessibilityLabel("Rescan")
+
+                SettingsLink {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(SidebarButtonStyle())
+                .help("Settings (Command-comma)")
+                .accessibilityLabel("Settings")
+            }
+            .padding(Theme.Spacing.xs)
+        }
+    }
+}
+
+/// Scan progress as a caption and a thin bar. When idle, what could be reclaimed, which opens the Overview.
 private struct ScanStatus: View {
     @Environment(AppModel.self) private var model
 
@@ -190,38 +325,24 @@ private struct ScanStatus: View {
             .padding(.vertical, Theme.Spacing.sm)
             .accessibilityElement(children: .combine)
         } else if model.totals.reclaimableBytes > 0 {
-            Text("\(SizeFormat.string(model.totals.reclaimableBytes)) can be reclaimed")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, Theme.Spacing.sm)
-        }
-    }
-}
-
-private struct SidebarFooter: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        HStack {
             Button {
-                FolderPicker.choose { model.addRoots($0) }
+                model.route = .overview
             } label: {
-                Label("Add folder", systemImage: "plus")
+                HStack(spacing: Theme.Spacing.xs) {
+                    Image(systemName: "sparkles").foregroundStyle(VerdictKind.safe.tint)
+                    Text("\(SizeFormat.string(model.totals.reclaimableBytes)) can be reclaimed")
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                }
+                .font(.caption)
+                .padding(.horizontal, Theme.Spacing.sm)
+                .padding(.vertical, 6)
+                .hoverHighlight()
             }
             .buttonStyle(.plain)
-            .help("Add a folder to scan (Command-O)")
-            Spacer()
-            SettingsLink {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(.plain)
-            .help("Settings (Command-comma)")
-            .accessibilityLabel("Settings")
+            .padding(.horizontal, Theme.Spacing.xs)
+            .padding(.top, Theme.Spacing.xs)
+            .help("Open the Overview")
         }
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, Theme.Spacing.md)
-        .padding(.vertical, Theme.Spacing.sm)
     }
 }

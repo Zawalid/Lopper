@@ -23,6 +23,21 @@ enum SidebarGrouping: String, CaseIterable, Identifiable {
     }
 }
 
+/// The order of repositories inside a group.
+enum SidebarSort: String, CaseIterable, Identifiable {
+    case attention, name, size
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .attention: "Most to clean"
+        case .name: "Name"
+        case .size: "Size"
+        }
+    }
+}
+
 struct SidebarSection: Identifiable, Equatable {
     let id: String
     let title: String
@@ -34,6 +49,16 @@ struct SidebarSection: Identifiable, Equatable {
 extension RepoSummary {
     /// Something to act on, or something that went wrong and should be seen.
     var needsAttention: Bool { failure != nil || safe + review > 0 }
+
+    /// One line of detail under the repository name: where it lives, how much is in it, what it would free.
+    func detailLine(includingFolder: Bool) -> String {
+        if failure != nil { return "Could not be read" }
+        var parts: [String] = []
+        if includingFolder { parts.append(root.deletingLastPathComponent().lastPathComponent) }
+        parts.append(total == 0 ? "No extra branches" : Plural.count(total, "item"))
+        if reclaimableBytes > 0 { parts.append(SizeFormat.string(reclaimableBytes)) }
+        return parts.joined(separator: " · ")
+    }
 
     /// Most safe items first, then most to review, then by name.
     static func attentionBefore(_ lhs: RepoSummary, _ rhs: RepoSummary) -> Bool {
@@ -51,41 +76,63 @@ enum SidebarLayout {
     static func showsSearch(repositoryCount: Int) -> Bool { repositoryCount > searchThreshold }
 
     static func sections(
-        summaries: [RepoSummary], grouping: SidebarGrouping, folders: [URL], query: String
+        summaries: [RepoSummary], grouping: SidebarGrouping, folders: [URL], query: String,
+        sort: SidebarSort = .attention, showsTidy: Bool = true
     ) -> [SidebarSection] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let matching = needle.isEmpty
+        var matching = needle.isEmpty
             ? summaries
             : summaries.filter { $0.name.localizedCaseInsensitiveContains(needle) }
+        // Hiding the tidy repositories must not make a search for one come back empty.
+        if !showsTidy && needle.isEmpty { matching = matching.filter(\.needsAttention) }
 
         let result: [SidebarSection]
         switch grouping {
-        case .attention: result = byAttention(matching)
-        case .folder: result = byFolder(matching, folders: folders)
+        case .attention: result = byAttention(matching, sort: sort)
+        case .folder: result = byFolder(matching, folders: folders, sort: sort)
         case .flat:
-            result = [SidebarSection(id: "all", title: "Repositories", repos: ordered(matching), isTidy: false)]
+            result = [SidebarSection(
+                id: "all", title: "Repositories", repos: ordered(matching, sort: sort), isTidy: false)]
         }
         return result.filter { !$0.repos.isEmpty }
     }
 
-    private static func ordered(_ summaries: [RepoSummary]) -> [RepoSummary] {
-        let busy = summaries.filter(\.needsAttention).sorted(by: RepoSummary.attentionBefore)
-        let tidy = summaries.filter { !$0.needsAttention }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        return busy + tidy
+    private static func byName(_ lhs: RepoSummary, _ rhs: RepoSummary) -> Bool {
+        lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
     }
 
-    private static func byAttention(_ summaries: [RepoSummary]) -> [SidebarSection] {
-        let busy = summaries.filter(\.needsAttention).sorted(by: RepoSummary.attentionBefore)
-        let tidy = summaries.filter { !$0.needsAttention }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        return [
-            SidebarSection(id: "attention", title: "Needs attention", repos: busy, isTidy: false),
-            SidebarSection(id: "tidy", title: "Tidy", repos: tidy, isTidy: true),
+    private static func comparator(for sort: SidebarSort) -> (RepoSummary, RepoSummary) -> Bool {
+        switch sort {
+        case .attention: return RepoSummary.attentionBefore
+        case .name: return byName
+        case .size:
+            return { lhs, rhs in
+                if lhs.reclaimableBytes != rhs.reclaimableBytes { return lhs.reclaimableBytes > rhs.reclaimableBytes }
+                return byName(lhs, rhs)
+            }
+        }
+    }
+
+    /// Busy repositories in the chosen order, then the tidy ones by name.
+    private static func ordered(_ summaries: [RepoSummary], sort: SidebarSort) -> [RepoSummary] {
+        summaries.filter(\.needsAttention).sorted(by: comparator(for: sort))
+            + summaries.filter { !$0.needsAttention }.sorted(by: byName)
+    }
+
+    private static func byAttention(_ summaries: [RepoSummary], sort: SidebarSort) -> [SidebarSection] {
+        [
+            SidebarSection(
+                id: "attention", title: "Needs attention",
+                repos: summaries.filter(\.needsAttention).sorted(by: comparator(for: sort)), isTidy: false),
+            SidebarSection(
+                id: "tidy", title: "Tidy",
+                repos: summaries.filter { !$0.needsAttention }.sorted(by: byName), isTidy: true),
         ]
     }
 
-    private static func byFolder(_ summaries: [RepoSummary], folders: [URL]) -> [SidebarSection] {
+    private static func byFolder(
+        _ summaries: [RepoSummary], folders: [URL], sort: SidebarSort
+    ) -> [SidebarSection] {
         let canonical = folders.map { $0.canonicalized.path }
         var buckets: [Int: [RepoSummary]] = [:]
         var strays: [RepoSummary] = []
@@ -105,10 +152,11 @@ enum SidebarLayout {
             let duplicated = names.filter { $0 == names[index] }.count > 1
             let title = duplicated ? RowMapper.abbreviated(folders[index]) : names[index]
             return SidebarSection(
-                id: canonical[index], title: title, repos: ordered(repos), isTidy: false)
+                id: canonical[index], title: title, repos: ordered(repos, sort: sort), isTidy: false)
         }
         if !strays.isEmpty {
-            sections.append(SidebarSection(id: "other", title: "Other", repos: ordered(strays), isTidy: false))
+            sections.append(SidebarSection(
+                id: "other", title: "Other", repos: ordered(strays, sort: sort), isTidy: false))
         }
         return sections
     }

@@ -4,20 +4,23 @@ import XCTest
 final class SidebarLayoutTests: XCTestCase {
     private func summary(
         _ name: String, in folder: String = "/code", safe: Int = 0, review: Int = 0, protected: Int = 0,
-        failure: String? = nil
+        bytes: Int64 = 0, failure: String? = nil
     ) -> RepoSummary {
         RepoSummary(
             id: "\(folder)/\(name)", name: name, root: URL(fileURLWithPath: "\(folder)/\(name)"),
             safeBranches: safe, safeWorktrees: 0, review: review, protected: protected,
-            reclaimableBytes: 0, defaultBranch: "main", failure: failure)
+            reclaimableBytes: bytes, defaultBranch: "main", failure: failure)
     }
 
     private let folders = [URL(fileURLWithPath: "/code"), URL(fileURLWithPath: "/work")]
 
     private func sections(
-        _ summaries: [RepoSummary], _ grouping: SidebarGrouping, query: String = ""
+        _ summaries: [RepoSummary], _ grouping: SidebarGrouping, query: String = "",
+        sort: SidebarSort = .attention, showsTidy: Bool = true
     ) -> [SidebarSection] {
-        SidebarLayout.sections(summaries: summaries, grouping: grouping, folders: folders, query: query)
+        SidebarLayout.sections(
+            summaries: summaries, grouping: grouping, folders: folders, query: query,
+            sort: sort, showsTidy: showsTidy)
     }
 
     // MARK: By attention
@@ -96,6 +99,78 @@ final class SidebarLayoutTests: XCTestCase {
         XCTAssertEqual(result.map(\.id), ["attention", "tidy"])
         XCTAssertEqual(result.flatMap(\.repos).map(\.name), ["formatex-api", "formatex-web"])
         XCTAssertTrue(sections(all, .attention, query: "zzz").isEmpty)
+    }
+
+    // MARK: Sort
+
+    func testSortByNameOrdersTheBusyGroupAlphabetically() {
+        let all = [summary("zeta", safe: 9), summary("alpha", safe: 1), summary("mid", review: 4)]
+        let result = sections(all, .attention, sort: .name)
+
+        XCTAssertEqual(result[0].repos.map(\.name), ["alpha", "mid", "zeta"])
+    }
+
+    func testSortBySizeOrdersByReclaimableBytesThenName() {
+        let all = [
+            summary("small", safe: 1, bytes: 10), summary("big", safe: 1, bytes: 5_000),
+            summary("also-big", safe: 1, bytes: 5_000),
+        ]
+        let result = sections(all, .attention, sort: .size)
+
+        XCTAssertEqual(result[0].repos.map(\.name), ["also-big", "big", "small"])
+    }
+
+    func testSortAppliesInsideFolderGroups() {
+        let all = [summary("b", in: "/code", safe: 1), summary("a", in: "/code", safe: 5)]
+        let result = sections(all, .folder, sort: .name)
+
+        XCTAssertEqual(result[0].repos.map(\.name), ["a", "b"])
+    }
+
+    // MARK: Tidy visibility
+
+    func testHidingTidyRepositoriesRemovesTheTidyGroup() {
+        let all = [summary("busy", safe: 1), summary("calm")]
+        let result = sections(all, .attention, showsTidy: false)
+
+        XCTAssertEqual(result.map(\.id), ["attention"])
+    }
+
+    func testHidingTidyRepositoriesAlsoAppliesToFolderAndFlatGroupings() {
+        let all = [summary("busy", safe: 1), summary("calm")]
+
+        XCTAssertEqual(sections(all, .folder, showsTidy: false).flatMap(\.repos).map(\.name), ["busy"])
+        XCTAssertEqual(sections(all, .flat, showsTidy: false).flatMap(\.repos).map(\.name), ["busy"])
+        XCTAssertTrue(sections([summary("calm")], .folder, showsTidy: false).isEmpty)
+    }
+
+    func testASearchStillFindsATidyRepositoryWhenTidyIsHidden() {
+        let result = sections([summary("calm")], .attention, query: "calm", showsTidy: false)
+
+        XCTAssertEqual(result.flatMap(\.repos).map(\.name), ["calm"])
+    }
+
+    // MARK: Detail line
+
+    func testDetailLineNamesFolderItemsAndReclaimableSize() {
+        let repo = summary("api", in: "/code/Formatex", safe: 2, review: 3, protected: 4, bytes: 1_500_000_000)
+
+        XCTAssertEqual(
+            repo.detailLine(includingFolder: true),
+            "Formatex · 9 items · \(SizeFormat.string(1_500_000_000))")
+        XCTAssertEqual(
+            repo.detailLine(includingFolder: false),
+            "9 items · \(SizeFormat.string(1_500_000_000))")
+    }
+
+    func testDetailLineSaysNothingToDoAndDropsAZeroSize() {
+        XCTAssertEqual(summary("quiet").detailLine(includingFolder: false), "No extra branches")
+        XCTAssertEqual(summary("one", protected: 1).detailLine(includingFolder: false), "1 item")
+    }
+
+    func testDetailLineForAFailedRepositoryExplainsIt() {
+        let repo = summary("broken", failure: "not a repository")
+        XCTAssertEqual(repo.detailLine(includingFolder: true), "Could not be read")
     }
 
     func testSearchFieldAppearsOnlyForLongLists() {
