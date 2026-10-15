@@ -9,6 +9,14 @@ enum Route: Hashable {
     case disk
     case history
     case repo(String)
+
+    /// Pages that show a details column beside the table.
+    var hasInspector: Bool {
+        switch self {
+        case .repo, .agents, .history: true
+        case .overview, .disk: false
+        }
+    }
 }
 
 enum ScanPhase: Equatable {

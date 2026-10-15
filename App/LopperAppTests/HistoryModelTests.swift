@@ -242,4 +242,64 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertEqual(HistoryBuilder.daysLeft(for: entry, retentionDays: 30, now: now), 5)
         XCTAssertEqual(HistoryBuilder.daysLeft(for: entry, retentionDays: 10, now: now), 0)
     }
+
+    // MARK: Table and inspector support
+
+    func testTableLabelsNameTheKindAndSortUnmeasuredSizesLast() {
+        let entries = HistoryBuilder.entries(from: [
+            record(.deleteBranch, branch: "a", bytes: nil),
+            record(.removeWorktree, branch: "b", bytes: 10),
+        ])
+        let branch = entries.first { $0.kind == .branch }
+        let worktree = entries.first { $0.kind == .worktree }
+
+        XCTAssertEqual(branch?.kindLabel, "Branch")
+        XCTAssertEqual(worktree?.kindLabel, "Worktree")
+        XCTAssertEqual(branch?.sizeSort, -1)
+        XCTAssertEqual(worktree?.sizeSort, 10)
+    }
+
+    func testRemovedLabelReadsTodayYesterdayThenTheDate() {
+        let today = now.addingTimeInterval(-60)
+        let yesterday = now.addingTimeInterval(-86_400)
+        let older = now.addingTimeInterval(-5 * 86_400)
+
+        XCTAssertTrue(HistoryBuilder.removedLabel(for: today, now: now, calendar: calendar).hasPrefix("Today"))
+        XCTAssertTrue(HistoryBuilder.removedLabel(for: yesterday, now: now, calendar: calendar).hasPrefix("Yesterday"))
+        let label = HistoryBuilder.removedLabel(for: older, now: now, calendar: calendar)
+        XCTAssertFalse(label.hasPrefix("Today") || label.hasPrefix("Yesterday"))
+        XCTAssertTrue(label.contains("10"), label)   // 2027-01-10
+    }
+
+    func testSummaryLineIsOneShortSentenceOfTheNumbersThatMatter() {
+        var summary = HistorySummary()
+        summary.removedLast30Days = 11
+        summary.bytesLast30Days = 1_670_000_000
+        summary.restorable = 9
+
+        let line = HistoryBuilder.summaryLine(summary)
+
+        XCTAssertTrue(line.hasPrefix("11 removed in 30 days"), line)
+        XCTAssertTrue(line.contains("freed"), line)
+        XCTAssertTrue(line.hasSuffix("9 can be restored"), line)
+        XCTAssertEqual(HistoryBuilder.summaryLine(HistorySummary()), "Nothing removed in the last 30 days")
+    }
+
+    func testTheCleanupAnEntryBelongsToListsTheOthersThatCanStillComeBack() {
+        let batch = UUID()
+        let entries = HistoryBuilder.entries(from: [
+            record(.deleteBranch, branch: "a", batch: batch),
+            record(.deleteBranch, branch: "b", batch: batch),
+            record(.deleteBranch, branch: "c", status: .restored, batch: batch),
+            record(.deleteBranch, branch: "alone", batch: UUID()),
+        ])
+        let first = entries.first { $0.title == "a" }!
+        let alone = entries.first { $0.title == "alone" }!
+
+        let cleanup = HistoryBuilder.cleanup(containing: first, in: entries)
+
+        XCTAssertEqual(cleanup?.entries.count, 3)
+        XCTAssertEqual(cleanup?.restorableCount, 2)
+        XCTAssertNil(HistoryBuilder.cleanup(containing: alone, in: entries), "a single removal is not a cleanup")
+    }
 }

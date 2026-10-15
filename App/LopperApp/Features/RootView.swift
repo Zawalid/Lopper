@@ -22,7 +22,7 @@ struct RootView: View {
                             .help("Rescan (Command-R)")
                             .disabled(model.isScanning || model.isCleaning)
                     }
-                    if case .repo = model.route {
+                    if model.route.hasInspector {
                         ToolbarItem {
                             Button { model.showInspector.toggle() } label: {
                                 Label("Inspector", systemImage: "sidebar.right")

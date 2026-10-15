@@ -23,6 +23,17 @@ struct HistoryEntry: Identifiable, Equatable {
     let keptBranch: Bool
 
     var canRestore: Bool { status == .removed }
+
+    var kindLabel: String {
+        switch kind {
+        case .branch: "Branch"
+        case .worktree: "Worktree"
+        case .folder: "Folder"
+        }
+    }
+
+    /// Entries with no known size sort below every measured one.
+    var sizeSort: Int64 { bytes ?? -1 }
 }
 
 /// Entries removed by one action.
@@ -220,6 +231,35 @@ enum HistoryBuilder {
             }
         }
         return summary
+    }
+
+    /// "Today 20:00", "Yesterday 22:00", "10 Jan": when something was removed, in the width of a table column.
+    static func removedLabel(for date: Date, now: Date, calendar: Calendar = .current) -> String {
+        let time = date.formatted(Date.FormatStyle(timeZone: calendar.timeZone).hour().minute())
+        if calendar.isDate(date, inSameDayAs: now) { return "Today \(time)" }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now),
+           calendar.isDate(date, inSameDayAs: yesterday) { return "Yesterday \(time)" }
+        return date.formatted(Date.FormatStyle(timeZone: calendar.timeZone).day().month(.abbreviated))
+    }
+
+    /// The page's subtitle: the three numbers that used to be tiles, in one line.
+    static func summaryLine(_ summary: HistorySummary) -> String {
+        guard summary.removedLast30Days > 0 else { return "Nothing removed in the last 30 days" }
+        var parts = ["\(summary.removedLast30Days) removed in 30 days"]
+        if summary.bytesLast30Days > 0 { parts.append("\(SizeFormat.string(summary.bytesLast30Days)) freed") }
+        parts.append("\(summary.restorable) can be restored")
+        return parts.joined(separator: " · ")
+    }
+
+    /// The other things removed by the same action, so the inspector can offer to bring them all back.
+    /// Nil for a removal that stood alone.
+    static func cleanup(containing entry: HistoryEntry, in entries: [HistoryEntry]) -> HistoryBatch? {
+        guard let batchID = entry.batchID else { return nil }
+        let members = entries.filter { $0.batchID == batchID }
+        guard members.count > 1 else { return nil }
+        let sorted = members.sorted { $0.date > $1.date }
+        return HistoryBatch(
+            id: batchID, batchID: batchID, date: sorted.map(\.date).max() ?? entry.date, entries: sorted)
     }
 
     /// Whole days a removal can still be restored, never negative.
