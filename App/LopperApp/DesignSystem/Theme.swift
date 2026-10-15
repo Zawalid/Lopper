@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import Lopper
 
 enum Theme {
@@ -9,6 +10,16 @@ enum Theme {
         static let lg: CGFloat = 16
         static let xl: CGFloat = 24
     }
+
+    /// The background behind every page. An explicit solid color, because the system window background is
+    /// tinted by whatever wallpaper sits behind the window and drifts from dark gray to a washed-out one
+    /// without any change in the app.
+    static let pageBackgroundNS = NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark ? NSColor(srgbRed: 0.15, green: 0.15, blue: 0.15, alpha: 1) : .windowBackgroundColor
+    }
+
+    static var pageBackground: Color { Color(nsColor: pageBackgroundNS) }
 
     static let cardRadius: CGFloat = 12
     static let controlRadius: CGFloat = 8

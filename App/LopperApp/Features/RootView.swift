@@ -75,6 +75,7 @@ private struct DetailView: View {
 
     var body: some View {
         content
+            .background(Theme.pageBackground)
             // The notice lives in the detail column only. An inset on the whole split view would also push
             // the sidebar's first row up under the traffic lights.
             .safeAreaInset(edge: .top, spacing: 0) {
