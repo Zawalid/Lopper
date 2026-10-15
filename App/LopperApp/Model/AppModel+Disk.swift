@@ -44,6 +44,27 @@ extension AppModel {
         artifacts.filter { $0.checkoutRoot.standardizedFileURL.path == path && $0.removal.isOffered }
     }
 
+    var trashedTotals: TrashSweeper.Totals { TrashSweeper.totals(of: trashedFolders) }
+
+    /// Deletes the folders Lopper put in the Trash, for good. Only those; the rest of the Trash is the
+    /// person's. Undo no longer works for them afterwards, which the confirmation says.
+    func deleteTrashedForGood() {
+        let records = trashedFolders
+        guard !records.isEmpty else { return }
+        let client = self.client
+        Task {
+            let result = await client.deleteTrashed(records)
+            await reloadHistory()
+            let freed = result.deleted.reduce(Int64(0)) { $0 + ($1.bytes ?? 0) }
+            if let failure = result.failures.first {
+                notice = "Couldn't delete \(Plural.count(result.failures.count, "folder")) from the Trash. \(failure.message)"
+            }
+            if !result.deleted.isEmpty {
+                confirm("Deleted \(Plural.count(result.deleted.count, "folder")), \(SizeFormat.string(freed)) freed")
+            }
+        }
+    }
+
     // MARK: Scanning
 
     /// Looks for generated folders in every working folder, a few at a time.
@@ -177,7 +198,7 @@ extension AppModel {
                 toast = UndoToast(
                     id: batch, removed: finished.removed, reclaimed: finished.reclaimedBytes, folders: true)
             }
-            history = await client.history()
+            await reloadHistory()
             // Only the folders that changed need measuring again.
             let touched = Set(items.map { $0.checkoutRoot.path })
             await measureSizes(only: touched)

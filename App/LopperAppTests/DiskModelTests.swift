@@ -173,4 +173,23 @@ final class DiskModelTests: XCTestCase {
         model.diskUntouchedOnly = true
         XCTAssertEqual(model.visibleDiskProjects.map(\.id), [worktreePath])
     }
+
+    func testClearedFoldersStillInTheTrashAreCountedAndCanBeDeletedForGood() async {
+        let (model, client) = makeModel()
+        let record = UndoRecord(
+            timestamp: Date(), repoPath: "/code/api", action: .trashFolder, branch: nil, tip: "", upstream: nil,
+            worktreePath: "/code/api/node_modules", trashRef: "", status: .completed, bytes: 900,
+            trashedPath: "/Users/me/.Trash/node_modules")
+        client.trashed = [record]
+        model.startScan()
+        await settle(model)
+        XCTAssertEqual(model.trashedTotals.folders, 1)
+        XCTAssertEqual(model.trashedTotals.bytes, 900)
+
+        model.deleteTrashedForGood()
+        await waitUntil { model.trashedTotals.folders == 0 }
+
+        XCTAssertEqual(client.deletedForGood.map(\.id), [record.id])
+        XCTAssertEqual(model.trashedTotals.bytes, 0)
+    }
 }

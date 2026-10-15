@@ -67,6 +67,19 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         measureLock.withLock { measurementLog }
     }
 
+    /// Scripted: what is "still in the Trash".
+    var trashed: [UndoRecord] = []
+    private(set) var deletedForGood: [UndoRecord] = []
+
+    func trashedFolders() async -> [UndoRecord] { trashed }
+
+    func deleteTrashed(_ records: [UndoRecord]) async -> TrashSweeper.Result {
+        deletedForGood = records
+        let ids = Set(records.map(\.id))
+        trashed.removeAll { ids.contains($0.id) }
+        return TrashSweeper.Result(deleted: records, failures: [])
+    }
+
     func measure(_ path: URL, disposable: Set<String>, excluding: [URL]) async -> DiskUsage {
         measureLock.withLock { measurementLog.append((path.path, excluding.map(\.path))) }
         return DiskUsage(

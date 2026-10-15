@@ -51,10 +51,20 @@ struct DiskContent: View {
 
 private struct DiskReady: View {
     @Environment(AppModel.self) private var model
+    @State private var confirmingDelete = false
 
     var body: some View {
         let projects = model.visibleDiskProjects
+        let waiting = model.trashedTotals
         VStack(spacing: 0) {
+            if waiting.folders > 0 {
+                Banner(
+                    symbol: "trash",
+                    message: "\(SizeFormat.string(waiting.bytes)) from \(Plural.count(waiting.folders, "folder")) "
+                        + "is still in the Trash and keeps using disk until it is deleted.",
+                    actionTitle: "Delete for good", action: { confirmingDelete = true })
+                    .padding([.horizontal, .top], Theme.Spacing.lg)
+            }
             DiskTotalsStrip()
             Controls()
             Divider()
@@ -77,6 +87,17 @@ private struct DiskReady: View {
                     .padding(Theme.Spacing.lg)
                 }
             }
+        }
+        .confirmationDialog(
+            "Delete \(Plural.count(waiting.folders, "folder")) for good?", isPresented: $confirmingDelete
+        ) {
+            Button("Delete \(SizeFormat.string(waiting.bytes)) for good", role: .destructive) {
+                model.deleteTrashedForGood()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("These are the folders Lopper moved to the Trash. They are removed from the Trash and can no "
+                + "longer be restored. Everything else in the Trash is left alone.")
         }
     }
 }

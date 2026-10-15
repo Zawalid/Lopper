@@ -50,7 +50,8 @@ struct DiskReviewSheet: View {
         case .running(let done, let total):
             return state.isStopping ? "Stopping after the current folder…" : "\(done) of \(total)"
         case .finished:
-            let size = state.reclaimedBytes > 0 ? ", \(SizeFormat.string(state.reclaimedBytes)) freed" : ""
+            let size = state.reclaimedBytes > 0
+                ? ", \(SizeFormat.string(state.reclaimedBytes)). The space is free once the Trash is emptied" : ""
             return "Moved \(Plural.count(state.removed, "folder")) to the Trash\(size)."
         }
     }

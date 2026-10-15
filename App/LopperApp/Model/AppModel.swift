@@ -133,6 +133,8 @@ final class AppModel {
     /// Worktrees measured since the latest scan finished. Only these have trustworthy activity times.
     private(set) var measuredPaths: Set<String> = []
     var history: [UndoRecord] = []
+    /// Folders Lopper cleared that are still in the Trash, so still using disk.
+    var trashedFolders: [UndoRecord] = []
 
     /// The current page. Backed by stored state so views are notified, and written to preferences so the app
     /// reopens on the same page.
@@ -177,7 +179,7 @@ final class AppModel {
     var diskClear: DiskClearState?
 
     /// A short message about something that did not work (for example a restore that was blocked).
-    private(set) var notice: String?
+    var notice: String?
 
     private var scanTask: Task<Void, Never>?
     private var cleanTask: Task<Void, Never>?
@@ -656,7 +658,7 @@ final class AppModel {
             let finished = Date()
             lastCompletedScan = finished
             phase = .ready(finished)
-            history = await client.history()
+            await reloadHistory()
             await measureSizes()
             await scanArtifacts()
         }
@@ -913,7 +915,7 @@ final class AppModel {
             }
             if case .running = clean?.phase { clean?.phase = .finished }
             checked.removeAll()
-            history = await client.history()
+            await reloadHistory()
         }
     }
 
@@ -946,12 +948,18 @@ final class AppModel {
 
     // MARK: Undo and history
 
+    /// Reads the undo log and, with it, which cleared folders are still waiting in the Trash.
+    func reloadHistory() async {
+        history = await client.history()
+        trashedFolders = await client.trashedFolders()
+    }
+
     func undoToast() {
         guard let toast else { return }
         self.toast = nil
         Task {
             report(await client.restoreBatch(toast.id))
-            history = await client.history()
+            await reloadHistory()
             startScan()
         }
     }
@@ -979,7 +987,7 @@ final class AppModel {
     func restoreBatch(_ id: UUID) {
         Task {
             report(await client.restoreBatch(id))
-            history = await client.history()
+            await reloadHistory()
             startScan()
         }
     }
@@ -991,7 +999,7 @@ final class AppModel {
             var outcomes: [RestoreOutcome] = []
             for record in records { outcomes.append(await client.restore(record)) }
             report(outcomes)
-            history = await client.history()
+            await reloadHistory()
             startScan()
         }
     }
@@ -999,7 +1007,7 @@ final class AppModel {
     func restore(_ record: UndoRecord) {
         Task {
             report([await client.restore(record)])
-            history = await client.history()
+            await reloadHistory()
             startScan()
         }
     }

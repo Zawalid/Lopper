@@ -18,6 +18,10 @@ protocol EngineClient: Sendable {
         sizeHints: [String: Int64]
     ) -> AsyncStream<BatchEvent>
     func history() async -> [UndoRecord]
+    /// Cleared folders that are still in the Trash.
+    func trashedFolders() async -> [UndoRecord]
+    /// Deletes exactly these folders from the Trash for good. Nothing else in the Trash is touched.
+    func deleteTrashed(_ records: [UndoRecord]) async -> TrashSweeper.Result
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
     func toolStatus() async -> ToolStatus
@@ -75,6 +79,14 @@ struct LiveEngineClient: EngineClient {
 
     func history() async -> [UndoRecord] {
         await undoLog.all()
+    }
+
+    func trashedFolders() async -> [UndoRecord] {
+        TrashSweeper.pending(in: await undoLog.all())
+    }
+
+    func deleteTrashed(_ records: [UndoRecord]) async -> TrashSweeper.Result {
+        await TrashSweeper(undoLog: undoLog).deleteForGood(records)
     }
 
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome] {
