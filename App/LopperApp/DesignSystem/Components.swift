@@ -46,8 +46,8 @@ struct HealthBar: View {
 }
 
 struct ReclaimHero: View {
-    let bytes: Int64
     let headline: String
+    let value: String
     let summary: String
     let actionTitle: String?
     let footnote: String?
@@ -58,11 +58,11 @@ struct ReclaimHero: View {
             Text(headline)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Text(SizeFormat.string(bytes))
+            Text(value)
                 .font(.system(size: 56, weight: .semibold))
                 .monospacedDigit()
                 .contentTransition(.numericText())
-                .animation(.snappy, value: bytes)
+                .animation(.snappy, value: value)
             Text(summary)
                 .font(.body)
                 .foregroundStyle(.secondary)

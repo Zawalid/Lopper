@@ -70,6 +70,9 @@ struct CleanState: Equatable {
     var reclaimedBytes: Int64 = 0
     var batchID: UUID?
 
+    /// The user pressed Stop: the item in flight finishes, then the batch ends.
+    var isStopping = false
+
     var includedRows: [CleanupRow] { rows.filter { !excluded.contains($0.id) } }
     var includedBytes: Int64 { includedRows.reduce(0) { $0 + ($1.size ?? 0) } }
     var removedCount: Int { outcomes.filter { $0.status == .removed }.count }
@@ -80,6 +83,14 @@ struct UndoToast: Equatable, Identifiable {
     let id: UUID
     let removed: Int
     let reclaimed: Int64
+}
+
+enum OverviewState: Equatable {
+    case needsFolders
+    case scanning(done: Int, total: Int)
+    case nothingFound
+    case allTidy(review: Int)
+    case ready
 }
 
 struct Totals: Equatable {
@@ -115,8 +126,13 @@ final class AppModel {
     var clean: CleanState?
     var toast: UndoToast?
 
+    /// A short message about something that did not work (for example a restore that was blocked).
+    private(set) var notice: String?
+
     private var scanTask: Task<Void, Never>?
     private var cleanTask: Task<Void, Never>?
+    private var cleanControl = BatchControl()
+    private var lastCompletedScan: Date?
 
     init(client: any EngineClient, store: SettingsStore = .standard, settings: Settings? = nil) {
         self.client = client
@@ -199,6 +215,31 @@ final class AppModel {
         allRows.filter { checked.contains($0.id) && $0.isSelectable }
     }
 
+    var overviewState: OverviewState {
+        if settings.roots.isEmpty { return .needsFolders }
+        if results.isEmpty {
+            switch phase {
+            case .scanning(let done, let total): return .scanning(done: done, total: total)
+            case .idle: return .scanning(done: 0, total: 0)
+            case .ready: return .nothingFound
+            }
+        }
+        let totals = self.totals
+        return totals.safe == 0 ? .allTidy(review: totals.review) : .ready
+    }
+
+    /// With no measured size (only branches are safe) the hero shows how many items instead of "Zero KB".
+    var heroHeadline: String {
+        totals.reclaimableBytes > 0 ? "Ready to reclaim" : "Ready to clean"
+    }
+
+    var heroValue: String {
+        let totals = self.totals
+        return totals.reclaimableBytes > 0
+            ? SizeFormat.string(totals.reclaimableBytes)
+            : Plural.count(totals.safe, "item")
+    }
+
     var prDetectionNote: Bool {
         !snapshots.isEmpty && snapshots.contains { !$0.prDetectionAvailable }
     }
@@ -253,7 +294,9 @@ final class AppModel {
             }
             guard !Task.isCancelled else { return }
             results = Self.sorted(collected)
-            phase = .ready(Date())
+            let finished = Date()
+            lastCompletedScan = finished
+            phase = .ready(finished)
             history = await client.history()
             await measureSizes()
         }
@@ -307,13 +350,18 @@ final class AppModel {
     }
 
     func beginClean(rows: [CleanupRow]) {
-        guard !rows.isEmpty, !isCleaning else { return }
+        guard !rows.isEmpty, clean == nil else { return }
         clean = CleanState(rows: rows)
     }
 
     func dismissClean() {
         guard !isCleaning else { return }
-        clean = nil
+        // Closing a finished sheet any way other than "Done" must still refresh what is listed.
+        if clean?.phase == .finished {
+            finishClean()
+        } else {
+            clean = nil
+        }
     }
 
     func setExcluded(_ id: String, _ excluded: Bool) {
@@ -332,10 +380,16 @@ final class AppModel {
         state.phase = .running(done: 0, total: items.count)
         clean = state
         scanTask?.cancel()
+        if isScanning {
+            // The cancelled scan will never report back; do not leave the app looking like it is scanning.
+            phase = lastCompletedScan.map(ScanPhase.ready) ?? .idle
+        }
         let settings = self.settings
+        cleanControl = BatchControl()
+        let control = cleanControl
 
         cleanTask = Task {
-            for await event in client.clean(items, settings: settings) {
+            for await event in client.clean(items, settings: settings, control: control) {
                 guard var current = clean else { break }
                 switch event {
                 case .started(let batchID, let total):
@@ -365,7 +419,12 @@ final class AppModel {
         }
     }
 
-    func cancelClean() { cleanTask?.cancel() }
+    /// Stops after the item in flight. Cancelling the task instead would interrupt a removal half way.
+    func cancelClean() {
+        guard case .running = clean?.phase else { return }
+        cleanControl.requestStop()
+        clean?.isStopping = true
+    }
 
     func finishClean() {
         clean = nil
@@ -393,7 +452,7 @@ final class AppModel {
         guard let toast else { return }
         self.toast = nil
         Task {
-            _ = await client.restoreBatch(toast.id)
+            report(await client.restoreBatch(toast.id))
             history = await client.history()
             startScan()
         }
@@ -401,9 +460,22 @@ final class AppModel {
 
     func dismissToast() { toast = nil }
 
+    func dismissNotice() { notice = nil }
+
+    private func report(_ outcomes: [RestoreOutcome]) {
+        let failures = outcomes.compactMap { outcome -> String? in
+            if case .failed(let message) = outcome { message } else { nil }
+        }
+        guard let first = failures.first else {
+            notice = nil
+            return
+        }
+        notice = "Couldn't restore \(Plural.count(failures.count, "item")). \(first)"
+    }
+
     func restoreBatch(_ id: UUID) {
         Task {
-            _ = await client.restoreBatch(id)
+            report(await client.restoreBatch(id))
             history = await client.history()
             startScan()
         }
@@ -411,7 +483,7 @@ final class AppModel {
 
     func restore(_ record: UndoRecord) {
         Task {
-            _ = await client.restore(record)
+            report([await client.restore(record)])
             history = await client.history()
             startScan()
         }

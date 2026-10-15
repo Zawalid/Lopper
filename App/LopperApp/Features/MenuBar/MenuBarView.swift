@@ -22,15 +22,20 @@ struct MenuBarView: View {
     var body: some View {
         let totals = model.totals
         VStack(spacing: Theme.Spacing.md) {
-            if model.isScanning && model.snapshots.isEmpty {
+            switch model.overviewState {
+            case .scanning, .needsFolders:
                 ProgressView().controlSize(.small)
-                Text("Scanning…").foregroundStyle(.secondary)
-            } else if totals.safe == 0 {
+                Text(model.overviewState == .needsFolders ? "Choose folders in Lopper" : "Scanning…")
+                    .foregroundStyle(.secondary)
+            case .nothingFound:
+                Image(systemName: "magnifyingglass").font(.title).foregroundStyle(.secondary)
+                Text("No repositories found").font(.headline)
+            case .allTidy:
                 Image(systemName: "checkmark.seal").font(.title).foregroundStyle(.secondary)
                 Text("All tidy").font(.headline)
-            } else {
-                Text("Ready to reclaim").font(.caption).foregroundStyle(.secondary)
-                Text(SizeFormat.string(totals.reclaimableBytes))
+            case .ready:
+                Text(model.heroHeadline).font(.caption).foregroundStyle(.secondary)
+                Text(model.heroValue)
                     .font(.system(size: 34, weight: .semibold))
                     .monospacedDigit()
                 Text("\(Plural.count(totals.safeBranches, "branch", "branches")) and \(Plural.count(totals.safeWorktrees, "worktree")) are safe to remove")

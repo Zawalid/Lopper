@@ -6,7 +6,7 @@ protocol EngineClient: Sendable {
     var githubCLIAvailable: Bool { get }
     func scan(settings: Settings) -> AsyncStream<ScanEvent>
     func measure(_ path: URL, disposable: Set<String>) async -> DiskUsage
-    func clean(_ items: [CleanupItem], settings: Settings) -> AsyncStream<BatchEvent>
+    func clean(_ items: [CleanupItem], settings: Settings, control: BatchControl) -> AsyncStream<BatchEvent>
     func history() async -> [UndoRecord]
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
@@ -37,8 +37,8 @@ struct LiveEngineClient: EngineClient {
         await SizeCalculator.measure(path, disposableNames: disposable)
     }
 
-    func clean(_ items: [CleanupItem], settings: Settings) -> AsyncStream<BatchEvent> {
-        BatchCleaner(cleaner: cleaner(settings)).run(items: items)
+    func clean(_ items: [CleanupItem], settings: Settings, control: BatchControl) -> AsyncStream<BatchEvent> {
+        BatchCleaner(cleaner: cleaner(settings)).run(items: items, control: control)
     }
 
     func history() async -> [UndoRecord] {

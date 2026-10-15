@@ -41,13 +41,13 @@ struct OverviewContent: View {
 
     @ViewBuilder
     private func hero(_ totals: Totals) -> some View {
-        switch model.phase {
-        case .idle:
+        switch model.overviewState {
+        case .needsFolders:
             EmptyState(
-                symbol: "folder.badge.plus", title: "No repositories yet",
-                message: "Choose the folders where your projects live.",
+                symbol: "folder.badge.plus", title: "Choose your project folders",
+                message: "Lopper looks for git repositories inside the folders you pick.",
                 actionTitle: "Choose folders", action: { FolderPicker.choose { model.setRoots($0) } })
-        case .scanning(let done, let total) where model.snapshots.isEmpty:
+        case .scanning(let done, let total):
             VStack(spacing: Theme.Spacing.md) {
                 ProgressView()
                 Text(total == 0 ? "Looking for repositories…" : "Scanning \(done) of \(total)…")
@@ -55,22 +55,25 @@ struct OverviewContent: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 60)
-        default:
-            if totals.safe == 0 {
-                EmptyState(
-                    symbol: "checkmark.seal", title: "All tidy",
-                    message: totals.review > 0
-                        ? "Nothing is safe to remove. \(Plural.count(totals.review, "item")) need a look."
-                        : "Nothing is waiting to be cleaned up.")
-            } else {
-                ReclaimHero(
-                    bytes: totals.reclaimableBytes,
-                    headline: "Ready to reclaim",
-                    summary: summary(totals),
-                    actionTitle: "Review and clean",
-                    footnote: "Every removal can be undone for \(model.settings.trashRetentionDays) days",
-                    action: { model.beginCleanAllSafe() })
-            }
+        case .nothingFound:
+            EmptyState(
+                symbol: "magnifyingglass", title: "No repositories found",
+                message: "There are no git repositories in the folders you chose. Try a folder higher up, or add another.",
+                actionTitle: "Choose folders", action: { FolderPicker.choose { model.setRoots($0) } })
+        case .allTidy(let review):
+            EmptyState(
+                symbol: "checkmark.seal", title: "All tidy",
+                message: review > 0
+                    ? "Nothing is safe to remove. \(Plural.count(review, "item")) need a look."
+                    : "Nothing is waiting to be cleaned up.")
+        case .ready:
+            ReclaimHero(
+                headline: model.heroHeadline,
+                value: model.heroValue,
+                summary: summary(totals),
+                actionTitle: "Review and clean",
+                footnote: "Every removal can be undone for \(model.settings.trashRetentionDays) days",
+                action: { model.beginCleanAllSafe() })
         }
     }
 

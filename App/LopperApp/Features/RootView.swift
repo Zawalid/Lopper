@@ -35,6 +35,14 @@ struct RootView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 520)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let notice = model.notice {
+                Banner(
+                    symbol: "exclamationmark.triangle", message: notice,
+                    onDismiss: { model.dismissNotice() })
+                .padding(Theme.Spacing.md)
+            }
+        }
         .task { model.startScan() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.scanIfStale()

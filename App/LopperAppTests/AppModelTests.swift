@@ -18,18 +18,24 @@ final class AppModelTests: XCTestCase {
         return (model, client)
     }
 
-    private func settle(_ model: AppModel) async {
-        for _ in 0..<200 {
-            if case .ready = model.phase, model.sizes.count >= 0 { break }
+    /// Waits for the scan to finish and, when `sizes` is given, for that many worktree sizes to arrive.
+    private func settle(_ model: AppModel, sizes: Int = 0) async {
+        for _ in 0..<300 {
+            if case .ready = model.phase, model.sizes.count >= sizes { return }
             try? await Task.sleep(for: .milliseconds(10))
         }
-        try? await Task.sleep(for: .milliseconds(30))
+    }
+
+    private func waitUntil(_ condition: @MainActor () -> Bool) async {
+        for _ in 0..<300 where !condition() {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
     }
 
     func testScanPopulatesSummariesAndTotals() async {
         let (model, _) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
         model.startScan()
-        await settle(model)
+        await settle(model, sizes: 1)
 
         XCTAssertEqual(model.summaries.count, 1)
         let totals = model.totals
@@ -71,7 +77,7 @@ final class AppModelTests: XCTestCase {
     func testCleanAllSafeSendsOnlySafeItemsAndOffersUndo() async {
         let (model, client) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
         model.startScan()
-        await settle(model)
+        await settle(model, sizes: 1)
 
         model.beginCleanAllSafe()
         XCTAssertEqual(model.clean?.includedRows.count, 4)
@@ -167,5 +173,129 @@ final class AppModelTests: XCTestCase {
 
         XCTAssertTrue(model.settings.disposableSet(for: Fixtures.root).contains(".env.test"))
         XCTAssertTrue(model.isScanning)
+    }
+
+    // MARK: Review fixes
+
+    func testStopMidBatchStillFinishesKeepsUndoAndCountsOnlyWhatWasRemoved() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        client.cleanItemDelay = .milliseconds(80)
+        model.startScan()
+        await settle(model)
+        model.beginCleanAllSafe()
+        model.runClean()
+        await waitUntil { (model.clean?.outcomes.count ?? 0) >= 1 }
+
+        model.cancelClean()
+
+        XCTAssertEqual(model.clean?.isStopping, true)
+        await waitUntil { model.clean?.phase == .finished }
+        XCTAssertEqual(model.clean?.phase, .finished, "a stopped batch must still finish")
+        let removed = model.clean?.removedCount ?? 0
+        XCTAssertGreaterThanOrEqual(removed, 1)
+        XCTAssertLessThan(removed, 4)
+        XCTAssertEqual(model.toast?.removed, removed, "what was removed must stay undoable")
+    }
+
+    func testStartingACleanWhileAScanIsRunningDoesNotLeaveTheScanSpinnerStuck() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        client.scanDelay = .seconds(5)
+        model.startScan()
+        XCTAssertTrue(model.isScanning)
+
+        model.beginCleanAllSafe()
+        model.runClean()
+        await waitUntil { model.clean?.phase == .finished }
+
+        XCTAssertEqual(model.clean?.phase, .finished)
+        XCTAssertFalse(model.isScanning, "the cancelled scan must not leave the app in a scanning state")
+    }
+
+    func testDismissingAFinishedSheetBehavesLikeDone() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        model.beginCleanAllSafe()
+        model.runClean()
+        await waitUntil { model.clean?.phase == .finished }
+
+        model.dismissClean()
+
+        XCTAssertNil(model.clean)
+        XCTAssertTrue(model.isScanning, "closing the finished sheet must rescan so removed items disappear")
+    }
+
+    func testBeginningACleanIsIgnoredWhileASheetIsAlreadyOpen() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        model.beginCleanAllSafe()
+        let first = model.clean
+        model.setExcluded(first!.rows[0].id, true)
+
+        model.beginCleanAllSafe()
+
+        XCTAssertTrue(model.clean?.excluded.contains(first!.rows[0].id) == true)
+    }
+
+    func testOverviewStateDistinguishesTheEmptyCases() async {
+        let store = SettingsStore(url: FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-test-settings-\(UUID().uuidString).json"))
+        let noFolders = AppModel(client: FakeEngineClient(snapshots: []), store: store, settings: Settings())
+        XCTAssertEqual(noFolders.overviewState, .needsFolders)
+
+        let (empty, _) = makeModel([])
+        empty.startScan()
+        await settle(empty)
+        XCTAssertEqual(empty.overviewState, .nothingFound)
+
+        let tidyOnly = Fixtures.snapshot(branches: [Fixtures.branch("main", .protected)])
+        let (tidy, _) = makeModel([tidyOnly])
+        tidy.startScan()
+        await settle(tidy)
+        XCTAssertEqual(tidy.overviewState, .allTidy(review: 0))
+
+        let (ready, _) = makeModel([Fixtures.sample])
+        ready.startScan()
+        await settle(ready)
+        XCTAssertEqual(ready.overviewState, .ready)
+    }
+
+    func testFailedRestoreShowsANoticeInsteadOfStayingSilent() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        client.restoreBatchOutcomes = [.failed(message: "Can't restore this: /code/wt/x already exists.")]
+        model.startScan()
+        await settle(model)
+        model.beginCleanAllSafe()
+        model.runClean()
+        await waitUntil { model.clean?.phase == .finished }
+
+        model.undoToast()
+        await waitUntil { model.notice != nil }
+
+        XCTAssertTrue(model.notice?.contains("Couldn't restore 1 item") == true, model.notice ?? "nil")
+        XCTAssertTrue(model.notice?.contains("already exists") == true)
+        model.dismissNotice()
+        XCTAssertNil(model.notice)
+    }
+
+    func testHeroShowsAnItemCountWhenOnlyBranchesAreSafe() async {
+        let branchesOnly = Fixtures.snapshot(branches: [
+            Fixtures.branch("main", .protected), Fixtures.branch("feat/a", .safe), Fixtures.branch("feat/b", .safe),
+        ])
+        let (model, _) = makeModel([branchesOnly])
+        model.startScan()
+        await settle(model)
+
+        XCTAssertEqual(model.heroHeadline, "Ready to clean")
+        XCTAssertEqual(model.heroValue, "2 items")
+
+        let (sized, _) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
+        sized.startScan()
+        await settle(sized, sizes: 1)
+        XCTAssertEqual(sized.heroHeadline, "Ready to reclaim")
+        XCTAssertTrue(sized.heroValue.contains("MB"), sized.heroValue)
     }
 }

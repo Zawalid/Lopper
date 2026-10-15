@@ -42,7 +42,7 @@ struct CleanSheet: View {
             let size = state.includedBytes > 0 ? ", \(SizeFormat.string(state.includedBytes)) to reclaim" : ""
             return "\(Plural.count(included.count, "item"))\(size). Everything can be undone for \(model.settings.trashRetentionDays) days."
         case .running(let done, let total):
-            return "\(done) of \(total)"
+            return state.isStopping ? "Stopping after the current item…" : "\(done) of \(total)"
         case .finished:
             let size = state.reclaimedBytes > 0 ? ", \(SizeFormat.string(state.reclaimedBytes)) reclaimed" : ""
             return "Removed \(Plural.count(state.removedCount, "item"))\(size)."
@@ -67,7 +67,13 @@ struct CleanSheet: View {
             VStack(spacing: Theme.Spacing.md) {
                 ProgressView(value: Double(done), total: Double(max(total, 1)))
                     .frame(maxWidth: 320)
-                Text(state.outcomes.last.map { "Removed \($0.title)" } ?? "Starting…")
+                Text(state.outcomes.last.map { last in
+                    switch last.status {
+                    case .removed: "Removed \(last.title)"
+                    case .skipped: "Left \(last.title) alone"
+                    case .failed: "Couldn't remove \(last.title)"
+                    }
+                } ?? "Starting…")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -122,7 +128,8 @@ struct CleanSheet: View {
                     .disabled(state.includedRows.isEmpty)
             case .running:
                 Spacer()
-                Button("Stop") { model.cancelClean() }
+                Button(state.isStopping ? "Stopping…" : "Stop") { model.cancelClean() }
+                    .disabled(state.isStopping)
             case .finished:
                 Spacer()
                 Button("Done") { model.finishClean() }
