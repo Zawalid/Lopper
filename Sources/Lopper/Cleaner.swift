@@ -18,6 +18,9 @@ public struct Cleaner: Sendable {
     private let inspector: RepoInspector
     private let undoLog: UndoLog
     private let gate: RepoGate
+    /// Test seam: runs after re-verification and before any destructive step, to simulate a change
+    /// made by someone else in that window.
+    var afterVerifyHook: (@Sendable () async -> Void)?
 
     public init(git: GitRunner = GitRunner(), inspector: RepoInspector, undoLog: UndoLog, gate: RepoGate = RepoGate()) {
         self.git = git
@@ -43,13 +46,14 @@ public struct Cleaner: Sendable {
             if let skip = Self.skipReason(verdict: entry.verdict, approved: approved) {
                 return .skipped(reason: skip)
             }
+            await afterVerifyHook?()
             let trashRef = Self.trashRef(now: now, label: name)
             var record = UndoRecord(
                 timestamp: now, repoPath: repoRoot.path, action: .deleteBranch, branch: name,
                 tip: entry.tip, upstream: entry.upstream, worktreePath: nil,
                 trashRef: trashRef, status: .pending)
             return await execute(record: &record, repoRoot: repoRoot) {
-                try await git.runChecked(["branch", "-D", name], in: repoRoot)
+                try await deleteBranchIfUnchanged(name: name, expectedTip: entry.tip, repoRoot: repoRoot)
             }
         }
     }
@@ -72,6 +76,7 @@ public struct Cleaner: Sendable {
             if let skip = Self.skipReason(verdict: entry.verdict, approved: approved) {
                 return .skipped(reason: skip)
             }
+            await afterVerifyHook?()
             let label = entry.branch ?? "detached-\(entry.head.prefix(8))"
             var record = UndoRecord(
                 timestamp: now, repoPath: repoRoot.path, action: .removeWorktree, branch: entry.branch,
@@ -83,6 +88,10 @@ public struct Cleaner: Sendable {
                     // Nothing on disk is left to lose: dropping the registration is all that remains.
                     return try await git.runChecked(["worktree", "prune"], in: repoRoot)
                 }
+                // The worktree must still be at the commit that was verified: anything committed since
+                // then (a detached HEAD has no branch to keep it) would be orphaned by the removal.
+                let current = try await git.runChecked(["rev-parse", "HEAD"], in: entry.path)
+                guard current == entry.head else { throw CleanError.movedAfterVerification(entry.path.path) }
                 // Never --force: git itself refuses to remove a worktree with local changes.
                 return try await git.runChecked(["worktree", "remove", entry.path.path], in: repoRoot)
             }
@@ -190,6 +199,22 @@ public struct Cleaner: Sendable {
         }
     }
 
+    /// Deletes `refs/heads/<name>` only while it still points at `expectedTip` and no worktree has it
+    /// checked out. The final `update-ref -d <ref> <old>` is a compare-and-delete, so a commit that
+    /// lands between verification and deletion can never be orphaned.
+    private func deleteBranchIfUnchanged(name: String, expectedTip: String, repoRoot: URL) async throws -> String {
+        let ref = "refs/heads/\(name)"
+        let probe = try await git.runChecked(
+            ["for-each-ref", "--format=%(objectname) %(worktreepath)", ref], in: repoRoot)
+        let parts = probe.split(separator: " ", maxSplits: 1).map(String.init)
+        guard parts.first == expectedTip else { throw CleanError.movedAfterVerification(name) }
+        if parts.count > 1 { throw CleanError.checkedOut(parts[1]) }
+        try await git.runChecked(["update-ref", "-d", ref, expectedTip], in: repoRoot)
+        // Deleting through the branch command also drops tracking configuration; update-ref does not.
+        _ = try? await git.run(["config", "--remove-section", "branch.\(name)"], in: repoRoot)
+        return ""
+    }
+
     private func restoreBranch(_ record: UndoRecord, in repoRoot: URL) async throws -> String {
         let base = record.branch ?? "restored-\(record.tip.prefix(8))"
         var name = base
@@ -233,4 +258,10 @@ public struct Cleaner: Sendable {
         try await undoLog.append(updated)
         return .restored(updated)
     }
+}
+
+/// Why an action was refused at the last moment, after the verdict had already been approved.
+enum CleanError: Error, Equatable {
+    case movedAfterVerification(String)
+    case checkedOut(String)
 }

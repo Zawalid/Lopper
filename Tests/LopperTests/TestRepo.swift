@@ -2,7 +2,7 @@ import Foundation
 @testable import Lopper
 
 /// A throwaway real git repository for tests. Uses synchronous git so test setup reads top to bottom.
-final class TestRepo {
+final class TestRepo: @unchecked Sendable {
     /// Temp directory holding the repo, the bare origin, and any worktrees a test creates.
     let sandbox: URL
     let root: URL

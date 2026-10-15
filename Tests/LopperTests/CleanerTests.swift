@@ -260,4 +260,40 @@ final class CleanerTests: XCTestCase {
         XCTAssertFalse(try repo.git("worktree", "list").contains("wt-vanished"))
         XCTAssertTrue(branchExists(repo, "vanished"), "pruning a registration keeps the branch")
     }
+
+    func testBranchThatMovedAfterVerificationIsNotDeleted() async throws {
+        let repo = try baseRepo()
+        _ = try mergedBranch(repo, "done")
+        // Unmerged work that "done" is moved to after the verdict was computed, as a background
+        // agent committing in a worktree would.
+        try repo.git("checkout", "-b", "elsewhere")
+        let lateTip = try repo.commit("late work", files: ["late.txt": "late"])
+        try repo.git("checkout", "main")
+        var cleaner = makeCleaner(repo).0
+        cleaner.afterVerifyHook = {
+            _ = try? repo.git("update-ref", "refs/heads/done", lateTip)
+        }
+
+        let outcome = await cleaner.deleteBranch(repoRoot: repo.root, name: "done", approved: .safe)
+
+        guard case .failed = outcome else { return XCTFail("\(outcome)") }
+        XCTAssertEqual(try repo.sha("done"), lateTip, "the branch must keep the commit it gained")
+    }
+
+    func testWorktreeThatGainedACommitAfterVerificationIsNotRemoved() async throws {
+        let repo = try baseRepo()
+        let old = try repo.sha("HEAD")
+        try repo.commit("main moves on", files: ["n.txt": "n"])
+        let wt = repo.sandbox.appendingPathComponent("wt-detached")
+        try repo.git("worktree", "add", "--detach", wt.path, old)
+        var cleaner = makeCleaner(repo).0
+        cleaner.afterVerifyHook = {
+            _ = try? repo.commit("work done in the worktree right now", files: ["w.txt": "w"], in: wt)
+        }
+
+        let outcome = await cleaner.removeWorktree(repoRoot: repo.root, path: wt, approved: .safe)
+
+        guard case .failed = outcome else { return XCTFail("\(outcome)") }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: wt.appendingPathComponent("w.txt").path))
+    }
 }
