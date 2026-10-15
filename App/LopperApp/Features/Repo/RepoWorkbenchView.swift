@@ -37,11 +37,13 @@ struct RepoWorkbenchView: View {
                     }
                     .width(28)
                     TableColumn("Name", value: \.title) { row in NameCell(row: row) }
+                        .width(min: 150, ideal: 260)
                     TableColumn("Verdict", value: \.verdict) { row in VerdictChip(kind: row.verdict) }
-                        .width(min: 96, ideal: 108)
+                        .width(min: 100, ideal: 110)
                     TableColumn("Evidence", value: \.evidence) { row in
                         Text(row.evidence).foregroundStyle(.secondary).lineLimit(1)
                     }
+                    .width(min: 110, ideal: 200)
                     TableColumn("Last commit", value: \.lastCommitSort) { row in
                         Text(row.lastCommit.map { AgeFormat.short(from: $0) } ?? "-")
                             .foregroundStyle(.secondary)
@@ -61,22 +63,9 @@ struct RepoWorkbenchView: View {
         .navigationTitle(summary?.name ?? "Repository")
         .navigationSubtitle(subtitle(summary))
         .searchable(text: $model.searchText, placement: .toolbar, prompt: "Search branches and worktrees")
-        .toolbar {
-            ToolbarItem {
-                Picker("Verdict", selection: $model.verdictFilter) {
-                    ForEach(VerdictFilter.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .help("Filter by verdict")
-            }
-            ToolbarItem {
-                Picker("Kind", selection: $model.kindFilter) {
-                    ForEach(KindFilter.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.menu)
-                .help("Filter by kind")
-            }
-        }
+        // Filters sit above the table rather than in the toolbar: the toolbar already carries the title,
+        // search, rescan and inspector, and a segmented control there squeezed the title and subtitle.
+        .safeAreaInset(edge: .top, spacing: 0) { FilterBar() }
         .safeAreaInset(edge: .bottom) { SelectionBar(repoID: repoID) }
         .inspector(isPresented: $model.showInspector) {
             InspectorView()
@@ -91,7 +80,37 @@ struct RepoWorkbenchView: View {
 
     private func subtitle(_ summary: RepoSummary?) -> String {
         guard let summary else { return "" }
-        return "\(summary.safe) safe, \(summary.review) to review, \(summary.protected) protected"
+        return "\(summary.safe) safe · \(summary.review) review · \(summary.protected) protected"
+    }
+}
+
+private struct FilterBar: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        HStack(spacing: Theme.Spacing.md) {
+            Picker("Verdict", selection: $model.verdictFilter) {
+                ForEach(VerdictFilter.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .help("Filter by verdict")
+
+            Picker("Kind", selection: $model.kindFilter) {
+                ForEach(KindFilter.allCases) { Text($0.rawValue).tag($0) }
+            }
+            .pickerStyle(.menu)
+            .fixedSize()
+            .help("Filter by kind")
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(.bar)
+        .overlay(alignment: .bottom) { Divider() }
     }
 }
 

@@ -44,6 +44,20 @@ final class WindowSmokeTests: XCTestCase {
         XCTAssertNotNil(window.contentViewController)
     }
 
+    /// The window opens 1080 wide. If the content's own minimum (sidebar, table columns, inspector) is wider,
+    /// the sidebar and inspector are clipped by the window edge.
+    func testRepositoryWorkbenchFitsTheDefaultWindowWidth() async {
+        let model = await readyModel()
+        model.showInspector = true
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        model.route = .repo(Fixtures.root.path)
+        await pump(0.8)
+
+        XCTAssertLessThanOrEqual(window.contentMinSize.width, 1080,
+            "content needs \(window.contentMinSize.width) points, the default window has 1080")
+    }
+
     func testChangingTheVerdictFilterDoesNotCrash() async {
         let model = await readyModel()
         let window = makeWindow(model: model)
