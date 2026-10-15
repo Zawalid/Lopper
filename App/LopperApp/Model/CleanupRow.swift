@@ -1,6 +1,18 @@
 import Foundation
 import Lopper
 
+/// What the engine knows about a row beyond its verdict, kept for the details panel.
+struct RowFacts: Equatable, Sendable {
+    var evidence: MergeEvidence = .none
+    var tip: String?
+    var upstream: String?
+    var ahead: Int?
+    var behind: Int?
+    var isDirty = false
+    var defaultBranch: String?
+    var prDetectionAvailable = true
+}
+
 /// One line in the workbench: a branch, or a worktree (which carries its branch with it).
 struct CleanupRow: Identifiable, Equatable, Sendable {
     enum Kind: Equatable, Sendable { case branch, worktree }
@@ -24,6 +36,7 @@ struct CleanupRow: Identifiable, Equatable, Sendable {
     let extraFiles: [String]
     /// The branch removed together with a Safe worktree.
     let bundledBranch: String?
+    var facts = RowFacts()
 
     var isSelectable: Bool { verdict != .protected }
     var lastCommitSort: Date { lastCommit ?? .distantPast }
@@ -70,7 +83,16 @@ enum RowMapper {
                 size: sizes[worktree.path.path]?.total,
                 agentHint: worktree.agentHint,
                 extraFiles: worktree.status.extraFiles,
-                bundledBranch: worktree.verdict.kind == .safe ? worktree.branch : nil))
+                bundledBranch: worktree.verdict.kind == .safe ? worktree.branch : nil,
+                facts: RowFacts(
+                    evidence: worktree.evidence,
+                    tip: snapshot.branches.first { $0.name == worktree.branch }?.tip ?? worktree.head,
+                    upstream: snapshot.branches.first { $0.name == worktree.branch }?.upstream,
+                    ahead: snapshot.branches.first { $0.name == worktree.branch }?.ahead,
+                    behind: snapshot.branches.first { $0.name == worktree.branch }?.behind,
+                    isDirty: worktree.status.isDirty,
+                    defaultBranch: repo.defaultBranch,
+                    prDetectionAvailable: snapshot.prDetectionAvailable)))
         }
 
         for branch in snapshot.branches where branch.checkedOutAt == nil {
@@ -93,7 +115,11 @@ enum RowMapper {
                 size: nil,
                 agentHint: nil,
                 extraFiles: [],
-                bundledBranch: nil))
+                bundledBranch: nil,
+                facts: RowFacts(
+                    evidence: branch.evidence, tip: branch.tip, upstream: branch.upstream,
+                    ahead: branch.ahead, behind: branch.behind, isDirty: false,
+                    defaultBranch: repo.defaultBranch, prDetectionAvailable: snapshot.prDetectionAvailable)))
         }
 
         return rows.sorted(by: defaultOrder)
