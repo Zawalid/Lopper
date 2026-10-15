@@ -4,6 +4,41 @@ import Lopper
 /// Everything the details panel offers beyond the verdict itself, one small view each so the panel reads as a
 /// list of sections and each can be previewed and tested on its own.
 
+// MARK: Actions
+
+/// Everything you can do with the item besides removing it, laid out as one tidy block: the main open action
+/// across the full width, two equal buttons under it, and the keep toggle as its own row.
+struct InspectorActions: View {
+    let row: CleanupRow
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            OpenWithMenu(row: row)
+            HStack(spacing: Theme.Spacing.sm) {
+                GitHubMenu(row: row)
+                CopyMenu(row: row)
+            }
+            KeepBranchButton(row: row)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// The label every action button shares: icon, title, and room to stretch so equal columns line up.
+private struct ActionLabel<Icon: View>: View {
+    let title: String
+    @ViewBuilder var icon: () -> Icon
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            icon().frame(width: 16, height: 16)
+            Text(title).lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 // MARK: Open with
 
 /// A split button: the main part opens in the person's own editor, the arrow lists every installed app.
@@ -37,18 +72,20 @@ struct OpenWithMenu: View {
                 Divider()
                 Button("Reveal in Finder") { OpenActions.reveal(folder) }
             } label: {
-                Label("Open with \(first.name)", systemImage: "arrow.up.forward.app")
+                ActionLabel(title: "Open in \(first.name)") {
+                    AppIconView(bundleID: first.bundleID, fallbackSymbol: "arrow.up.forward.app", size: 16)
+                }
             } primaryAction: {
                 OpenActions.openWith(folder, bundleID: first.bundleID)
             }
             .menuStyle(.button)
             .buttonStyle(.lopperSecondary)
-            .controlSize(.small)
-            .help("Open \(row.path == nil ? "the repository" : "this worktree") in an app")
+            .help("Open \(row.path == nil ? "the repository" : "this worktree") in \(first.name), or pick another app")
         } else {
-            Button { OpenActions.reveal(folder) } label: { Label("Reveal in Finder", systemImage: "folder") }
-                .buttonStyle(.lopperSecondary)
-                .controlSize(.small)
+            Button { OpenActions.reveal(folder) } label: {
+                ActionLabel(title: "Reveal in Finder") { Image(systemName: "folder") }
+            }
+            .buttonStyle(.lopperSecondary)
         }
     }
 }
@@ -86,11 +123,11 @@ struct GitHubMenu: View {
                     Button { OpenActions.open(url) } label: { Label("Latest commit", systemImage: "number") }
                 }
             } label: {
-                Label("GitHub", systemImage: "arrow.up.right.square")
+                ActionLabel(title: "GitHub") { GitHubMarkView(size: 15) }
             }
             .menuStyle(.button)
             .buttonStyle(.lopperSecondary)
-            .controlSize(.small)
+            .frame(maxWidth: .infinity)
         }
     }
 }
@@ -119,11 +156,11 @@ struct CopyMenu: View {
                 Button("Pull request link") { model.copy(url.absoluteString, confirming: "Copied pull request link") }
             }
         } label: {
-            Label("Copy", systemImage: "doc.on.doc")
+            ActionLabel(title: "Copy") { Image(systemName: "doc.on.doc") }
         }
         .menuStyle(.button)
         .buttonStyle(.lopperSecondary)
-        .controlSize(.small)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -144,10 +181,22 @@ struct KeepBranchButton: View {
                     model.keepBranch(row.title, in: row.repoRoot)
                 }
             } label: {
-                Label(kept ? "Stop keeping" : "Keep this branch", systemImage: kept ? "lock.open" : "lock")
+                HStack(spacing: Theme.Spacing.sm) {
+                    Image(systemName: kept ? "lock.fill" : "lock")
+                        .foregroundStyle(kept ? Color.accentColor : Color.secondary)
+                        .frame(width: 16, height: 16)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(kept ? "Kept" : "Keep this branch").lineLimit(1)
+                        Text(kept ? "Lopper will not remove it. Click to undo." : "Never offer to remove it")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.lopperSecondary)
-            .controlSize(.small)
             .help(kept
                 ? "Let Lopper judge this branch by the usual rules again"
                 : "Protect this branch so Lopper never offers to remove it")

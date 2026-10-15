@@ -58,7 +58,14 @@ struct InspectorContent: View {
                 Text(row.repoName)
                 if let agent = row.agentHint {
                     Text("·")
-                    Label(agent, systemImage: "sparkles")
+                    HStack(spacing: 4) {
+                        if let tool = row.agent?.detection.tool {
+                            AgentToolIcon(tool: tool, size: 13)
+                        } else {
+                            Image(systemName: "sparkles")
+                        }
+                        Text(agent)
+                    }
                 }
             }
             .font(.caption)
@@ -158,7 +165,10 @@ struct InspectorContent: View {
                 Grid(alignment: .leading, horizontalSpacing: Theme.Spacing.md, verticalSpacing: Theme.Spacing.sm) {
                     GridRow {
                         Text("Made by").foregroundStyle(.secondary)
-                        Text(agent.detection.label)
+                        HStack(spacing: 6) {
+                            AgentToolIcon(tool: agent.detection.tool, size: 15)
+                            Text(agent.detection.label)
+                        }
                     }
                     GridRow {
                         Text("State").foregroundStyle(.secondary)
@@ -221,12 +231,7 @@ struct InspectorContent: View {
     // MARK: Open actions
 
     private func openActions(_ row: CleanupRow) -> some View {
-        FlowLayout(spacing: Theme.Spacing.sm) {
-            OpenWithMenu(row: row)
-            GitHubMenu(row: row)
-            CopyMenu(row: row)
-            KeepBranchButton(row: row)
-        }
+        InspectorActions(row: row)
     }
 }
 
