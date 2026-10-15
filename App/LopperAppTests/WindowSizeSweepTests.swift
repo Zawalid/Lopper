@@ -52,6 +52,7 @@ final class WindowSizeSweepTests: XCTestCase {
         [
             ("overview", .overview),
             ("agents", .agents),
+            ("disk", .disk),
             ("history", .history),
             ("repository", .repo(Fixtures.root.path)),
         ]

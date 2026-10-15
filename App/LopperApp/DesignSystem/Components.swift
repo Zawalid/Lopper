@@ -362,6 +362,7 @@ struct UndoToastView: View {
 
     private var message: String {
         let size = toast.reclaimed > 0 ? ", \(SizeFormat.string(toast.reclaimed)) reclaimed" : ""
+        if toast.folders { return "Moved \(Plural.count(toast.removed, "folder")) to the Trash\(size)" }
         return "Removed \(Plural.count(toast.removed, "item"))\(size)"
     }
 }

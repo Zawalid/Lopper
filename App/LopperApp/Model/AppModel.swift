@@ -6,6 +6,7 @@ import Lopper
 enum Route: Hashable {
     case overview
     case agents
+    case disk
     case history
     case repo(String)
 }
@@ -87,6 +88,8 @@ struct UndoToast: Equatable, Identifiable {
     let id: UUID
     let removed: Int
     let reclaimed: Int64
+    /// Generated folders sent to the Trash rather than branches and worktrees removed.
+    var folders = false
 }
 
 enum OverviewState: Equatable {
@@ -121,7 +124,7 @@ final class AppModel {
     private(set) var sizes: [String: DiskUsage] = [:]
     /// Worktrees measured since the latest scan finished. Only these have trustworthy activity times.
     private(set) var measuredPaths: Set<String> = []
-    private(set) var history: [UndoRecord] = []
+    internal(set) var history: [UndoRecord] = []
 
     /// The current page. Backed by stored state so views are notified, and written to preferences so the app
     /// reopens on the same page.
@@ -156,6 +159,15 @@ final class AppModel {
     var clean: CleanState?
     var toast: UndoToast?
 
+    // Disk page
+    var artifacts: [DiskArtifact] = []
+    var artifactPhase: ArtifactScanPhase = .idle
+    var diskGrouping: DiskGrouping = .project
+    var diskUntouchedOnly = false
+    var diskSearchText = ""
+    var diskFocusedID: String?
+    var diskClear: DiskClearState?
+
     /// A short message about something that did not work (for example a restore that was blocked).
     private(set) var notice: String?
 
@@ -163,7 +175,7 @@ final class AppModel {
     private var cleanTask: Task<Void, Never>?
     private var cleanControl = BatchControl()
     private var lastCompletedScan: Date?
-    private let clock: @Sendable () -> Date
+    let clock: @Sendable () -> Date
 
     init(
         client: any EngineClient,
@@ -638,6 +650,7 @@ final class AppModel {
             phase = .ready(finished)
             history = await client.history()
             await measureSizes()
+            await scanArtifacts()
         }
     }
 
@@ -645,20 +658,28 @@ final class AppModel {
         results.sorted { $0.repoRoot.path < $1.repoRoot.path }
     }
 
-    /// Worktree sizes arrive one by one after the listing is on screen.
-    func measureSizes() async {
-        let targets = snapshots.flatMap { snapshot in
-            snapshot.worktrees
-                .filter { !$0.isMain && !$0.isPrunable }
-                .map { (path: $0.path, disposable: settings.disposableSet(for: snapshot.repo.root)) }
+    /// Folder sizes arrive one by one after the listing is on screen: every worktree, and every main folder
+    /// without the worktrees nested inside it (those are counted under their own name).
+    func measureSizes(only paths: Set<String>? = nil) async {
+        let targets = snapshots.flatMap { snapshot -> [(path: URL, disposable: Set<String>, excluding: [URL])] in
+            let disposable = settings.disposableSet(for: snapshot.repo.root)
+            let live = snapshot.worktrees.filter { !$0.isPrunable }
+            return live.map { entry in
+                let nested = entry.isMain
+                    ? live.filter { !$0.isMain && $0.path.path.hasPrefix(entry.path.path + "/") }.map(\.path)
+                    : []
+                return (path: entry.path, disposable: disposable, excluding: nested)
+            }
         }
+        .filter { paths?.contains($0.path.path) ?? true }
         let client = self.client
         await withTaskGroup(of: (String, DiskUsage).self) { group in
             var iterator = targets.makeIterator()
             func addNext() {
                 guard let target = iterator.next() else { return }
                 group.addTask {
-                    (target.path.path, await client.measure(target.path, disposable: target.disposable))
+                    (target.path.path,
+                     await client.measure(target.path, disposable: target.disposable, excluding: target.excluding))
                 }
             }
             for _ in 0..<4 { addNext() }
@@ -989,6 +1010,7 @@ extension AppModel {
         phase: ScanPhase? = nil,
         focusedRowID: String? = nil,
         failures: [URL] = [],
+        artifacts: [DiskArtifact] = Fixtures.diskArtifacts,
         clock: @escaping @Sendable () -> Date = { Date() }
     ) -> AppModel {
         let store = SettingsStore(url: FileManager.default.temporaryDirectory
@@ -1009,6 +1031,8 @@ extension AppModel {
         model.sizes = usage
         model.measuredPaths = Set(usage.keys)
         model.history = history
+        model.artifacts = artifacts
+        model.artifactPhase = .ready(Date())
         model.route = route
         model.phase = phase ?? .ready(Date())
         model.focusedRowID = focusedRowID

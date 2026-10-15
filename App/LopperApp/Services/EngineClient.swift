@@ -5,7 +5,12 @@ import Lopper
 protocol EngineClient: Sendable {
     var githubCLIAvailable: Bool { get }
     func scan(settings: Settings) -> AsyncStream<ScanEvent>
-    func measure(_ path: URL, disposable: Set<String>) async -> DiskUsage
+    /// `excluding` are folders inside `path` that belong to another worktree and are not counted.
+    func measure(_ path: URL, disposable: Set<String>, excluding: [URL]) async -> DiskUsage
+    /// Generated folders (node_modules, build output, ...) git ignores inside one working folder.
+    func artifacts(in root: URL, repoRoot: URL, location: ArtifactLocation, names: Set<String>) async -> [DiskArtifact]
+    /// Moves one generated folder to the Trash after re-checking it, recording an undo entry.
+    func clearArtifact(_ artifact: DiskArtifact, names: Set<String>, batchID: UUID) async -> CleanOutcome
     /// `strictItemIDs` are worktree items that must be refused if work that exists only in the folder has
     /// appeared since they were reviewed.
     func clean(
@@ -48,8 +53,16 @@ struct LiveEngineClient: EngineClient {
         ).scanStream(roots: settings.roots, maxDepth: settings.scanDepth)
     }
 
-    func measure(_ path: URL, disposable: Set<String>) async -> DiskUsage {
-        await SizeCalculator.measure(path, disposableNames: disposable)
+    func measure(_ path: URL, disposable: Set<String>, excluding: [URL]) async -> DiskUsage {
+        await SizeCalculator.measure(path, disposableNames: disposable, excluding: excluding)
+    }
+
+    func artifacts(in root: URL, repoRoot: URL, location: ArtifactLocation, names: Set<String>) async -> [DiskArtifact] {
+        await ArtifactScanner(git: git).scan(root: root, repoRoot: repoRoot, names: names, location: location)
+    }
+
+    func clearArtifact(_ artifact: DiskArtifact, names: Set<String>, batchID: UUID) async -> CleanOutcome {
+        await ArtifactCleaner(undoLog: undoLog, git: git, gate: gate).clear(artifact, names: names, batchID: batchID)
     }
 
     func clean(

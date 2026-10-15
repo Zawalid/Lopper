@@ -4,7 +4,7 @@ import Lopper
 /// One thing that was removed, as a person would name it. A worktree and the branch it carried are two undo
 /// records but one entry, and restoring the entry brings back both.
 struct HistoryEntry: Identifiable, Equatable {
-    enum Kind { case branch, worktree }
+    enum Kind { case branch, worktree, folder }
     enum Status { case removed, restored, expired }
 
     let id: UUID
@@ -132,6 +132,9 @@ enum HistoryBuilder {
         for record in shown where record.action == .deleteBranch && !paired.contains(record.id) {
             result.append(entry(primary: record, branchRecord: nil))
         }
+        for record in shown where record.action == .trashFolder {
+            result.append(entry(primary: record, branchRecord: nil))
+        }
         return result.sorted { $0.date > $1.date }
     }
 
@@ -153,7 +156,7 @@ enum HistoryBuilder {
             records: records,
             batchID: primary.batchID,
             title: primary.branch ?? folder ?? "(unnamed)",
-            kind: isWorktree ? .worktree : .branch,
+            kind: isWorktree ? .worktree : (primary.action == .trashFolder ? .folder : .branch),
             repoName: URL(fileURLWithPath: primary.repoPath).lastPathComponent,
             repoPath: primary.repoPath,
             date: records.map(\.timestamp).max() ?? primary.timestamp,

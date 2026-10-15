@@ -60,9 +60,41 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         }
     }
 
-    func measure(_ path: URL, disposable: Set<String>) async -> DiskUsage {
-        DiskUsage(
+    private let measureLock = NSLock()
+    private var measurementLog: [(path: String, excluding: [String])] = []
+    /// Every folder that was measured, with what was left out of the count.
+    var measurements: [(path: String, excluding: [String])] {
+        measureLock.withLock { measurementLog }
+    }
+
+    func measure(_ path: URL, disposable: Set<String>, excluding: [URL]) async -> DiskUsage {
+        measureLock.withLock { measurementLog.append((path.path, excluding.map(\.path))) }
+        return DiskUsage(
             total: sizeByPath[path.path] ?? 0, disposable: 0, newestModification: activityByPath[path.path])
+    }
+
+    /// Scripted generated folders keyed by the working folder they sit in.
+    var artifactsByRoot: [String: [DiskArtifact]] = [:]
+    private var artifactScanLog: [String] = []
+    private var clearedLog: [DiskArtifact] = []
+    /// The working folders that were searched. Scans run a few at a time, so the log is locked.
+    var artifactScans: [String] { measureLock.withLock { artifactScanLog } }
+    var clearedArtifacts: [DiskArtifact] { measureLock.withLock { clearedLog } }
+    var clearArtifactOutcome: @Sendable (DiskArtifact) -> CleanOutcome = { artifact in
+        .removed(UndoRecord(
+            timestamp: Fixtures.now, repoPath: artifact.repoRoot.path, action: .trashFolder, branch: nil,
+            tip: "", upstream: nil, worktreePath: artifact.path.path, trashRef: "", status: .completed,
+            reason: artifact.kind.title, bytes: artifact.bytes, trashedPath: "/Users/me/.Trash/\(artifact.name)"))
+    }
+
+    func artifacts(in root: URL, repoRoot: URL, location: ArtifactLocation, names: Set<String>) async -> [DiskArtifact] {
+        measureLock.withLock { artifactScanLog.append(root.path) }
+        return artifactsByRoot[root.path] ?? []
+    }
+
+    func clearArtifact(_ artifact: DiskArtifact, names: Set<String>, batchID: UUID) async -> CleanOutcome {
+        measureLock.withLock { clearedLog.append(artifact) }
+        return clearArtifactOutcome(artifact)
     }
 
     func clean(

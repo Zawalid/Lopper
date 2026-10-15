@@ -145,5 +145,29 @@ enum Fixtures {
             ],
             worktrees: [worktree("feat/in-worktree", .safe, evidence: .contentIncluded)])
     }
+
+    /// Generated folders for previews: a big install and a build output in the main folder, one more in a worktree.
+    static var diskArtifacts: [DiskArtifact] {
+        func artifact(
+            _ name: String, _ bytes: Int64, kind: ArtifactKind, in checkout: String,
+            location: ArtifactLocation, removal: ArtifactRemoval
+        ) -> DiskArtifact {
+            let root = URL(fileURLWithPath: checkout)
+            return DiskArtifact(
+                path: root.appendingPathComponent(name), name: name, kind: kind, bytes: bytes,
+                newestModification: now.addingTimeInterval(-86_400), projectDirectory: root, checkoutRoot: root,
+                repoRoot: Fixtures.root, location: location, removal: removal)
+        }
+        return [
+            artifact("node_modules", 1_450_000_000, kind: .packages, in: "/code/api", location: .mainCheckout,
+                     removal: .offered(regenerate: "npm ci")),
+            artifact(".next", 310_000_000, kind: .frameworkCache, in: "/code/api", location: .mainCheckout,
+                     removal: .offered(regenerate: "your next build or dev run")),
+            artifact("build", 90_000_000, kind: .buildOutput, in: "/code/api", location: .mainCheckout,
+                     removal: .blocked(reason: "Lopper cannot tell how this folder is rebuilt.")),
+            artifact("node_modules", 820_000_000, kind: .packages, in: "/code/wt/feat/in-worktree",
+                     location: .worktree(branch: "feat/in-worktree"), removal: .offered(regenerate: "pnpm install")),
+        ]
+    }
 }
 #endif

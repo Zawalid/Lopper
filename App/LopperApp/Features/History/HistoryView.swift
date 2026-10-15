@@ -214,9 +214,11 @@ struct HistoryView: View {
     private func restoreMessage(_ request: RestoreRequest) -> String {
         switch request {
         case .entry(let entry):
-            return entry.kind == .worktree
-                ? "The folder and its branch come back exactly as they were removed."
-                : "The branch comes back at the commit it was removed at."
+            switch entry.kind {
+            case .worktree: return "The folder and its branch come back exactly as they were removed."
+            case .branch: return "The branch comes back at the commit it was removed at."
+            case .folder: return "The folder is moved back out of the Trash to where it was."
+            }
         case .batch:
             return "Everything in this cleanup that is still restorable comes back exactly as it was removed."
         }
@@ -238,7 +240,7 @@ private struct EntryRow: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
-            Image(systemName: entry.kind == .worktree ? "rectangle.stack" : "arrow.triangle.branch")
+            Image(systemName: Self.symbol(for: entry.kind))
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
 
@@ -267,6 +269,14 @@ private struct EntryRow: View {
         .accessibilityElement(children: .combine)
     }
 
+    private static func symbol(for kind: HistoryEntry.Kind) -> String {
+        switch kind {
+        case .worktree: "rectangle.stack"
+        case .branch: "arrow.triangle.branch"
+        case .folder: "folder"
+        }
+    }
+
     private var subtitle: String {
         var parts = [entry.repoName]
         if let reason = entry.reason { parts.append(reason) }
@@ -283,7 +293,8 @@ private struct EntryRow: View {
                 Button("Restore", action: onRestore)
                     .buttonStyle(.lopperSecondary)
                     .controlSize(.small)
-                Text(days == 0 ? "Expires today" : "\(Plural.count(days, "day")) left")
+                Text(entry.kind == .folder ? "In the Trash"
+                    : days == 0 ? "Expires today" : "\(Plural.count(days, "day")) left")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }

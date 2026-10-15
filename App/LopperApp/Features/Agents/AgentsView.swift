@@ -102,6 +102,13 @@ struct AgentsContent: View {
                         Divider()
                         Button("Review and remove…") { model.beginReview(row: item.row) }
                     }
+                    if let path = item.row.path, !model.clearableArtifacts(inCheckout: path.path).isEmpty {
+                        Divider()
+                        Button("Clear build folders, keep the worktree…") {
+                            model.beginClearBuildFolders(inWorktree: path.path, named: item.title)
+                        }
+                        .disabled(item.assessment.state == .active)
+                    }
                 }
             }
         }

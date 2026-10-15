@@ -44,6 +44,12 @@ struct RootView: View {
         )) {
             CleanSheet()
         }
+        .sheet(isPresented: Binding(
+            get: { model.diskClear != nil },
+            set: { if !$0 { model.dismissDiskClear() } }
+        )) {
+            DiskReviewSheet()
+        }
         .overlay(alignment: .bottom) {
             if let toast = model.toast {
                 UndoToastView(
@@ -95,6 +101,7 @@ private struct DetailView: View {
         switch model.route {
         case .overview: OverviewView()
         case .agents: AgentsView()
+        case .disk: DiskView()
         case .history: HistoryView()
         case .repo(let id): RepoWorkbenchView(repoID: id)
         }

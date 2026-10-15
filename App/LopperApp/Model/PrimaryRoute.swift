@@ -5,6 +5,7 @@ import Foundation
 enum PrimaryRoute: CaseIterable, Identifiable {
     case overview
     case agents
+    case disk
     case history
 
     var id: Self { self }
@@ -13,6 +14,7 @@ enum PrimaryRoute: CaseIterable, Identifiable {
         switch self {
         case .overview: .overview
         case .agents: .agents
+        case .disk: .disk
         case .history: .history
         }
     }
@@ -21,6 +23,7 @@ enum PrimaryRoute: CaseIterable, Identifiable {
         switch self {
         case .overview: "Overview"
         case .agents: "Agents"
+        case .disk: "Disk"
         case .history: "History"
         }
     }
@@ -29,16 +32,18 @@ enum PrimaryRoute: CaseIterable, Identifiable {
         switch self {
         case .overview: "square.grid.2x2"
         case .agents: "sparkles"
+        case .disk: "internaldrive"
         case .history: "clock.arrow.circlepath"
         }
     }
 
-    /// Command-1, Command-2, Command-3 in sidebar order.
+    /// Command-1 through Command-4 in sidebar order.
     var shortcutDigit: Character {
         switch self {
         case .overview: "1"
         case .agents: "2"
-        case .history: "3"
+        case .disk: "3"
+        case .history: "4"
         }
     }
 }

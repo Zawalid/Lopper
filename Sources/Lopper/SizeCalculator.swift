@@ -18,15 +18,20 @@ public struct DiskUsage: Sendable, Equatable {
 
 public enum SizeCalculator {
     /// Measures a directory off the cooperative thread pool. Symlinks are not followed.
-    public static func measure(_ directory: URL, disposableNames: Set<String>) async -> DiskUsage {
+    /// `excluding` lists folders inside `directory` that are not counted, such as worktrees nested in a main folder.
+    public static func measure(
+        _ directory: URL, disposableNames: Set<String>, excluding: [URL] = []
+    ) async -> DiskUsage {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .utility).async {
-                continuation.resume(returning: measureSync(directory, disposableNames: disposableNames))
+                continuation.resume(
+                    returning: measureSync(directory, disposableNames: disposableNames, excluding: excluding))
             }
         }
     }
 
-    static func measureSync(_ directory: URL, disposableNames: Set<String>) -> DiskUsage {
+    static func measureSync(_ directory: URL, disposableNames: Set<String>, excluding: [URL] = []) -> DiskUsage {
+        let skipped = Set(excluding.map { $0.standardizedFileURL.path })
         let keys: [URLResourceKey] = [.totalFileAllocatedSizeKey, .isRegularFileKey, .contentModificationDateKey]
         guard let enumerator = FileManager.default.enumerator(
             at: directory, includingPropertiesForKeys: keys, options: [])
@@ -36,6 +41,10 @@ public enum SizeCalculator {
         var disposable: Int64 = 0
         var newest: Date?
         for case let url as URL in enumerator {
+            if !skipped.isEmpty, skipped.contains(url.standardizedFileURL.path) {
+                enumerator.skipDescendants()
+                continue
+            }
             guard let values = try? url.resourceValues(forKeys: Set(keys)),
                 values.isRegularFile == true,
                 let size = values.totalFileAllocatedSize

@@ -40,6 +40,24 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertFalse(entries[0].keptBranch)
     }
 
+    func testAClearedFolderIsItsOwnEntryNamedAfterTheFolder() {
+        let batch = UUID()
+        let folder = UndoRecord(
+            timestamp: now, repoPath: "/code/api", action: .trashFolder, branch: nil, tip: "", upstream: nil,
+            worktreePath: "/code/api/node_modules", trashRef: "", status: .completed, batchID: batch,
+            reason: "Installed packages", bytes: 1_200, trashedPath: "/Users/me/.Trash/node_modules")
+
+        let entries = HistoryBuilder.entries(from: [folder])
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].kind, .folder)
+        XCTAssertEqual(entries[0].title, "node_modules")
+        XCTAssertEqual(entries[0].reason, "Installed packages")
+        XCTAssertEqual(entries[0].bytes, 1_200)
+        XCTAssertEqual(entries[0].status, .removed)
+        XCTAssertTrue(entries[0].canRestore)
+    }
+
     func testAWorktreeWithoutABranchDeletionKeptItsBranch() {
         let entries = HistoryBuilder.entries(from: [record(.removeWorktree, branch: "feat/spike", batch: UUID())])
 

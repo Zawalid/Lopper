@@ -39,4 +39,21 @@ final class SizeActivityTests: XCTestCase {
         XCTAssertNil(usage.newestModification)
         XCTAssertEqual(usage, DiskUsage(total: 0, disposable: 0))
     }
+
+    func testNestedFoldersToSkipAreNotCounted() async throws {
+        let dir = try tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let old = Date(timeIntervalSince1970: 1_700_000_000)
+        let newest = Date(timeIntervalSince1970: 1_700_900_000)
+        try write(dir.appendingPathComponent("src/a.swift"), modified: old)
+        // An agent worktree that lives inside the main folder: its files belong to that worktree, not to this one.
+        try write(dir.appendingPathComponent(".claude/worktrees/x/big.swift"), modified: newest)
+        let nested = dir.appendingPathComponent(".claude/worktrees/x")
+
+        let usage = await SizeCalculator.measure(dir, disposableNames: [], excluding: [nested])
+
+        XCTAssertEqual(usage.newestModification, old)
+        let whole = await SizeCalculator.measure(dir, disposableNames: [])
+        XCTAssertGreaterThan(whole.total, usage.total)
+    }
 }

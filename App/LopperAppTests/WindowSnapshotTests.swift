@@ -35,7 +35,7 @@ final class WindowSnapshotTests: XCTestCase {
         window.makeKeyAndOrderFront(nil)
 
         let routes: [(String, Route)] = [
-            ("overview", .overview), ("agents", .agents), ("history", .history),
+            ("overview", .overview), ("agents", .agents), ("disk", .disk), ("history", .history),
             ("repository", .repo(Fixtures.root.path)),
         ]
         for appearance in [("dark", NSAppearance.Name.darkAqua), ("light", .aqua)] {
