@@ -89,6 +89,5 @@ struct SettingsView: View {
     private func commitProtected() {
         let patterns = protectedText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         model.updateSettings { $0.protectedPatterns = patterns }
-        model.startScan()
     }
 }

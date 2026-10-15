@@ -29,8 +29,11 @@ struct LiveEngineClient: EngineClient {
     }
 
     func scan(settings: Settings) -> AsyncStream<ScanEvent> {
-        ScanService(inspector: inspector(settings), gate: gate)
-            .scanStream(roots: settings.roots, maxDepth: settings.scanDepth)
+        ScanService(
+            inspector: inspector(settings),
+            scanner: RepoScanner(excludePatterns: settings.excludePatterns),
+            gate: gate
+        ).scanStream(roots: settings.roots, maxDepth: settings.scanDepth)
     }
 
     func measure(_ path: URL, disposable: Set<String>) async -> DiskUsage {

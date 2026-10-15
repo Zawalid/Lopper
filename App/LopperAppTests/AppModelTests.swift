@@ -356,4 +356,55 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.tidySummaries.map(\.name), ["alpha", "beta"])
         XCTAssertEqual(model.orderedSummaries.map(\.name), ["zeta", "mid", "alpha", "beta"])
     }
+
+    // MARK: Settings
+
+    func testACorruptSettingsFileProducesANoticeNamingTheBackup() throws {
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-model-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("settings.json")
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("{ broken".utf8).write(to: file)
+
+        let model = AppModel(client: FakeEngineClient(snapshots: []), store: SettingsStore(url: file))
+
+        XCTAssertEqual(model.settings, Settings())
+        let notice = try XCTUnwrap(model.notice)
+        XCTAssertTrue(notice.contains("settings.json.broken-"), notice)
+    }
+
+    func testOnlySettingsThatChangeWhatIsFoundTriggerARescan() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.updateSettings { $0.trashRetentionDays = 7 }
+        XCTAssertFalse(model.isScanning, "retention does not change what is found")
+
+        model.updateSettings { $0.staleDays = 90 }
+        XCTAssertFalse(model.isScanning)
+
+        model.updateSettings { $0.scanDepth = 6 }
+        XCTAssertTrue(model.isScanning, "depth changes what is found")
+    }
+
+    func testAnUnchangedSettingIsNotWrittenOrRescanned() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.updateSettings { $0.scanDepth = model.settings.scanDepth }
+
+        XCTAssertFalse(model.isScanning)
+    }
+
+    func testIgnoringARepositoryRescansAndTheRepositoryDisappears() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+
+        model.updateSettings { $0.repos[Fixtures.root.path, default: RepoOverrides()].isIgnored = true }
+
+        XCTAssertTrue(model.isScanning)
+    }
 }

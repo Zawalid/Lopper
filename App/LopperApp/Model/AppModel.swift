@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 import Lopper
@@ -137,7 +138,30 @@ final class AppModel {
     init(client: any EngineClient, store: SettingsStore = .standard, settings: Settings? = nil) {
         self.client = client
         self.store = store
-        self.settings = settings ?? store.load()
+        if let settings {
+            self.settings = settings
+        } else {
+            let loaded = store.load()
+            self.settings = loaded.settings
+            self.notice = Self.notice(for: loaded.outcome)
+        }
+        // A pending debounced save must not be lost when the app quits.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [store] _ in store.flush() }
+    }
+
+    private static func notice(for outcome: SettingsLoadOutcome) -> String? {
+        switch outcome {
+        case .created, .loaded, .migrated:
+            return nil
+        case .recoveredFromCorruption(let backup):
+            return "Your settings file couldn't be read, so Lopper started with defaults. "
+                + "The original was kept as \(backup.lastPathComponent)."
+        case .newerVersion(let backup):
+            return "Your settings were saved by a newer version of Lopper. They are used as they are, "
+                + "and a copy was kept as \(backup.lastPathComponent)."
+        }
     }
 
     var githubCLIAvailable: Bool { client.githubCLIAvailable }
@@ -265,16 +289,17 @@ final class AppModel {
 
     // MARK: Settings
 
+    /// Applies a settings change, saves it (debounced), and rescans when the change affects what is found or
+    /// how it is decided. Callers never start scans by hand for settings changes.
     func updateSettings(_ change: (inout Settings) -> Void) {
         var copy = settings
         change(&copy)
+        guard copy != settings else { return }
+        let needsRescan = copy.requiresRescan(comparedTo: settings)
         settings = copy
-        store.save(copy)
-    }
-
-    func setRoots(_ roots: [URL]) {
-        updateSettings { $0.roots = roots }
-        if roots.isEmpty {
+        store.scheduleSave(copy)
+        guard needsRescan else { return }
+        if copy.roots.isEmpty {
             // Nothing left to look in: forget everything that came from the removed folders.
             scanTask?.cancel()
             results = []
@@ -286,6 +311,10 @@ final class AppModel {
         } else {
             startScan()
         }
+    }
+
+    func setRoots(_ roots: [URL]) {
+        updateSettings { $0.roots = roots }
     }
 
     /// Adds folders to the ones already being scanned (duplicates ignored) and rescans.
@@ -312,9 +341,7 @@ final class AppModel {
     }
 
     func addThrowaway(name: String, repoRoot: URL) {
-        settings = settings.addingRepoDisposable(name, for: repoRoot)
-        store.save(settings)
-        startScan()
+        updateSettings { $0 = $0.addingRepoDisposable(name, for: repoRoot) }
     }
 
     // MARK: Scanning
