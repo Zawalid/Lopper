@@ -313,7 +313,7 @@ struct OverviewContent: View {
             Divider().frame(height: 14)
             Button("Add folder…") { FolderPicker.choose { model.addRoots($0) } }
                 .buttonStyle(.lopperLink)
-            SettingsLink { Text("Manage") }
+            OpenSettingsButton(pane: .folders) { Text("Manage") }
                 .buttonStyle(.lopperLink)
         }
         .padding(.horizontal, Theme.Spacing.md)

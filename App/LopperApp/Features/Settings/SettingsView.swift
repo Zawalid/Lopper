@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The Settings window: one tab per pane from `SettingsPane.available`, one file per pane.
 struct SettingsView: View {
+    @Environment(AppModel.self) private var model
     @State private var selection: SettingsPane
 
     init(initialPane: SettingsPane = .general) {
@@ -17,6 +18,12 @@ struct SettingsView: View {
             }
         }
         .frame(width: 580, height: 480)
+        .onAppear { applyRequestedPane() }
+        .onChange(of: model.requestedSettingsPane) { applyRequestedPane() }
+    }
+
+    private func applyRequestedPane() {
+        if let pane = model.takeRequestedSettingsPane() { selection = pane }
     }
 
     @ViewBuilder

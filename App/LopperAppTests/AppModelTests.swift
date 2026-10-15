@@ -549,6 +549,16 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.repositoryWithMostToReview?.id, Fixtures.sample.repo.id)
     }
 
+    func testARequestedSettingsPaneIsHandedOverOnceAndThenForgotten() {
+        let (model, _) = makeModel([])
+        XCTAssertNil(model.takeRequestedSettingsPane())
+
+        model.requestSettingsPane(.folders)
+
+        XCTAssertEqual(model.takeRequestedSettingsPane(), .folders)
+        XCTAssertNil(model.takeRequestedSettingsPane())
+    }
+
     func testToolStatusComesFromTheEngineClient() async {
         let (model, _) = makeModel([])
         XCTAssertEqual(model.toolStatus, .unknown)

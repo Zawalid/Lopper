@@ -357,6 +357,17 @@ final class AppModel {
 
     private(set) var toolStatus: ToolStatus = .unknown
 
+    /// A pane another screen wants the Settings window to show. The window takes it when it appears or while
+    /// it is open, so "Manage folders" lands on Folders instead of wherever Settings was left.
+    private(set) var requestedSettingsPane: SettingsPane?
+
+    func requestSettingsPane(_ pane: SettingsPane) { requestedSettingsPane = pane }
+
+    func takeRequestedSettingsPane() -> SettingsPane? {
+        defer { requestedSettingsPane = nil }
+        return requestedSettingsPane
+    }
+
     var settingsFileURL: URL { store.url }
 
     func refreshToolStatus() async {

@@ -70,4 +70,27 @@ final class SettingsWindowSmokeTests: XCTestCase {
 
         XCTAssertNotNil(model.settings)
     }
+
+    func testAnOpenSettingsWindowSwitchesToTheRequestedPane() async {
+        let model = await model()
+        let window = show(.general, model: model)
+        defer { window.close() }
+        spin(0.3)
+
+        model.requestSettingsPane(.folders)
+        spin(0.4)
+
+        XCTAssertNil(model.takeRequestedSettingsPane(), "the open window should have consumed the request")
+    }
+
+    func testANewSettingsWindowOpensOnTheRequestedPane() async {
+        let model = await model()
+        model.requestSettingsPane(.safety)
+
+        let window = show(.general, model: model)
+        defer { window.close() }
+        spin(0.4)
+
+        XCTAssertNil(model.takeRequestedSettingsPane())
+    }
 }

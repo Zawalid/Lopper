@@ -209,6 +209,23 @@ struct StatTile: View {
     }
 }
 
+/// Opens the Settings window on a given pane. `SettingsLink` cannot say which one.
+struct OpenSettingsButton<Label: View>: View {
+    let pane: SettingsPane
+    @ViewBuilder var label: () -> Label
+    @Environment(\.openSettings) private var openSettings
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Button {
+            model.requestSettingsPane(pane)
+            openSettings()
+        } label: {
+            label()
+        }
+    }
+}
+
 struct Banner: View {
     let symbol: String
     let message: String
