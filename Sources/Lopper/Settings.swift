@@ -13,6 +13,9 @@ public struct Settings: Codable, Sendable, Equatable {
     public static let defaultDisposableNames = [
         "node_modules", ".next", ".nuxt", ".turbo", ".cache", "dist", "build", "out",
         "target", "DerivedData", "Pods", ".gradle", ".venv", "__pycache__",
+        ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox", ".eslintcache", ".parcel-cache",
+        ".svelte-kit", ".vite", ".angular", "coverage",
+        ".DS_Store", "Thumbs.db", "*.tsbuildinfo", "*.pyc",
     ]
 
     public init(

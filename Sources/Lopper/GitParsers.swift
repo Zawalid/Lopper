@@ -149,14 +149,13 @@ public enum GitParsers {
                 _ = fields.next()
             }
             switch code {
-            case "!!":
+            case "!!", "??":
+                // Ignored or merely untracked: either way it is disposable if it is a tool cache.
                 if isDisposable(path, disposable: disposable) {
                     status.disposablePaths.append(path)
                 } else {
                     status.extraFiles.append(path)
                 }
-            case "??":
-                status.extraFiles.append(path)
             default:
                 status.isDirty = true
             }
@@ -164,7 +163,14 @@ public enum GitParsers {
         return status
     }
 
+    /// True when any path component is on the allowlist. Entries containing `*` are glob patterns
+    /// (for example `*.tsbuildinfo`); everything else is an exact name.
     public static func isDisposable(_ path: String, disposable: Set<String>) -> Bool {
-        path.split(separator: "/").contains { disposable.contains(String($0)) }
+        path.split(separator: "/").contains { matchesDisposable(String($0), disposable) }
+    }
+
+    public static func matchesDisposable(_ name: String, _ patterns: Set<String>) -> Bool {
+        if patterns.contains(name) { return true }
+        return patterns.contains { $0.contains("*") && GlobMatcher.matches(pattern: $0, name: name) }
     }
 }

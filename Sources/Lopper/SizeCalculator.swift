@@ -36,8 +36,9 @@ public enum SizeCalculator {
                 let size = values.totalFileAllocatedSize
             else { continue }
             total += Int64(size)
-            let relative = url.standardizedFileURL.pathComponents.dropFirst(baseCount).dropLast()
-            if relative.contains(where: disposableNames.contains) {
+            // Includes the file name itself, so a disposable file (.DS_Store, *.tsbuildinfo) counts too.
+            let relative = url.standardizedFileURL.pathComponents.dropFirst(baseCount)
+            if relative.contains(where: { GitParsers.matchesDisposable($0, disposableNames) }) {
                 disposable += Int64(size)
             }
         }

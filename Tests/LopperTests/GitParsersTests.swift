@@ -94,4 +94,18 @@ final class GitParsersTests: XCTestCase {
         XCTAssertFalse(status.isDirty)
         XCTAssertTrue(status.extraFiles.isEmpty)
     }
+
+    func testParseStatusTreatsUntrackedDisposableNamesAndGlobsAsDisposable() {
+        // Seen on real repos: an untracked (not ignored) .venv or .DS_Store is as disposable as an
+        // ignored one, and tool output is matched by pattern, not only by exact name.
+        let entries = [
+            "?? .venv", "?? .DS_Store", "!! packages/ui/tsconfig.tsbuildinfo", "?? notes.txt", "!! .env.test",
+        ]
+        let status = GitParsers.parseStatus(
+            entries.joined(separator: "\u{0}") + "\u{0}",
+            disposable: [".venv", ".DS_Store", "*.tsbuildinfo"])
+        XCTAssertEqual(
+            status.disposablePaths, [".venv", ".DS_Store", "packages/ui/tsconfig.tsbuildinfo"])
+        XCTAssertEqual(status.extraFiles, ["notes.txt", ".env.test"])
+    }
 }

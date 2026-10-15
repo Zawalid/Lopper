@@ -157,4 +157,15 @@ final class ClassifierTests: XCTestCase {
         XCTAssertEqual(Settings.load(from: url), settings)
         XCTAssertEqual(Settings.load(from: url.appendingPathExtension("missing")), Settings())
     }
+
+    func testDefaultDisposableListCoversCommonToolCachesButNotSecrets() {
+        let disposable = Settings().disposableSet
+        for name in [".pytest_cache", ".ruff_cache", ".mypy_cache", ".DS_Store", "tsconfig.tsbuildinfo", "node_modules"] {
+            XCTAssertTrue(GitParsers.isDisposable(name, disposable: disposable), name)
+        }
+        // Real work that exists nowhere else must keep a worktree in Review.
+        for name in [".env", ".env.test", ".env.local", "media", "notes.md"] {
+            XCTAssertFalse(GitParsers.isDisposable(name, disposable: disposable), name)
+        }
+    }
 }

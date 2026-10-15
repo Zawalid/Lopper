@@ -25,6 +25,18 @@ final class DiskAndGhTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(usage.total, usage.disposable + 10_000)
     }
 
+    func testMeasureCountsDisposableFilesMatchedByPattern() async throws {
+        let dir = try tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data(repeating: 1, count: 50_000).write(to: dir.appendingPathComponent("tsconfig.tsbuildinfo"))
+        try Data(repeating: 2, count: 10_000).write(to: dir.appendingPathComponent("src.bin"))
+
+        let usage = await SizeCalculator.measure(dir, disposableNames: ["*.tsbuildinfo"])
+
+        XCTAssertGreaterThanOrEqual(usage.disposable, 50_000)
+        XCTAssertLessThan(usage.disposable, 60_000)
+    }
+
     func testMeasureOfMissingDirectoryIsZero() async {
         let usage = await SizeCalculator.measure(
             URL(fileURLWithPath: "/no/such/dir-\(UUID().uuidString)"), disposableNames: [])
