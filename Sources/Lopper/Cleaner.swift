@@ -178,6 +178,28 @@ public struct Cleaner: Sendable {
         return nil
     }
 
+    /// Branch name that keeps the commits of a detached worktree reachable once its folder is gone.
+    /// Stable for one commit, ASCII only, and free of anything git rejects in a ref name.
+    public static func savedBranchName(forWorktreeAt path: URL, head: String) -> String {
+        var cleaned = ""
+        var lastWasDash = true
+        // Fold accents first: macOS hands back decomposed names, which would otherwise leave stray dashes.
+        let folded = path.lastPathComponent.folding(options: .diacriticInsensitive, locale: nil)
+        for scalar in folded.unicodeScalars {
+            let allowed = scalar.isASCII && (CharacterSet.alphanumerics.contains(scalar) || scalar == "_")
+            if allowed {
+                cleaned.unicodeScalars.append(scalar)
+                lastWasDash = false
+            } else if !lastWasDash {
+                cleaned.append("-")
+                lastWasDash = true
+            }
+        }
+        while cleaned.hasSuffix("-") { cleaned.removeLast() }
+        if cleaned.isEmpty { cleaned = "worktree" }
+        return "lopper/saved/\(cleaned)-\(head.prefix(8))"
+    }
+
     static func trashRef(now: Date, label: String) -> String {
         "refs/lopper/trash/\(Int(now.timeIntervalSince1970))/\(label)"
     }
