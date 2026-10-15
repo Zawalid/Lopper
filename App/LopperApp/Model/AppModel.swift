@@ -132,7 +132,7 @@ final class AppModel {
     private(set) var sizes: [String: DiskUsage] = [:]
     /// Worktrees measured since the latest scan finished. Only these have trustworthy activity times.
     private(set) var measuredPaths: Set<String> = []
-    internal(set) var history: [UndoRecord] = []
+    var history: [UndoRecord] = []
 
     /// The current page. Backed by stored state so views are notified, and written to preferences so the app
     /// reopens on the same page.
