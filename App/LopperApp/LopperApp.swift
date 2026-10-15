@@ -41,6 +41,10 @@ struct LopperCommands: Commands {
             Button("Review and Clean Selection") { model.beginCleanChecked() }
                 .keyboardShortcut(.delete, modifiers: .command)
         }
+        CommandGroup(after: .textEditing) {
+            Button("Command Palette…") { model.showsPalette = true }
+                .keyboardShortcut("k")
+        }
         CommandGroup(replacing: .undoRedo) {
             Button("Undo Last Clean") { model.undoToast() }
                 .keyboardShortcut("z")

@@ -179,6 +179,7 @@ final class AppModel {
     var diskSearchText = ""
     var diskFocusedID: String?
     var diskClear: DiskClearState?
+    var showsPalette = false
 
     /// A short message about something that did not work (for example a restore that was blocked).
     var notice: String?

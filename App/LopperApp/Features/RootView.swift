@@ -44,6 +44,9 @@ struct RootView: View {
         )) {
             CleanSheet()
         }
+        .sheet(isPresented: $model.showsPalette) {
+            CommandPaletteView()
+        }
         .sheet(isPresented: Binding(
             get: { model.diskClear != nil },
             set: { if !$0 { model.dismissDiskClear() } }

@@ -159,7 +159,7 @@ extension AppModel {
         beginDiskClear(clearableArtifacts(inCheckout: path), title: "Clear build folders in \(name)")
     }
 
-    private func beginDiskClear(_ items: [DiskArtifact], title: String) {
+    func beginDiskClear(_ items: [DiskArtifact], title: String) {
         let offered = items.filter { $0.removal.isOffered }
         guard !offered.isEmpty, diskClear == nil, clean == nil else { return }
         diskClear = DiskClearState(title: title, artifacts: offered)
