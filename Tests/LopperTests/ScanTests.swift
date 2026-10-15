@@ -118,4 +118,25 @@ final class ScanTests: XCTestCase {
 private actor LockedLog {
     private(set) var entries: [String] = []
     func append(_ entry: String) { entries.append(entry) }
+
+    func testScanStreamYieldsDiscoveryThenEveryRepositoryOnce() async throws {
+        let fixture = try TestRepo()
+        let base = fixture.sandbox.appendingPathComponent("code")
+        for name in ["a", "b", "c"] {
+            try TestRepo.makeStandaloneRepo(at: base.appendingPathComponent(name))
+        }
+        let service = ScanService(inspector: RepoInspector())
+
+        var discovered = 0
+        var results: [String] = []
+        for await event in service.scanStream(roots: [base], maxDepth: 3) {
+            switch event {
+            case .discovered(let count): discovered = count
+            case .result(let result): results.append(result.repoRoot.lastPathComponent)
+            }
+        }
+
+        XCTAssertEqual(discovered, 3)
+        XCTAssertEqual(results.sorted(), ["a", "b", "c"])
+    }
 }

@@ -12,6 +12,11 @@ public enum RepoScanResult: Sendable, Equatable {
     }
 }
 
+public enum ScanEvent: Sendable, Equatable {
+    case discovered(count: Int)
+    case result(RepoScanResult)
+}
+
 /// Discovers repos under the configured roots and inspects them in parallel.
 /// A failing repo produces a `.failure` result and never affects the others.
 public struct ScanService: Sendable {
@@ -54,6 +59,34 @@ public struct ScanService: Sendable {
             }
         }
         return results.sorted { $0.repoRoot.path < $1.repoRoot.path }
+    }
+
+    /// Discovers repositories, then yields each result as soon as that repository is done, so a UI can
+    /// fill in progressively. The stream finishes after the last repository.
+    public func scanStream(roots: [URL], maxDepth: Int) -> AsyncStream<ScanEvent> {
+        AsyncStream { continuation in
+            let task = Task {
+                let repos = await Task.detached { [scanner] in
+                    scanner.findRepos(in: roots, maxDepth: maxDepth)
+                }.value
+                continuation.yield(.discovered(count: repos.count))
+                await withTaskGroup(of: RepoScanResult.self) { group in
+                    var iterator = repos.makeIterator()
+                    func addNext() {
+                        guard let repo = iterator.next() else { return }
+                        group.addTask { await self.inspectOne(repo) }
+                    }
+                    for _ in 0..<maxConcurrent { addNext() }
+                    while let result = await group.next() {
+                        continuation.yield(.result(result))
+                        if Task.isCancelled { group.cancelAll(); break }
+                        addNext()
+                    }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     private func inspectOne(_ repo: URL) async -> RepoScanResult {
