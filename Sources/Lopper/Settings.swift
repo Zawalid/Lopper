@@ -78,6 +78,15 @@ public struct Settings: Codable, Sendable, Equatable {
 
     public var disposableSet: Set<String> { Set(disposableNames) }
 
+    /// A copy with `name` added to this repository's throwaway list (no duplicates).
+    public func addingRepoDisposable(_ name: String, for repoRoot: URL) -> Settings {
+        var copy = self
+        var names = copy.repoDisposableNames[repoRoot.path] ?? []
+        if !names.contains(name) { names.append(name) }
+        copy.repoDisposableNames[repoRoot.path] = names
+        return copy
+    }
+
     /// Global allowlist plus this repository's own additions.
     public func disposableSet(for repoRoot: URL) -> Set<String> {
         disposableSet.union(repoDisposableNames[repoRoot.path] ?? [])

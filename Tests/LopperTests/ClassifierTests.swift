@@ -184,4 +184,14 @@ final class ClassifierTests: XCTestCase {
         XCTAssertEqual(settings.protectedPatterns, Settings.defaultProtectedPatterns)
         XCTAssertTrue(settings.repoDisposableNames.isEmpty)
     }
+
+    func testAddingRepoDisposableIsPerRepositoryAndIdempotent() {
+        let repo = URL(fileURLWithPath: "/code/api")
+        let once = Settings().addingRepoDisposable(".env.test", for: repo)
+        let twice = once.addingRepoDisposable(".env.test", for: repo)
+
+        XCTAssertEqual(twice.repoDisposableNames[repo.path], [".env.test"])
+        XCTAssertTrue(twice.disposableSet(for: repo).contains(".env.test"))
+        XCTAssertFalse(twice.disposableSet(for: URL(fileURLWithPath: "/code/apps")).contains(".env.test"))
+    }
 }
