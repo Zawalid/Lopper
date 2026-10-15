@@ -21,6 +21,9 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     var tools = ToolStatus(
         gitVersion: "2.54.0 (Apple Git-157)",
         gitHubCLI: .installed(version: "2.98.0", path: "/opt/homebrew/bin/gh"))
+    /// Scripted histories keyed by the ref that is asked for (the row's commit hash).
+    var histories: [String: BranchHistory] = [:]
+    private(set) var historyRequests = 0
     private(set) var restoredBatches: [UUID] = []
     private(set) var cleanedItems: [CleanupItem] = []
     private(set) var strictItemIDs: Set<String> = []
@@ -99,5 +102,10 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     }
 
     func toolStatus() async -> ToolStatus { tools }
+
+    func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory {
+        historyRequests += 1
+        return histories[ref] ?? .empty
+    }
 }
 #endif

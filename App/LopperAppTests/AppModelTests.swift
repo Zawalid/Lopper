@@ -281,6 +281,94 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(model.notice)
     }
 
+    // MARK: Keeping a branch
+
+    func testKeepingABranchAddsItToThatRepositorysProtectedListAlongsideTheGlobalOnes() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let global = model.settings.protectedPatterns
+
+        model.keepBranch("feat/old", in: Fixtures.root)
+
+        XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.protectedPatterns, global + ["feat/old"])
+        XCTAssertTrue(model.isKeptBranch("feat/old", in: Fixtures.root))
+        XCTAssertTrue(model.isScanning, "protection changes verdicts, so it rescans")
+        XCTAssertEqual(model.confirmation, "Keeping feat/old. Lopper will not remove it.")
+    }
+
+    func testKeepingTheSameBranchTwiceDoesNotDuplicateIt() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.keepBranch("feat/old", in: Fixtures.root)
+        model.keepBranch("feat/old", in: Fixtures.root)
+
+        let list = model.settings.repos[Fixtures.root.path]?.protectedPatterns ?? []
+        XCTAssertEqual(list.filter { $0 == "feat/old" }.count, 1)
+    }
+
+    func testStopKeepingARepositoryGoesBackToTheGlobalListWhenNothingElseIsCustom() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.keepBranch("feat/old", in: Fixtures.root)
+
+        model.stopKeepingBranch("feat/old", in: Fixtures.root)
+
+        XCTAssertNil(model.settings.repos[Fixtures.root.path], "an override with nothing in it is removed")
+        XCTAssertFalse(model.isKeptBranch("feat/old", in: Fixtures.root))
+    }
+
+    func testStopKeepingKeepsTheOtherBranchesYouProtected() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.keepBranch("feat/a", in: Fixtures.root)
+        model.keepBranch("feat/b", in: Fixtures.root)
+
+        model.stopKeepingBranch("feat/a", in: Fixtures.root)
+
+        XCTAssertFalse(model.isKeptBranch("feat/a", in: Fixtures.root))
+        XCTAssertTrue(model.isKeptBranch("feat/b", in: Fixtures.root))
+    }
+
+    func testAPatternMatchIsNotReportedAsKeptByYou() {
+        let (model, _) = makeModel([])
+        // "main" is in the global list; that is the repository's rule, not something this person chose.
+        XCTAssertFalse(model.isKeptBranch("main", in: Fixtures.root))
+    }
+
+    // MARK: Remote
+
+    func testRemoteURLComesFromTheRowsRepository() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let row = model.allRows[0]
+
+        XCTAssertEqual(model.remoteURL(for: row), Fixtures.sample.repo.remoteURL)
+        XCTAssertNotNil(model.remoteURL(for: row))
+    }
+
+    // MARK: Branch history
+
+    func testHistoryIsLoadedOnceAndServedFromTheCache() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        let row = model.allRows.first { $0.kind == .branch }!
+        client.histories[row.facts.tip ?? ""] = BranchHistory(
+            comparedTo: "main",
+            commits: [CommitSummary(hash: "abc1234", subject: "feat: thing", author: "Ada", date: Date())],
+            totalCommits: 1, diff: DiffSummary(files: 2, insertions: 10, deletions: 1))
+
+        await model.loadHistory(for: row)
+        await model.loadHistory(for: row)
+
+        XCTAssertEqual(model.branchHistory(for: row)?.commits.first?.subject, "feat: thing")
+        XCTAssertEqual(client.historyRequests, 1)
+    }
+
+    func testHistoryForAnItemThatWasNeverLoadedIsNil() {
+        let (model, _) = makeModel([])
+        XCTAssertNil(model.branchHistory(for: RowMapper.rows(for: Fixtures.sample, sizes: [:])[0]))
+    }
+
     // MARK: Confirmations
 
     func testAConfirmationAppearsAndClearsItself() async {

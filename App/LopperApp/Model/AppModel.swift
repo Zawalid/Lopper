@@ -442,6 +442,60 @@ final class AppModel {
         confirm("Added \(name) to this repository's throwaway names")
     }
 
+    // MARK: Keeping a branch
+
+    /// Whether this exact branch name is in the repository's own protected list. Matching a global pattern such
+    /// as `main` is the repository's rule and is not reported as a choice.
+    func isKeptBranch(_ name: String, in repoRoot: URL) -> Bool {
+        settings.repos[repoRoot.path]?.protectedPatterns?.contains(name) ?? false
+    }
+
+    /// Protects one branch for good. The repository's list starts from the global patterns, so adding a name
+    /// never drops a rule that applied before.
+    func keepBranch(_ name: String, in repoRoot: URL) {
+        updateSettings { settings in
+            var overrides = settings.repos[repoRoot.path] ?? RepoOverrides()
+            var list = overrides.protectedPatterns ?? settings.protectedPatterns
+            guard !list.contains(name) else { return }
+            list.append(name)
+            overrides.protectedPatterns = list
+            settings.repos[repoRoot.path] = overrides
+        }
+        confirm("Keeping \(name). Lopper will not remove it.")
+    }
+
+    func stopKeepingBranch(_ name: String, in repoRoot: URL) {
+        updateSettings { settings in
+            guard var overrides = settings.repos[repoRoot.path], var list = overrides.protectedPatterns else { return }
+            list.removeAll { $0 == name }
+            // Back to inheriting the global list when nothing custom is left.
+            overrides.protectedPatterns = list == settings.protectedPatterns ? nil : list
+            settings.repos[repoRoot.path] = overrides == RepoOverrides() ? nil : overrides
+        }
+    }
+
+    /// The repository's remote, for building GitHub links from a row.
+    func remoteURL(for row: CleanupRow) -> String? {
+        snapshots.first { $0.repo.root == row.repoRoot }?.repo.remoteURL
+    }
+
+    // MARK: Branch history
+
+    private var histories: [String: BranchHistory] = [:]
+
+    private func historyKey(_ row: CleanupRow) -> String { "\(row.id)@\(row.facts.tip ?? "")" }
+
+    func branchHistory(for row: CleanupRow) -> BranchHistory? { histories[historyKey(row)] }
+
+    /// Reads the commits only this item has. Cached per item and commit, so selecting around is free.
+    func loadHistory(for row: CleanupRow) async {
+        let key = historyKey(row)
+        guard histories[key] == nil, let ref = row.facts.tip else { return }
+        let history = await client.branchHistory(
+            repoRoot: row.repoRoot, ref: ref, base: row.facts.defaultBranch)
+        histories[key] = history
+    }
+
     // MARK: Confirmations
 
     /// A short message saying what an action just did, for actions that would otherwise be silent (a copy, a

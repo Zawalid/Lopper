@@ -15,6 +15,8 @@ protocol EngineClient: Sendable {
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
     func toolStatus() async -> ToolStatus
+    /// Commits unique to `ref` against `base`, and the size of the change. Read-only and loaded per item.
+    func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory
 }
 
 /// The real engine. One shared gate serializes scans and removals per repository.
@@ -61,6 +63,10 @@ struct LiveEngineClient: EngineClient {
 
     func restore(_ record: UndoRecord) async -> RestoreOutcome {
         await cleaner(Settings()).restore(record)
+    }
+
+    func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory {
+        await BranchHistoryReader.read(repoRoot: repoRoot, ref: ref, base: base, git: git)
     }
 
     func toolStatus() async -> ToolStatus {
