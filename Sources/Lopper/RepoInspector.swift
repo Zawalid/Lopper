@@ -144,7 +144,9 @@ public struct RepoInspector: Sendable {
             // would answer for the enclosing repository, so it is never read.
             if entry.isPrunable {
                 unreadable = true
-            } else if let read = await worktreeStatus(at: url) {
+            } else if let read = await worktreeStatus(
+                at: url, disposable: settings.disposableSet(for: context.repoRoot))
+            {
                 status = read
                 operation = await operationInProgress(at: url)
             } else {
@@ -190,12 +192,12 @@ public struct RepoInspector: Sendable {
     }
 
     /// Nil when git could not read the worktree (failure, timeout, unreadable folder).
-    private func worktreeStatus(at url: URL) async -> WorktreeStatus? {
+    private func worktreeStatus(at url: URL, disposable: Set<String>) async -> WorktreeStatus? {
         guard let output = try? await git.run(
             ["status", "--porcelain=v1", "-z", "--ignored", "--untracked-files=normal"], in: url),
             output.succeeded
         else { return nil }
-        return GitParsers.parseStatus(output.stdout, disposable: settings.disposableSet)
+        return GitParsers.parseStatus(output.stdout, disposable: disposable)
     }
 
     private func operationInProgress(at url: URL) async -> Bool {

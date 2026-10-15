@@ -364,4 +364,24 @@ final class RepoInspectorTests: XCTestCase {
             repoRoot: repo.root, path: repo.sandbox.appendingPathComponent("no-such-worktree"))
         XCTAssertNil(missingWorktree)
     }
+
+    func testPerRepoDisposableNamesLetTheUserMarkProjectSpecificFilesAsThrowaway() async throws {
+        let repo = try baseRepo()
+        let wt = repo.sandbox.appendingPathComponent("wt-envtest")
+        try repo.git("worktree", "add", "-b", "envtest", wt.path)
+        try "PORT=5433".write(to: wt.appendingPathComponent(".env.test"), atomically: true, encoding: .utf8)
+
+        let strict = try await inspect(repo)
+        XCTAssertEqual(try worktree(strict, named: "wt-envtest").verdict.kind, .review)
+
+        var settings = Settings()
+        settings.repoDisposableNames[repo.root.path] = [".env.test"]
+        let relaxed = try await inspect(repo, settings: settings)
+        let entry = try worktree(relaxed, named: "wt-envtest")
+        XCTAssertEqual(entry.verdict.kind, .safe)
+        XCTAssertEqual(entry.status.disposablePaths, [".env.test"])
+
+        // Another repository is not affected by this repository's setting.
+        XCTAssertEqual(settings.disposableSet(for: URL(fileURLWithPath: "/somewhere/else")), Settings().disposableSet)
+    }
 }

@@ -168,4 +168,20 @@ final class ClassifierTests: XCTestCase {
             XCTAssertFalse(GitParsers.isDisposable(name, disposable: disposable), name)
         }
     }
+
+    func testSettingsLoadKeepsDefaultsForKeysAddedInLaterVersions() throws {
+        // A settings file written by an older build has no repoDisposableNames; it must still load,
+        // otherwise a new release would silently reset everything the user configured.
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-old-settings-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try #"{"staleDays": 14, "scanDepth": 2}"#.write(to: url, atomically: true, encoding: .utf8)
+
+        let settings = Settings.load(from: url)
+
+        XCTAssertEqual(settings.staleDays, 14)
+        XCTAssertEqual(settings.scanDepth, 2)
+        XCTAssertEqual(settings.protectedPatterns, Settings.defaultProtectedPatterns)
+        XCTAssertTrue(settings.repoDisposableNames.isEmpty)
+    }
 }

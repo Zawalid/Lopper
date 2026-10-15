@@ -3,15 +3,18 @@ import Lopper
 
 // lopper-scan: read-only dry run. Prints what Lopper would classify, deletes nothing.
 //
-//   swift run lopper-scan ~/Personal/Projects ~/Professional [--no-gh] [--depth N]
+//   swift run lopper-scan ~/Personal/Projects ~/Professional [--no-gh] [--depth N] [--ignore NAME]...
 
 var roots: [URL] = []
 var useGh = true
 var depth = 4
+var extraDisposable: [String] = []
 var arguments = CommandLine.arguments.dropFirst().makeIterator()
 while let argument = arguments.next() {
     switch argument {
     case "--no-gh": useGh = false
+    case "--ignore":
+        if let name = arguments.next() { extraDisposable.append(name) }
     case "--depth": depth = arguments.next().flatMap(Int.init) ?? depth
     default:
         let expanded = (argument as NSString).expandingTildeInPath
@@ -19,11 +22,12 @@ while let argument = arguments.next() {
     }
 }
 guard !roots.isEmpty else {
-    FileHandle.standardError.write(Data("usage: lopper-scan <root>... [--no-gh] [--depth N]\n".utf8))
+    FileHandle.standardError.write(Data("usage: lopper-scan <root>... [--no-gh] [--depth N] [--ignore NAME]...\n".utf8))
     exit(2)
 }
 
-let settings = Settings(roots: roots, scanDepth: depth)
+var settings = Settings(roots: roots, scanDepth: depth)
+settings.disposableNames += extraDisposable
 let provider: PRProvider? = useGh ? GhCliProvider() : nil
 let service = ScanService(inspector: RepoInspector(settings: settings, prProvider: provider))
 
