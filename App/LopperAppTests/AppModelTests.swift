@@ -281,6 +281,75 @@ final class AppModelTests: XCTestCase {
         XCTAssertNil(model.notice)
     }
 
+    // MARK: Confirmations
+
+    func testAConfirmationAppearsAndClearsItself() async {
+        let (model, _) = makeModel([])
+        model.confirmationDuration = .milliseconds(60)
+
+        model.confirm("Copied")
+        XCTAssertEqual(model.confirmation, "Copied")
+
+        await waitUntil { model.confirmation == nil }
+        XCTAssertNil(model.confirmation)
+    }
+
+    func testANewerConfirmationIsNotClearedByTheOlderTimer() async {
+        let (model, _) = makeModel([])
+        model.confirmationDuration = .milliseconds(150)
+
+        model.confirm("first")
+        try? await Task.sleep(for: .milliseconds(90))
+        model.confirm("second")
+        try? await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(model.confirmation, "second", "the first timer fired at 150 ms and must not clear the second")
+        await waitUntil { model.confirmation == nil }
+        XCTAssertNil(model.confirmation)
+    }
+
+    func testCopyingPutsTheTextOnTheClipboardHandlerAndConfirms() {
+        let (model, _) = makeModel([])
+        var copied: [String] = []
+        model.copyHandler = { copied.append($0) }
+
+        model.copy("feat/x", confirming: "Copied branch name")
+
+        XCTAssertEqual(copied, ["feat/x"])
+        XCTAssertEqual(model.confirmation, "Copied branch name")
+    }
+
+    func testAddingAThrowawayNameConfirmsIt() {
+        let (model, _) = makeModel([])
+
+        model.addThrowaway(name: ".turbo", repoRoot: URL(fileURLWithPath: "/code/api"))
+
+        XCTAssertEqual(model.confirmation, "Added .turbo to this repository's throwaway names")
+    }
+
+    func testASuccessfulRestoreConfirmsHowManyItemsCameBack() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        let record = UndoRecord(
+            timestamp: Date(), repoPath: "/code/api", action: .deleteBranch, branch: "feat/x", tip: "abc",
+            upstream: nil, worktreePath: nil, trashRef: "refs/lopper/x", status: .restored, batchID: UUID())
+        client.restoreBatchOutcomes = [.restored(record), .restored(record)]
+
+        model.restoreBatch(UUID())
+        await waitUntil { model.confirmation != nil }
+
+        XCTAssertEqual(model.confirmation, "Restored 2 items")
+    }
+
+    func testAFailedRestoreDoesNotClaimSuccess() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        client.restoreBatchOutcomes = [.failed(message: "nope")]
+
+        model.restoreBatch(UUID())
+        await waitUntil { model.notice != nil }
+
+        XCTAssertNil(model.confirmation)
+    }
+
     func testHeroShowsAnItemCountWhenOnlyBranchesAreSafe() async {
         let branchesOnly = Fixtures.snapshot(branches: [
             Fixtures.branch("main", .protected), Fixtures.branch("feat/a", .safe), Fixtures.branch("feat/b", .safe),

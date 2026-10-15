@@ -45,10 +45,10 @@ struct InspectorContent: View {
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-                Button { OpenActions.copy(row.title) } label: { Image(systemName: "doc.on.doc") }
+                FeedbackButton(
+                    title: "Copy name", systemImage: "doc.on.doc", successTitle: "Copied", iconOnly: true
+                ) { OpenActions.copy(row.title) }
                     .buttonStyle(.lopperIcon)
-                    .help("Copy name")
-                    .accessibilityLabel("Copy name")
             }
             HStack(spacing: Theme.Spacing.sm) {
                 Label(row.kind.label, systemImage: row.kind.symbol)
@@ -155,7 +155,7 @@ struct InspectorContent: View {
                 HStack {
                     Text(file).font(.callout.monospaced()).lineLimit(1).truncationMode(.middle)
                     Spacer()
-                    Button("Throwaway") {
+                    FeedbackButton(title: "Throwaway", systemImage: "trash.slash", successTitle: "Added") {
                         model.addThrowaway(
                             name: (file as NSString).lastPathComponent.trimmingCharacters(in: CharacterSet(charactersIn: "/")),
                             repoRoot: row.repoRoot)
@@ -185,7 +185,11 @@ struct InspectorContent: View {
                         OpenActions.openInEditor(path, bundleID: model.preferences.editorBundleID)
                     }
                 }
-                action("Copy path", "doc.on.doc") { OpenActions.copy(path.path) }
+                FeedbackButton(title: "Copy path", systemImage: "doc.on.doc", successTitle: "Copied") {
+                    OpenActions.copy(path.path)
+                }
+                .buttonStyle(.lopperSecondary)
+                .controlSize(.small)
             }
         }
     }

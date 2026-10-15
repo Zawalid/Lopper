@@ -209,6 +209,67 @@ struct StatTile: View {
     }
 }
 
+/// A button that confirms what it did: its label turns into a green check and a short word for a moment.
+/// Both labels are laid out together, so the button does not change width when it flips.
+struct FeedbackButton: View {
+    let title: String
+    let systemImage: String
+    var successTitle = "Copied"
+    var iconOnly = false
+    let action: () -> Void
+
+    @State private var succeeded = false
+    @State private var resetTask: Task<Void, Never>?
+
+    var body: some View {
+        Button {
+            action()
+            withAnimation(.snappy(duration: 0.18)) { succeeded = true }
+            AccessibilityNotification.Announcement(successTitle).post()
+            resetTask?.cancel()
+            resetTask = Task {
+                try? await Task.sleep(for: .seconds(1.5))
+                guard !Task.isCancelled else { return }
+                withAnimation(.snappy(duration: 0.18)) { succeeded = false }
+            }
+        } label: {
+            ZStack {
+                content(title, systemImage).opacity(succeeded ? 0 : 1)
+                content(successTitle, "checkmark").foregroundStyle(.green).opacity(succeeded ? 1 : 0)
+            }
+        }
+        .help(succeeded ? successTitle : title)
+        .accessibilityLabel(succeeded ? successTitle : title)
+    }
+
+    @ViewBuilder
+    private func content(_ text: String, _ symbol: String) -> some View {
+        if iconOnly {
+            Image(systemName: symbol)
+        } else {
+            Label(text, systemImage: symbol)
+        }
+    }
+}
+
+/// The small floating message for actions that cannot show their own result, such as a context menu item.
+struct ConfirmationPill: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            Text(message).font(.callout)
+        }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Color(nsColor: .separatorColor)))
+        .shadow(color: .black.opacity(0.2), radius: 8, y: 2)
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// Opens the Settings window on a given pane. `SettingsLink` cannot say which one.
 struct OpenSettingsButton<Label: View>: View {
     let pane: SettingsPane
