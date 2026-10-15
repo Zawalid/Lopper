@@ -28,6 +28,10 @@ struct CleanupRow: Identifiable, Equatable, Sendable {
     var agent: AgentAssessment? = nil
 
     var isSelectable: Bool { verdict != .protected }
+
+    /// Safe, and for an agent worktree also finished, merged, clean, idle and measured. Every "clean all safe"
+    /// shortcut and the safe counts use this, so a worktree an agent may still be using is never swept up.
+    var isBulkEligible: Bool { verdict == .safe && (agent?.isReclaimable ?? true) }
     var lastCommitSort: Date { lastCommit ?? .distantPast }
     var sizeSort: Int64 { size ?? -1 }
 
@@ -49,7 +53,7 @@ enum RowMapper {
     /// working directory is the repository itself and gets no row.
     static func rows(
         for snapshot: RepoSnapshot, sizes: [String: DiskUsage],
-        policy: AgentPolicy = AgentPolicy(), now: Date = Date()
+        policy: AgentPolicy = AgentPolicy(), now: Date = Date(), measuredPaths: Set<String>? = nil
     ) -> [CleanupRow] {
         let repo = snapshot.repo
         var rows: [CleanupRow] = []
@@ -76,8 +80,13 @@ enum RowMapper {
                 agentHint: worktree.agentHint,
                 extraFiles: worktree.status.extraFiles,
                 bundledBranch: worktree.verdict.kind == .safe ? worktree.branch : nil,
+                // A size measured before the latest scan still fills the Size column, but its activity time is
+                // stale: the folder may have been recreated or switched to other work since.
                 agent: AgentAssessor.assess(
-                    worktree: worktree, usage: sizes[worktree.path.path], policy: policy, now: now)))
+                    worktree: worktree,
+                    usage: measuredPaths.map { $0.contains(worktree.path.path) } ?? true
+                        ? sizes[worktree.path.path] : nil,
+                    policy: policy, now: now)))
         }
 
         for branch in snapshot.branches where branch.checkedOutAt == nil {

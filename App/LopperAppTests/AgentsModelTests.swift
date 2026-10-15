@@ -137,6 +137,85 @@ final class AgentsModelTests: XCTestCase {
         XCTAssertEqual(model.agentsPageState, .nothingToReclaim)
     }
 
+    // MARK: Review fixes
+
+    func testBulkCleanAllSafeLeavesActiveAndLockedAgentWorktreesOut() {
+        let model = measuredModel()
+        model.beginCleanAllSafe()
+        let titles = (model.clean?.rows ?? []).map(\.title).sorted()
+        XCTAssertEqual(titles, ["claude/finished-a", "claude/finished-b"])
+    }
+
+    func testSelectAllSafeAndRepoShortcutHonourTheSameRule() {
+        let model = measuredModel()
+        model.checkAllSafe()
+        let checked = model.allRows.filter { model.checked.contains($0.id) }.map(\.title).sorted()
+        XCTAssertEqual(checked, ["claude/finished-a", "claude/finished-b"])
+        model.beginCleanSafe(inRepo: Fixtures.root.path)
+        XCTAssertEqual((model.clean?.rows ?? []).count, 2)
+    }
+
+    func testSummaryCountsDoNotPromiseWhatTheBulkActionsWillNotDo() {
+        let totals = measuredModel().totals
+        XCTAssertEqual(totals.safeWorktrees, 2)
+        XCTAssertEqual(totals.reclaimableBytes, measuredModel().agentsSummary.reclaimableBytes)
+    }
+
+    func testMeasurementsFromBeforeThisScanDoNotCountAsMeasured() {
+        let snapshot = Fixtures.agentSample
+        let m = Fixtures.agentMeasurements
+        let usage = m.sizes.mapValues { DiskUsage(total: $0, disposable: 0, newestModification: nil) }
+        let rows = RowMapper.rows(
+            for: snapshot, sizes: usage, policy: AgentPolicy(), now: Fixtures.now, measuredPaths: [])
+        let agents = rows.compactMap(\.agent)
+        XCTAssertFalse(agents.isEmpty)
+        XCTAssertTrue(agents.allSatisfy { !$0.isActivityMeasured || $0.state == .protected })
+        XCTAssertFalse(agents.contains { $0.isReclaimable })
+        // The size column still shows the previous measurement while the new one runs.
+        XCTAssertNotNil(rows.first { $0.title == "claude/finished-a" }?.size)
+    }
+
+    func testRescanThenMeasureMakesRowsMeasuredAgain() async {
+        let m = Fixtures.agentMeasurements
+        let client = FakeEngineClient(snapshots: [Fixtures.agentSample])
+        client.sizeByPath = m.sizes
+        client.activityByPath = m.activity
+        let store = SettingsStore(url: FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-test-settings-\(UUID().uuidString).json"))
+        let model = AppModel(
+            client: client, store: store, settings: Settings(roots: [URL(fileURLWithPath: "/code")]),
+            now: { Fixtures.now })
+        model.startScan()
+        for _ in 0..<300 {
+            if case .ready = model.phase, model.sizes.count >= 9, model.reclaimableAgentRows.count == 2 { break }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(model.reclaimableAgentRows.count, 2)
+    }
+
+    func testStrictIdsAreSentForEveryAgentWorktreeOfAClean() async {
+        let m = Fixtures.agentMeasurements
+        let client = FakeEngineClient(snapshots: [Fixtures.agentSample])
+        client.sizeByPath = m.sizes
+        client.activityByPath = m.activity
+        let store = SettingsStore(url: FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-test-settings-\(UUID().uuidString).json"))
+        let model = AppModel(
+            client: client, store: store, settings: Settings(roots: [URL(fileURLWithPath: "/code")]),
+            now: { Fixtures.now })
+        model.startScan()
+        for _ in 0..<300 where model.reclaimableAgentRows.count < 2 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        model.beginReclaimFinishedAgents()
+        model.runClean()
+        for _ in 0..<300 where client.cleanedItems.isEmpty { try? await Task.sleep(for: .milliseconds(10)) }
+
+        let expected = Set((model.clean?.rows ?? []).compactMap { $0.cleanupItem?.id })
+        XCTAssertEqual(expected.count, 2)
+        XCTAssertEqual(client.strictItemIDs, expected)
+    }
+
     func testGraceComesFromSettings() {
         let model = measuredModel()
         // The "just-now" worktree is about 7 minutes old: with a zero grace it is no longer active.

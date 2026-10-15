@@ -23,6 +23,7 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         gitHubCLI: .installed(version: "2.98.0", path: "/opt/homebrew/bin/gh"))
     private(set) var restoredBatches: [UUID] = []
     private(set) var cleanedItems: [CleanupItem] = []
+    private(set) var strictItemIDs: Set<String> = []
     let githubCLIAvailable: Bool
 
     init(snapshots: [RepoSnapshot], githubCLIAvailable: Bool = true) {
@@ -52,8 +53,11 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
             total: sizeByPath[path.path] ?? 0, disposable: 0, newestModification: activityByPath[path.path])
     }
 
-    func clean(_ items: [CleanupItem], settings: Settings, control: BatchControl) -> AsyncStream<BatchEvent> {
+    func clean(
+        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>
+    ) -> AsyncStream<BatchEvent> {
         cleanedItems = items
+        self.strictItemIDs = strictItemIDs
         let outcome = cleanOutcome
         let delay = cleanItemDelay
         let batchID = UUID()

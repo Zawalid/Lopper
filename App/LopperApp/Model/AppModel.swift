@@ -117,6 +117,8 @@ final class AppModel {
     private(set) var phase: ScanPhase = .idle
     private(set) var results: [RepoScanResult] = []
     private(set) var sizes: [String: DiskUsage] = [:]
+    /// Worktrees measured since the latest scan finished. Only these have trustworthy activity times.
+    private(set) var measuredPaths: Set<String> = []
     private(set) var history: [UndoRecord] = []
 
     /// The current page. Backed by stored state so views are notified, and written to preferences so the app
@@ -216,7 +218,8 @@ final class AppModel {
     }
 
     private func mappedRows(_ snapshot: RepoSnapshot) -> [CleanupRow] {
-        RowMapper.rows(for: snapshot, sizes: sizes, policy: agentPolicy, now: clock())
+        RowMapper.rows(
+            for: snapshot, sizes: sizes, policy: agentPolicy, now: clock(), measuredPaths: measuredPaths)
     }
 
     func rows(forRepo id: String) -> [CleanupRow] {
@@ -246,7 +249,7 @@ final class AppModel {
                     defaultBranch: nil, failure: message)
             case .snapshot(let snapshot):
                 let rows = mappedRows(snapshot)
-                let safe = rows.filter { $0.verdict == .safe }
+                let safe = rows.filter(\.isBulkEligible)
                 return RepoSummary(
                     id: snapshot.repo.id, name: snapshot.repo.name, root: snapshot.repo.root,
                     safeBranches: safe.filter { $0.kind == .branch }.count,
@@ -338,6 +341,7 @@ final class AppModel {
             scanTask?.cancel()
             results = []
             sizes = [:]
+            measuredPaths = []
             checked = []
             focusedRowID = nil
             route = .overview
@@ -456,6 +460,7 @@ final class AppModel {
             }
             guard !Task.isCancelled else { return }
             results = Self.sorted(collected)
+            measuredPaths = []
             // A repository that no longer exists must not stay selected as the current screen.
             if case .repo(let id) = route, !results.contains(where: { $0.repoRoot.path == id }) {
                 route = .overview
@@ -491,6 +496,7 @@ final class AppModel {
             for _ in 0..<4 { addNext() }
             while let (path, usage) = await group.next() {
                 sizes[path] = usage
+                measuredPaths.insert(path)
                 addNext()
             }
         }
@@ -594,7 +600,7 @@ final class AppModel {
 
     func checkAllSafe(inRepo id: String? = nil) {
         let rows = id.map(visibleRows(forRepo:)) ?? allRows
-        checked.formUnion(rows.filter { $0.verdict == .safe }.map(\.id))
+        checked.formUnion(rows.filter(\.isBulkEligible).map(\.id))
     }
 
     func clearChecked() { checked.removeAll() }
@@ -602,13 +608,13 @@ final class AppModel {
     // MARK: Cleaning
 
     func beginCleanAllSafe() {
-        beginClean(rows: allRows.filter { $0.verdict == .safe })
+        beginClean(rows: allRows.filter(\.isBulkEligible))
     }
 
     /// Opens the review sheet with one repository's safe items. The sheet is still the only way anything is
     /// removed, so a button on a card is a shortcut to the same safety step and not around it.
     func beginCleanSafe(inRepo id: String) {
-        beginClean(rows: rows(forRepo: id).filter { $0.verdict == .safe })
+        beginClean(rows: rows(forRepo: id).filter(\.isBulkEligible))
     }
 
     /// Opens a repository, optionally narrowed to one verdict.
@@ -656,6 +662,9 @@ final class AppModel {
             row.cleanupItem.map { ($0.id, row) }
         })
         let items = state.includedRows.compactMap(\.cleanupItem)
+        // Every agent worktree is removed under the Agents page's promise: nothing may exist only in its
+        // folder at the moment of removal, however it was approved.
+        let strictIDs = Set(state.includedRows.filter { $0.agent != nil }.compactMap { $0.cleanupItem?.id })
         guard !items.isEmpty else { return }
         state.phase = .running(done: 0, total: items.count)
         clean = state
@@ -669,7 +678,9 @@ final class AppModel {
         let control = cleanControl
 
         cleanTask = Task {
-            for await event in client.clean(items, settings: settings, control: control) {
+            for await event in client.clean(
+                items, settings: settings, control: control, strictItemIDs: strictIDs
+            ) {
                 guard var current = clean else { break }
                 switch event {
                 case .started(let batchID, let total):
@@ -799,6 +810,7 @@ extension AppModel {
             usage[path] = DiskUsage(total: sizes[path] ?? 0, disposable: 0, newestModification: activity[path])
         }
         model.sizes = usage
+        model.measuredPaths = Set(usage.keys)
         model.history = history
         model.route = route
         model.phase = phase ?? .ready(Date())

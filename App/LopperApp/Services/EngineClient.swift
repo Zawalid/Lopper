@@ -6,7 +6,11 @@ protocol EngineClient: Sendable {
     var githubCLIAvailable: Bool { get }
     func scan(settings: Settings) -> AsyncStream<ScanEvent>
     func measure(_ path: URL, disposable: Set<String>) async -> DiskUsage
-    func clean(_ items: [CleanupItem], settings: Settings, control: BatchControl) -> AsyncStream<BatchEvent>
+    /// `strictItemIDs` are worktree items that must be refused if work that exists only in the folder has
+    /// appeared since they were reviewed.
+    func clean(
+        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>
+    ) -> AsyncStream<BatchEvent>
     func history() async -> [UndoRecord]
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
@@ -41,8 +45,10 @@ struct LiveEngineClient: EngineClient {
         await SizeCalculator.measure(path, disposableNames: disposable)
     }
 
-    func clean(_ items: [CleanupItem], settings: Settings, control: BatchControl) -> AsyncStream<BatchEvent> {
-        BatchCleaner(cleaner: cleaner(settings)).run(items: items, control: control)
+    func clean(
+        _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>
+    ) -> AsyncStream<BatchEvent> {
+        BatchCleaner(cleaner: cleaner(settings)).run(items: items, control: control, strictItemIDs: strictItemIDs)
     }
 
     func history() async -> [UndoRecord] {
