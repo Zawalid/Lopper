@@ -53,7 +53,7 @@ struct RepoWorkbenchView: View {
                 }
                 .contextMenu(forSelectionType: CleanupRow.ID.self) { ids in
                     if let id = ids.first, let row = model.allRows.first(where: { $0.id == id }) {
-                        RowMenu(row: row)
+                        RowMenu(row: row, terminalBundleID: model.preferences.terminalBundleID)
                     }
                 }
             }
@@ -155,11 +155,12 @@ private struct SizeCell: View {
 
 struct RowMenu: View {
     let row: CleanupRow
+    var terminalBundleID: String = TerminalChoice.terminal.rawValue
 
     var body: some View {
         if let path = row.path {
             Button("Reveal in Finder") { OpenActions.reveal(path) }
-            Button("Open in Terminal") { OpenActions.openInTerminal(path) }
+            Button("Open in Terminal") { OpenActions.openInTerminal(path, bundleID: terminalBundleID) }
             Button("Copy path") { OpenActions.copy(path.path) }
         } else {
             Button("Copy branch name") { OpenActions.copy(row.title) }

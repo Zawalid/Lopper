@@ -1,8 +1,10 @@
+import AppKit
 import SwiftUI
 
 @main
 struct LopperApp: App {
-    @State private var model = AppModel(client: LiveEngineClient())
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var model = AppModel(client: LiveEngineClient(), preferences: .standard)
 
     var body: some Scene {
         Window("Lopper", id: "main") {
@@ -54,3 +56,11 @@ struct LopperCommands: Commands {
         }
     }
 }
+
+/// Applies appearance and Dock presence before the first window appears.
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated { AppPreferences.standard.applyAtLaunch() }
+    }
+}
+

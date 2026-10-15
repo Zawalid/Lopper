@@ -18,7 +18,6 @@ struct InspectorView: View {
 /// The inspector body without its scroll view, so it can be rendered offscreen.
 struct InspectorContent: View {
     @Environment(AppModel.self) private var model
-    @AppStorage("editorBundleID") private var editorBundleID = EditorChoice.vscode.rawValue
 
     var body: some View {
         if let row = model.focusedRow {
@@ -122,9 +121,9 @@ struct InspectorContent: View {
             }
             if let path = row.path {
                 Button { OpenActions.reveal(path) } label: { Label("Reveal in Finder", systemImage: "folder") }
-                Button { OpenActions.openInTerminal(path) } label: { Label("Open in Terminal", systemImage: "terminal") }
-                if OpenActions.installed(editorBundleID) {
-                    Button { OpenActions.openInEditor(path, bundleID: editorBundleID) } label: {
+                Button { OpenActions.openInTerminal(path, bundleID: model.preferences.terminalBundleID) } label: { Label("Open in Terminal", systemImage: "terminal") }
+                if OpenActions.installed(model.preferences.editorBundleID) {
+                    Button { OpenActions.openInEditor(path, bundleID: model.preferences.editorBundleID) } label: {
                         Label("Open in editor", systemImage: "chevron.left.forwardslash.chevron.right")
                     }
                 }

@@ -3,12 +3,11 @@ import AppKit
 
 struct MenuBarLabel: View {
     @Environment(AppModel.self) private var model
-    @AppStorage("showCountInMenuBar") private var showCount = false
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "scissors")
-            if showCount, model.totals.safe > 0 {
+            if model.preferences.showCountInMenuBar, model.totals.safe > 0 {
                 Text("\(model.totals.safe)").monospacedDigit()
             }
         }

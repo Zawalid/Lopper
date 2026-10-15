@@ -88,7 +88,7 @@ One window, sidebar of panes. Everything searchable later.
 
 These are cheap now and expensive later.
 
-1. **Settings architecture:** versioned model with migrations (done: slice 1, see `docs/settings-file.md`), a pane-based window (done: slice 2), one place for defaults.
+1. **Settings architecture:** versioned model with migrations (done: slice 1, see `docs/settings-file.md`), a pane-based window (done: slice 2), typed app preferences with appearance, Dock presence and window restoration (done: slice 3).
 2. **Localization:** string catalogs and no hard-coded user-facing strings in views.
 3. **Entitlements seam:** `Entitlements.isEnabled(.feature)` with everything enabled for now.
 4. **Diagnostics:** structured logging and "Export logs" so bug reports are one click.

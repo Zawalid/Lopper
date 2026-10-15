@@ -2,11 +2,22 @@ import SwiftUI
 import ServiceManagement
 
 struct GeneralPane: View {
-    @AppStorage("showCountInMenuBar") private var showCountInMenuBar = false
+    @Environment(AppModel.self) private var model
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
+        let preferences = model.preferences
         PaneScaffold {
+            Section {
+                Picker("Appearance", selection: Binding(
+                    get: { preferences.appearance },
+                    set: { preferences.setAppearance($0) }
+                )) {
+                    ForEach(AppPreferences.Appearance.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+            }
+
             Section {
                 Toggle("Open Lopper at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { _, enabled in
@@ -16,9 +27,16 @@ struct GeneralPane: View {
                             launchAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
-                Toggle("Show the safe count in the menu bar", isOn: $showCountInMenuBar)
+                Toggle("Show Lopper in the Dock", isOn: Binding(
+                    get: { preferences.showInDock },
+                    set: { preferences.setShowInDock($0) }
+                ))
+                Toggle("Show the safe count in the menu bar", isOn: Binding(
+                    get: { preferences.showCountInMenuBar },
+                    set: { preferences.setShowCountInMenuBar($0) }
+                ))
             } footer: {
-                Text("Lopper lives in the menu bar so you can see what is ready to clean without opening a window.")
+                Text("Without a Dock icon, Lopper lives in the menu bar and opens its window from there.")
             }
         }
     }

@@ -2,18 +2,28 @@ import SwiftUI
 
 struct ToolsPane: View {
     @Environment(AppModel.self) private var model
-    @AppStorage("editorBundleID") private var editorBundleID = EditorChoice.vscode.rawValue
 
     var body: some View {
         PaneScaffold {
             Section {
-                Picker("Editor", selection: $editorBundleID) {
+                Picker("Editor", selection: Binding(
+                    get: { model.preferences.editorBundleID },
+                    set: { model.preferences.setEditorBundleID($0) }
+                )) {
                     ForEach(EditorChoice.allCases.filter { OpenActions.installed($0.rawValue) }) {
                         Text($0.name).tag($0.rawValue)
                     }
                 }
+                Picker("Terminal", selection: Binding(
+                    get: { model.preferences.terminalBundleID },
+                    set: { model.preferences.setTerminalBundleID($0) }
+                )) {
+                    ForEach(TerminalChoice.allCases.filter { OpenActions.installed($0.rawValue) }) {
+                        Text($0.name).tag($0.rawValue)
+                    }
+                }
             } footer: {
-                Text("Used by \"Open in editor\" on a worktree.")
+                Text("Used by \"Open in editor\" and \"Open in Terminal\" on a worktree.")
             }
 
             Section {

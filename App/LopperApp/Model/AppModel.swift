@@ -109,6 +109,7 @@ struct Totals: Equatable {
 @Observable
 final class AppModel {
     let client: any EngineClient
+    let preferences: AppPreferences
     private let store: SettingsStore
 
     private(set) var settings: Settings
@@ -117,13 +118,31 @@ final class AppModel {
     private(set) var sizes: [String: DiskUsage] = [:]
     private(set) var history: [UndoRecord] = []
 
-    var route: Route = .overview
+    /// The current page. Backed by stored state so views are notified, and written to preferences so the app
+    /// reopens on the same page.
+    var route: Route {
+        get { routeStorage }
+        set {
+            routeStorage = newValue
+            preferences.setLastRoute(newValue)
+        }
+    }
+
+    var showInspector: Bool {
+        get { inspectorStorage }
+        set {
+            inspectorStorage = newValue
+            preferences.setInspectorVisible(newValue)
+        }
+    }
+
+    private var routeStorage: Route = .overview
+    private var inspectorStorage = true
     var checked: Set<String> = []
     var focusedRowID: String?
     var verdictFilter: VerdictFilter = .all
     var kindFilter: KindFilter = .all
     var searchText = ""
-    var showInspector = true
     var clean: CleanState?
     var toast: UndoToast?
 
@@ -135,9 +154,17 @@ final class AppModel {
     private var cleanControl = BatchControl()
     private var lastCompletedScan: Date?
 
-    init(client: any EngineClient, store: SettingsStore = .standard, settings: Settings? = nil) {
+    init(
+        client: any EngineClient,
+        store: SettingsStore = .standard,
+        settings: Settings? = nil,
+        preferences: AppPreferences = AppPreferences()
+    ) {
         self.client = client
         self.store = store
+        self.preferences = preferences
+        self.routeStorage = preferences.lastRoute
+        self.inspectorStorage = preferences.inspectorVisible
         if let settings {
             self.settings = settings
         } else {

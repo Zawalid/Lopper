@@ -10,8 +10,8 @@ enum OpenActions {
         NSWorkspace.shared.open(url)
     }
 
-    static func openInTerminal(_ folder: URL) {
-        open(folder, withBundleID: "com.apple.Terminal")
+    static func openInTerminal(_ folder: URL, bundleID: String = TerminalChoice.terminal.rawValue) {
+        open(folder, withBundleID: bundleID)
     }
 
     static func openInEditor(_ folder: URL, bundleID: String) {
@@ -53,3 +53,22 @@ enum EditorChoice: String, CaseIterable, Identifiable {
         }
     }
 }
+
+enum TerminalChoice: String, CaseIterable, Identifiable {
+    case terminal = "com.apple.Terminal"
+    case iterm = "com.googlecode.iterm2"
+    case ghostty = "com.mitchellh.ghostty"
+    case warp = "dev.warp.Warp-Stable"
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .terminal: "Terminal"
+        case .iterm: "iTerm2"
+        case .ghostty: "Ghostty"
+        case .warp: "Warp"
+        }
+    }
+}
+
