@@ -110,10 +110,30 @@ EOF
       esac ;;
     .gitignore)
       printf '%s\n' node_modules .next dist build out coverage .turbo .cache .env .env.* '!.env.example' \
-        .venv __pycache__ '*.pyc' .pytest_cache DerivedData .build .DS_Store '*.tsbuildinfo' ;;
+        .venv __pycache__ '*.pyc' .pytest_cache DerivedData .build Pods target .DS_Store '*.tsbuildinfo' ;;
     README.md)
-      printf '# %s\n\n%s\n\n## Getting started\n\n```sh\nnpm install\nnpm run dev\n```\n\n## Notes\n\n- %s\n' \
-        "$REPO_NAME" "$REPO_DESC" "$msg" ;;
+      case "$REPO_KIND" in
+        rust) setup=$'cargo build\ncargo test' ;;
+        py) setup=$'python -m venv .venv\n.venv/bin/pip install -e .' ;;
+        go) setup=$'go run ./cmd/api' ;;
+        mobile) setup=$'swift build\nswift test' ;;
+        php) setup=$'composer install\nphp -S localhost:8000 -t public' ;;
+        *) setup=$'npm install\nnpm run dev' ;;
+      esac
+      printf '# %s\n\n%s\n\n## Getting started\n\n```sh\n%s\n```\n\n## Notes\n\n- %s\n' \
+        "$REPO_NAME" "$REPO_DESC" "$setup" "$msg" ;;
+    package-lock.json)
+      printf '{\n  "name": "%s",\n  "lockfileVersion": 3,\n  "requires": true,\n  "note": "%s"\n}\n' "$REPO_NAME" "$msg" ;;
+    requirements.txt) printf 'openai==1.30.1\nflask==3.0.3\nhttpx==0.27.0\n' ;;
+    pnpm-lock.yaml) printf "# %s\nlockfileVersion: '9.0'\nimporters:\n  .: {}\n" "$msg" ;;
+    pnpm-workspace.yaml) printf "packages:\n  - 'packages/*'\n" ;;
+    Cargo.toml)
+      printf '[package]\nname = "%s"\nversion = "0.%d.%d"\nedition = "2021"\n\n[dev-dependencies]\ncriterion = "0.5"\n' \
+        "$REPO_NAME" $((SEQ / 10)) $((SEQ % 10)) ;;
+    Cargo.lock) printf '# %s\nversion = 3\n\n[[package]]\nname = "%s"\nversion = "0.1.0"\n' "$msg" "$REPO_NAME" ;;
+    *.rs)
+      printf '// %s\npub fn %s(input: &[u8]) -> u64 {\n    input.iter().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(*b as u64))\n}\n' \
+        "$msg" "$(printf '%s' "$base" | tr '-' '_')" ;;
     go.mod) printf 'module github.com/%s/%s\n\ngo 1.22\n\nrequire github.com/go-chi/chi/v5 v5.0.%d\n' "$ORG" "$REPO_NAME" $((SEQ % 12)) ;;
     Package.swift)
       printf '// swift-tools-version: 5.9\nimport PackageDescription\n\nlet package = Package(\n    name: "%s",\n    platforms: [.iOS(.v16)],\n    targets: [.target(name: "%s"), .testTarget(name: "%sTests", dependencies: ["%s"])]\n)\n' \
@@ -400,7 +420,7 @@ write_settings() {
   mkdir -p "$support"
   {
     printf '{\n  "agentFinishedGraceMinutes" : 120,\n'
-    printf '  "disposableNames" : ["node_modules", ".next", ".nuxt", ".turbo", ".cache", "dist", "build", "out", "target", "DerivedData", "Pods", ".gradle", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox", ".eslintcache", ".parcel-cache", ".svelte-kit", ".vite", ".angular", "coverage", ".DS_Store", "Thumbs.db", "*.tsbuildinfo", "*.pyc"],\n'
+    printf '  "disposableNames" : ["node_modules", ".next", ".nuxt", ".turbo", ".cache", "dist", "build", "out", "target", "DerivedData", "Pods", ".gradle", ".build", ".venv", "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox", ".eslintcache", ".parcel-cache", ".svelte-kit", ".vite", ".angular", "coverage", ".DS_Store", "Thumbs.db", "*.tsbuildinfo", "*.pyc"],\n'
     printf '  "folders" : [\n'
     for ws in $WORKSPACES; do
       printf '%s    { "excludePatterns" : [], "isEnabled" : true, "path" : "file://%s/%s/" }' "$sep" "$target" "$ws"
@@ -483,4 +503,49 @@ remove_and_log() {
       undo_line "$id" "$epoch" "$R" deleteBranch "$branch" "$tip" "$upstream" "" "$ref" expired "" "$batch" \
         "$reason" "" ;;
   esac
+}
+
+# ---- generated folders (the Disk page) -------------------------------------------------------------------------
+
+# age_tree <dir> <days ago>: the project looks untouched for that long. Lopper's "last edited" is the newest file
+# under the folder outside disposable folders, and that includes the contents of .git, so those are aged too,
+# after one `git status` has settled the index (otherwise the first status would rewrite .git/index and make the
+# project look edited just now). Call it after the last git command that writes into the repository. It only
+# holds for repositories whose branches are all ancestors of the default branch: Lopper's own content check
+# (git merge-tree --write-tree) writes loose objects into .git, so any other repository looks edited as soon as
+# Lopper has scanned it.
+age_tree() {
+  local stamp
+  stamp=$(date -v-"$2"d -v11H -v3M +%Y%m%d%H%M)
+  find "$1" -path "$1/.git" -prune -o -exec touch -t "$stamp" {} +
+  git -C "$1" status --porcelain >/dev/null 2>&1 || true
+  find "$1/.git" -exec touch -t "$stamp" {} +
+}
+
+# rust_target <dir> <MB>: what cargo build leaves in target/.
+rust_target() {
+  local d=$1 mb=$2
+  blob "$d/target/debug/deps/lib$REPO_NAME-1a2b3c4d5e6f.rlib" $((mb * 5 / 10 + 1))
+  blob "$d/target/debug/incremental/$REPO_NAME-3k2j1h/s-gx1p0q.bin" $((mb * 3 / 10 + 1))
+  blob "$d/target/release/deps/lib$REPO_NAME-9f8e7d6c.rlib" $((mb * 2 / 10 + 1))
+  printf 'Signature: 8a477f597d28d172789f06886806bc55\n' > "$d/target/CACHEDIR.TAG"
+}
+
+# swift_build <dir> <MB>: what swift build leaves in .build/.
+swift_build() {
+  local d=$1 mb=$2
+  blob "$d/.build/arm64-apple-macosx/debug/$REPO_NAME.build/main.swift.o" $((mb * 6 / 10 + 1))
+  blob "$d/.build/arm64-apple-macosx/debug/ModuleCache/Foundation.pcm" $((mb * 3 / 10 + 1))
+  blob "$d/.build/checkouts/swift-collections/Sources/Collections.swiftmodule" $((mb / 10 + 1))
+  printf '{}\n' > "$d/.build/workspace-state.json"
+}
+
+# python_venv <dir> <MB>: a virtual environment plus bytecode caches.
+python_venv() {
+  local d=$1 mb=$2
+  mkdir -p "$d/.venv/bin"
+  printf 'home = /opt/homebrew/bin\nversion = 3.12.4\n' > "$d/.venv/pyvenv.cfg"
+  blob "$d/.venv/lib/python3.12/site-packages/numpy/_core/_multiarray_umath.so" $((mb * 5 / 10 + 1))
+  blob "$d/.venv/lib/python3.12/site-packages/httpx/_client.cpython-312.pyc" $((mb * 3 / 10 + 1))
+  blob "$d/.venv/lib/python3.12/site-packages/pip/_vendor/rich/_emoji_codes.py" $((mb * 2 / 10 + 1))
 }

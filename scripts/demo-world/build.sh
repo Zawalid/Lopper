@@ -93,6 +93,7 @@ build_web() {
   new_repo startup-saas web web acme "Customer dashboard and marketing site for Acme Cloud."
   seed "$R" 172 74 <<'EOF'
 amira|package.json|chore: initialise next.js app with typescript and eslint
+amira|package-lock.json|chore: commit the npm lockfile
 amira|.gitignore|chore: ignore build output and local env files
 amira|README.md|docs: describe local setup and environment variables
 jonas|src/app/layout.tsx|feat: root layout with navigation shell
@@ -211,7 +212,7 @@ EOF
   local wt="$TARGET/startup-saas"
   # Merged and clean, with a big pile of disposable folders (the "reclaim space" case).
   wt_existing "$wt/web-billing-portal" feature/billing-portal
-  bulk "$wt/web-billing-portal" 150 40 0
+  bulk "$wt/web-billing-portal" 90 25 0
   age_wt "$wt/web-billing-portal" 50
   # Merged, but a tracked file was edited and not committed.
   wt_existing "$wt/web-avatar-upload" fix/avatar-upload
@@ -227,10 +228,13 @@ EOF
   age_wt "$wt/web-onboarding-checklist" 6
   # History: the search-filters worktree and branch were removed by Lopper yesterday.
   wt_existing "$wt/web-search-filters" feature/search-filters
-  bulk "$wt/web-search-filters" 55 15 0
+  bulk "$wt/web-search-filters" 35 10 0
   age_wt "$wt/web-search-filters" 11
   remove_and_log web-search-filters 1 17 feature/search-filters "$wt/web-search-filters" \
     "Merged via PR #128" origin/feature/search-filters completed
+
+  # Generated folders in the main checkout: installed packages and the next.js cache (both rebuildable).
+  bulk "$R" 80 30 0
 
   # Checks.
   assert "billing-portal merged" is_ancestor feature/billing-portal
@@ -342,6 +346,7 @@ build_mobile() {
   new_repo startup-saas mobile mobile acme "iOS app for Acme Cloud."
   seed "$R" 175 105 <<'EOF'
 amira|Package.swift|chore: create swift package and app target
+amira|.gitignore|chore: ignore build output
 amira|README.md|docs: build instructions and test devices
 jonas|Sources/Mobile/AppEntry.swift|feat: app entry point and dependency container
 priya|Sources/Mobile/Views/HomeView.swift|feat: home feed
@@ -373,9 +378,9 @@ EOF
   branch_work fix/crash-on-launch amira 66 0 "Sources/Mobile/Storage/Migration.swift|fix: crash when the cache schema is older than v3"
   branch_work fix/keyboard-overlap priya 60 0 "Sources/Mobile/Views/KeyboardGuide.swift|fix: keyboard covers the comment field"
   branch_work fix/ios17-layout jonas 56 0 "Sources/Mobile/Views/SafeAreaFix.swift|fix: safe area insets on ios 17"
-  branch_work chore/bump-xcode-15 amira 30 0 "Sources/Mobile/Build/Settings.swift|chore: build with xcode 15.3"
+  branch_work chore/bump-xcode-15 amira 30 0 "Sources/Mobile/Config/XcodeSettings.swift|chore: build with xcode 15.3"
   origin_push chore/bump-xcode-15
-  branch_work chore/swiftlint-0-54 amira 45 0 "Sources/Mobile/Build/Lint.swift|chore: swiftlint 0.54 rules"
+  branch_work chore/swiftlint-0-54 amira 45 0 "Sources/Mobile/Config/LintRules.swift|chore: swiftlint 0.54 rules"
   origin_push chore/swiftlint-0-54
   branch_work feature/apple-pay jonas 11 2 \
     "Sources/Mobile/Payments/ApplePayButton.swift|feat: apple pay button" \
@@ -420,6 +425,8 @@ EOF
   assert "ghost folder missing" test ! -e "$wt"
   assert "expired keep-alive ref gone" test -z "$(git -C "$R" for-each-ref 'refs/lopper/trash/*/spike/widgetkit')"
   assert "recent keep-alive ref exists" test -n "$(git -C "$R" for-each-ref 'refs/lopper/trash/*/spike/lottie-splash')"
+  # A swift build folder.
+  swift_build "$R" 60
   origin_finish git@github.com:acme/mobile.git
 }
 
@@ -472,6 +479,7 @@ build_bluebird() {
   new_repo client-work bluebird-studio site northpine-agency "Marketing site for Bluebird Studio."
   seed "$R" 165 85 <<'EOF'
 tomas|package.json|chore: scaffold the site
+tomas|package-lock.json|chore: commit the npm lockfile
 tomas|.gitignore|chore: ignore build output
 tomas|README.md|docs: deploy and content editing notes
 amira|src/layouts/base.html|feat: base layout with seo meta
@@ -515,6 +523,8 @@ EOF
   assert "staging ahead with live upstream" has_live_upstream staging
   assert "redesign detached" is_detached "$wt"
   assert "redesign has a unique commit" test "$(git -C "$wt" rev-list --count "main..HEAD")" -ge 1
+  # A big node_modules in a client site.
+  bulk "$R" 90 0 0
   origin_finish git@github.com:northpine-agency/bluebird-studio.git
 }
 
@@ -546,6 +556,9 @@ EOF
   wt_existing "$wt" feature/old-theme-revert
   age_wt "$wt" 88
   rm -f "$wt/.git"
+
+  # node_modules with no lockfile anywhere: Lopper will not offer to clear it.
+  bulk "$R" 20 0 0
 
   assert "no remote" test -z "$(git -C "$R" remote)"
   assert "order-form merged" is_ancestor feature/order-form
@@ -604,6 +617,7 @@ build_fastcsv() {
   new_repo open-source fastcsv lib amirabenali "A small, fast, RFC 4180 compliant CSV parser for TypeScript."
   seed "$R" 170 90 <<'EOF'
 amira|package.json|chore: set up typescript library with tsup and vitest
+amira|package-lock.json|chore: commit the npm lockfile
 amira|README.md|docs: usage and api overview
 amira|.gitignore|chore: ignore build output
 amira|src/index.ts|feat: public entry point
@@ -666,7 +680,46 @@ EOF
   assert "streaming ahead" ahead_of_default feat/streaming-parser 6
   assert "tags exist" test "$(git -C "$R" tag | wc -l)" -ge 3
   assert "bump-deps removed" test -z "$(git -C "$R" branch --list chore/bump-deps)"
+  # Generated folders: node_modules (lockfile beside it), and a dist that holds one force-added file.
+  bulk "$R" 40 0 0
+  mkdir -p "$R/dist"
+  printf 'Release notes are copied here by the publish script.\n' > "$R/dist/keep.txt"
+  who amira; when 5 14 20
+  gx -C "$R" add -f dist/keep.txt
+  gx -C "$R" commit -q -m "chore: track the release note in dist"
+  blob "$R/dist/index.js" 6
+  printf 'export {};\n' > "$R/dist/index.d.ts"
+  assert "dist keep.txt is tracked" test -n "$(git -C "$R" ls-files dist/keep.txt)"
+  assert "dist bundle is ignored" git -C "$R" check-ignore -q dist/index.js
   origin_finish git@github.com:amirabenali/fastcsv.git
+}
+
+# --- tinyhash: a small Rust crate; the target folder is the generated one.
+build_tinyhash() {
+  new_repo open-source tinyhash rust amirabenali "Small non-cryptographic hash functions for Rust."
+  seed "$R" 150 70 <<'EOF'
+amira|Cargo.toml|chore: new crate
+amira|.gitignore|chore: ignore target
+amira|README.md|docs: usage and benchmarks
+amira|Cargo.lock|chore: commit the lockfile
+amira|src/lib.rs|feat: hasher trait and a simple multiplicative hasher
+priya|src/fnv.rs|feat: 64 bit fnv-1a
+jonas|src/siphash.rs|feat: siphash 1-3
+amira|benches/hash.rs|perf: criterion benchmarks
+priya|.github/workflows/ci.yml|ci: test on stable and nightly
+EOF
+  origin_init
+  branch_work fix/empty-input jonas 40 1 "src/empty.rs|fix: hashing an empty slice must not panic"
+  branch_work perf/simd-lookup priya 9 2 "src/simd.rs|perf: simd lookup for short inputs" \
+    "src/simd_tests.rs|test: simd and scalar paths agree"
+  origin_push perf/simd-lookup
+  merge_pr fix/empty-input 12 36 merge jonas
+  main_commit amira 12 src/wyhash.rs "feat: wyhash"
+  git -C "$R" push -q origin main
+  rust_target "$R" 60
+  assert "empty-input merged" is_ancestor fix/empty-input
+  assert "simd live upstream" has_live_upstream perf/simd-lookup
+  origin_finish git@github.com:amirabenali/tinyhash.git
 }
 
 # --- pyrate: Python library. A rebase merge, a stale branch with a live upstream, a clean "bisect" worktree.
@@ -713,6 +766,10 @@ EOF
   assert "async-client live upstream, unmerged" has_live_upstream feature/async-client
   assert "bisect worktree detached and clean" is_detached "$wt"
   assert "bisect worktree clean" is_clean "$wt"
+  # A virtual environment and bytecode caches in the main checkout.
+  python_venv "$R" 45
+  blob "$R/src/pyrate/__pycache__/client.cpython-312.pyc" 1
+  blob "$R/.pytest_cache/v/cache/lastfailed" 1
   origin_finish git@github.com:amirabenali/pyrate.git
 }
 
@@ -725,6 +782,7 @@ build_playground() {
   new_repo agents-lab agent-playground web amirabenali "Sandbox for experiments built together with AI coding tools."
   seed "$R" 125 62 <<'EOF'
 amira|package.json|chore: playground for ai assisted experiments
+amira|package-lock.json|chore: commit the npm lockfile
 amira|.gitignore|chore: ignore build output
 amira|README.md|docs: what lives here and how to run it
 amira|src/app/layout.tsx|feat: layout
@@ -744,13 +802,13 @@ EOF
   who amira; when 12 10 0
   commit "$cc/rename-hooks" "refactor: rename use-data hook" src/lib/use-data.ts
   merge_pr claude/rename-hooks 28 11 merge amira
-  bulk "$cc/rename-hooks" 70 25 0
+  bulk "$cc/rename-hooks" 40 15 0
   age_wt "$cc/rename-hooks" 11
   wt_new "$cc/css-cleanup" claude/css-cleanup
   who amira; when 9 10 0
   commit "$cc/css-cleanup" "style: drop unused css modules" src/styles/cleanup.css
   merge_pr claude/css-cleanup 30 8 squash amira
-  bulk "$cc/css-cleanup" 90 30 0
+  bulk "$cc/css-cleanup" 50 20 0
   age_wt "$cc/css-cleanup" 8
   remove_and_log agents-reclaim 4 9 claude/rename-hooks "$cc/rename-hooks" "Merged via PR #28" - completed
   remove_and_log agents-reclaim 4 9 claude/css-cleanup "$cc/css-cleanup" "Merged via PR #30" - completed
@@ -762,7 +820,7 @@ EOF
   when 5 10 40
   commit "$cc/tidy-imports" "chore: remove unused exports" src/lib/format.ts
   merge_pr claude/tidy-imports 31 5 squash amira
-  bulk "$cc/tidy-imports" 45 12 0
+  bulk "$cc/tidy-imports" 25 8 0
   age_wt "$cc/tidy-imports" 5
 
   # Cursor: <workspace>/.cursor/worktrees/<repo>/<id>, finished.
@@ -770,14 +828,14 @@ EOF
   who amira; when 4 13 0
   commit "$cu/9f8e7d" "feat: dark theme tokens" src/styles/tokens.css
   merge_pr cursor/dark-theme-tokens 32 4 merge amira
-  bulk "$cu/9f8e7d" 40 0 0
+  bulk "$cu/9f8e7d" 25 0 0
   age_wt "$cu/9f8e7d" 4
   # Finished: merged with a merge commit, clean, idle 3 days.
   wt_new "$cc/fix-typo-readme" claude/fix-typo-readme
   who amira; when 3 11 0
   commit "$cc/fix-typo-readme" "docs: fix typo in README" README.md
   merge_pr claude/fix-typo-readme 33 3 merge amira
-  bulk "$cc/fix-typo-readme" 30 0 0
+  bulk "$cc/fix-typo-readme" 18 0 0
   age_wt "$cc/fix-typo-readme" 3
 
   # Unmerged: two commits not in main, clean, idle one day.
@@ -786,7 +844,7 @@ EOF
   commit "$cc/refactor-auth" "refactor: split auth module" src/lib/auth.ts
   when 1 9 50
   commit "$cc/refactor-auth" "refactor: add session helper" src/lib/session.ts
-  bulk "$cc/refactor-auth" 60 18 0
+  bulk "$cc/refactor-auth" 35 12 0
   age_wt "$cc/refactor-auth" 1 10
 
   # Uncommitted work in the folder: a modified tracked file and an untracked notes file, idle 2 days.
@@ -795,14 +853,14 @@ EOF
   commit "$cc/wip-export" "wip: export skeleton" src/lib/export.ts
   printf '// unsaved idea: stream the rows\n' >> "$cc/wip-export/src/lib/export.ts"
   printf 'scratch notes about the csv format\n' > "$cc/wip-export/NOTES.txt"
-  bulk "$cc/wip-export" 35 0 0
+  bulk "$cc/wip-export" 20 0 0
   age_wt "$cc/wip-export" 2
 
   # Abandoned: committed unmerged work, untouched for 45 days.
   wt_new "$cc/old-websocket-spike" claude/old-websocket-spike
   who amira; when 45 14 0
   commit "$cc/old-websocket-spike" "spike: try websockets for live results" src/lib/ws.ts
-  bulk "$cc/old-websocket-spike" 80 0 5
+  bulk "$cc/old-websocket-spike" 35 0 5
   age_wt "$cc/old-websocket-spike" 45
 
   # Protected: the branch matches release/*.
@@ -816,7 +874,7 @@ EOF
   who amira; when_minutes 25
   commit "$cc/add-search-box" "feat: search box component" src/components/search-box.tsx
   printf '// handle empty query\n' >> "$cc/add-search-box/src/components/search-box.tsx"
-  bulk "$cc/add-search-box" 25 6 0
+  bulk "$cc/add-search-box" 15 5 0
   mark_active "$cc/add-search-box"
 
   # Cursor, unmerged: two commits, idle 3 days.
@@ -825,11 +883,13 @@ EOF
   commit "$cu/c4b2a1" "feat: zod schema for the settings form" src/lib/settings-schema.ts
   when 3 16 30
   commit "$cu/c4b2a1" "feat: inline validation messages" src/components/field-error.tsx
-  bulk "$cu/c4b2a1" 40 8 0
+  bulk "$cu/c4b2a1" 25 6 0
   age_wt "$cu/c4b2a1" 3
 
   main_commit amira 2 src/app/about/page.tsx "feat: about page"
   git -C "$R" push -q origin main
+  # Main checkout: packages, next.js cache and a dist folder (the "tracked after the fact" recipe in the README).
+  bulk "$R" 50 10 12
   assert "tidy-imports squash merged" is_content_included claude/tidy-imports
   assert "fix-typo merged" is_ancestor claude/fix-typo-readme
   assert "refactor-auth unmerged" not_content_included claude/refactor-auth
@@ -849,6 +909,8 @@ build_refactor_lab() {
   new_repo agents-lab refactor-lab lib amirabenali "Monorepo used to try large refactors with coding agents."
   seed "$R" 140 50 <<'EOF'
 amira|package.json|chore: set up the workspace
+amira|pnpm-workspace.yaml|chore: declare the packages folder as the workspace
+amira|pnpm-lock.yaml|chore: commit the pnpm lockfile
 amira|.gitignore|chore: ignore build output
 amira|README.md|docs: monorepo layout
 amira|packages/core/src/index.ts|feat: core package skeleton
@@ -889,14 +951,14 @@ EOF
   when 5 9 0
   commit "$cc/big-migration" "test: channel ordering" packages/core/src/channels.test.ts
   merge_pr claude/big-migration 12 4 merge amira
-  bulk "$cc/big-migration" 220 90 40
+  bulk "$cc/big-migration" 120 50 30
   age_wt "$cc/big-migration" 4
 
   # Detached HEAD with a unique commit, idle 5 days (saved as a branch on removal).
   wt_new "$cc/detached-try" -
   who amira; when 5 15 0
   commit "$cc/detached-try" "try: alternate package layout" packages/core/src/layout.ts
-  bulk "$cc/detached-try" 50 0 0
+  bulk "$cc/detached-try" 30 0 0
   age_wt "$cc/detached-try" 5
   # Detached, unique commit, idle 70 days (abandoned).
   wt_new "$cc/ancient-detached" - main~6
@@ -909,11 +971,15 @@ EOF
   wt_new "$cond/lisbon" amira/lisbon-api-cleanup
   who amira; when 2 14 0
   commit "$cond/lisbon" "refactor: tidy public api surface" packages/core/src/public-api.ts
-  bulk "$cond/lisbon" 35 10 0
+  bulk "$cond/lisbon" 20 6 0
   age_wt "$cond/lisbon" 2
 
   main_commit jonas 1 packages/ui/src/tooltip.tsx "feat: tooltip"
   git -C "$R" push -q origin main
+  # Main checkout: root packages, a workspace member sharing the root lockfile, and a turbo cache.
+  bulk "$R" 40 0 0
+  bulk "$R/packages/ui" 15 0 0
+  blob "$R/.turbo/cache/3f9a1c.tar.zst" 3
   assert "big-migration merged" is_ancestor claude/big-migration
   assert "big-migration clean" is_clean "$cc/big-migration"
   assert "locked-docs-sync squash merged" is_content_included claude/locked-docs-sync
@@ -943,13 +1009,13 @@ EOF
 
   # Finished: detached at a commit main already contains, clean, idle 3 days.
   wt_new "$cx/a1b2c3d4/docsbot" -
-  blob "$cx/a1b2c3d4/docsbot/.venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.dylib" 70
+  blob "$cx/a1b2c3d4/docsbot/.venv/lib/python3.12/site-packages/torch/lib/libtorch_cpu.dylib" 25
   age_wt "$cx/a1b2c3d4/docsbot" 3
   # Unmerged: detached with one commit nobody else has, clean, idle 2 days.
   wt_new "$cx/7e9f0a12/docsbot" -
   who amira; when 2 13 0
   commit "$cx/7e9f0a12/docsbot" "codex: add retry helper for embedding calls" src/docsbot/retry.py
-  blob "$cx/7e9f0a12/docsbot/.venv/lib/python3.12/site-packages/numpy/core/_multiarray.so" 40
+  blob "$cx/7e9f0a12/docsbot/.venv/lib/python3.12/site-packages/numpy/core/_multiarray.so" 25
   age_wt "$cx/7e9f0a12/docsbot" 2
   # Uncommitted: a modified tracked file, idle 4 days.
   wt_new "$cx/5f2e1d00/docsbot" -
@@ -979,6 +1045,7 @@ build_archive() {
   new_repo archive legacy-portal php acme "The customer portal before the rewrite."
   seed "$R" 430 340 <<'EOF'
 jonas|README.md|docs: portal overview
+jonas|.gitignore|chore: ignore the build folder
 jonas|src/login.php|feat: login with remember me
 jonas|src/dashboard.php|feat: account dashboard
 priya|src/invoices.php|feat: invoice download
@@ -987,20 +1054,32 @@ priya|src/admin.php|feat: admin user list
 jonas|src/export.php|feat: csv export
 EOF
   fake_origin git@github.com:acme/legacy-portal.git
+  # A build folder in a project with no manifest at all: Lopper cannot tell how it is rebuilt, so it is not offered.
+  blob "$R/build/site.zip" 3
+  blob "$R/build/assets/bundle.js" 3
+  age_tree "$R" 300
   assert "legacy-portal single branch" test "$(git -C "$R" branch | wc -l | tr -d ' ')" = 1
 
   new_repo archive hackathon-weekend py amira "Weekend hackathon: summarise meeting notes."
   seed "$R" 380 379 <<'EOF'
 amira|README.md|docs: the idea
+amira|.gitignore|chore: ignore the virtualenv
+amira|requirements.txt|chore: pin the dependencies
 amira|summarise.py|feat: first working summariser
 priya|app.py|feat: tiny web ui
 priya|slides.md|docs: demo script
 amira|cleanup.py|chore: tidy before the demo
 EOF
+  # A virtualenv nobody has used for a year.
+  python_venv "$R" 40
+  age_tree "$R" 380
   assert "hackathon single branch" test "$(git -C "$R" branch | wc -l | tr -d ' ')" = 1
 
   new_repo archive blog-2022 site amira "Personal blog from 2022."
   seed "$R" 520 300 <<'EOF'
+amira|package.json|chore: build the blog with a static site generator
+amira|package-lock.json|chore: commit the npm lockfile
+amira|.gitignore|chore: ignore build output
 amira|README.md|docs: how to publish a post
 amira|_posts/hello-world.md|post: hello world
 amira|_posts/notes-on-git-worktrees.md|post: notes on git worktrees
@@ -1009,6 +1088,9 @@ amira|assets/site.css|style: new theme
 amira|_posts/moving-to-a-new-laptop.md|post: moving to a new laptop
 EOF
   fake_origin git@gitlab.com:amira/blog-2022.git
+  # A forgotten node_modules (about 100 MB) in a blog nobody has edited for 300 days.
+  bulk "$R" 100 0 0
+  age_tree "$R" 300
   assert "blog single branch" test "$(git -C "$R" branch | wc -l | tr -d ' ')" = 1
 
   # A folder restored from a sync backup: the .git directory is corrupted, so Lopper cannot read it.
@@ -1032,6 +1114,7 @@ build_harbor
 build_atelier
 build_fastcsv
 build_pyrate
+build_tinyhash
 build_playground
 build_refactor_lab
 build_docsbot

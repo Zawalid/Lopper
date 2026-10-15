@@ -5,10 +5,10 @@ to record the product demo.
 
 | | |
 |---|---|
-| Build | `scripts/demo-world/build.sh <target dir> [--force]` (about 40 seconds, about 1.2 GB on disk) |
+| Build | `scripts/demo-world/build.sh <target dir> [--force]` (about 45 seconds, about 1.6 GB on disk) |
 | Run | `scripts/demo-world/run.sh` (dev build of the app, isolated settings and undo history) |
 | Default location | `~/Personal/Projects/LopperDemo` (next to the Lopper checkout), support files in `~/Personal/Projects/LopperDemo-support` |
-| Contents | 5 workspace folders, 16 repositories (1 broken on purpose), 89 branches, 30 linked worktrees, 6 past cleanups |
+| Contents | 5 workspace folders, 17 repositories (1 broken on purpose), 92 branches, 30 linked worktrees, 6 past cleanups, 41 generated folders on disk |
 
 ## Build and run
 
@@ -82,7 +82,7 @@ harness around `AgentAssessor`), not only derived by reading.
 | `fix/avatar-upload` | merged (#125), checked out in `web-avatar-upload` | Protected: checked out in worktree |
 | `feature/onboarding-checklist` | merged (#123), checked out in `web-onboarding-checklist` | Protected: checked out in worktree |
 | `main` | default branch | Protected: default branch |
-| worktree `web-billing-portal` | merged, clean, about 203 MB (node_modules, .next) | Safe, 203 MB reclaimable |
+| worktree `web-billing-portal` | merged, clean, about 124 MB (node_modules, .next) | Safe, 124 MB reclaimable |
 | worktree `web-avatar-upload` | merged, one tracked file edited and not committed | Review: uncommitted changes |
 | worktree `web-onboarding-checklist` | merged, untracked `NOTES.md` and ignored `.env.local` | Review: contains files git does not track |
 
@@ -184,6 +184,13 @@ harness around `AgentAssessor`), not only derived by reading.
 | `develop`, `release/0.4` | protected by name | Protected |
 | worktree `pyrate-bisect` | detached at an old commit of main, clean | Safe: already part of the default branch |
 
+### tinyhash (Rust crate; remote `amirabenali/tinyhash`)
+
+| Branch | State it is in | Lopper shows |
+|---|---|---|
+| `fix/empty-input` | merged (#12) | Safe: already part of the default branch |
+| `perf/simd-lookup` | 2 commits, live upstream | Review: no merge evidence |
+
 ## agents-lab (worktrees made by AI coding tools)
 
 Worktree layouts: Claude Code at `<repo>/.claude/worktrees/<name>`, Cursor at
@@ -194,14 +201,14 @@ Worktree layouts: Claude Code at `<repo>/.claude/worktrees/<name>`, Cursor at
 
 | Worktree | State it is in | Agents page shows |
 |---|---|---|
-| `.claude/worktrees/fix-typo-readme` | merged with a merge commit, clean, idle 3 days, 35 MB | Claude Code, **Finished**, reclaim |
-| `.claude/worktrees/tidy-imports` | squash merged, clean, idle 5 days, 63 MB | Claude Code, **Finished**, reclaim |
+| `.claude/worktrees/fix-typo-readme` | merged with a merge commit, clean, idle 3 days, 21 MB | Claude Code, **Finished**, reclaim |
+| `.claude/worktrees/tidy-imports` | squash merged, clean, idle 5 days, 37 MB | Claude Code, **Finished**, reclaim |
 | `.cursor/worktrees/agent-playground/9f8e7d` | `cursor/dark-theme-tokens` merged, clean, idle 4 days | Cursor, **Finished**, reclaim |
 | `.claude/worktrees/add-search-box` | unmerged commit, file edited just now (run.sh refreshes this) | Claude Code, **Active**, no removal offered |
 | `.claude/worktrees/refactor-auth` | 2 commits not in main, clean, idle 1.5 days | Claude Code, **Unmerged**, folder removed and branch kept |
 | `.claude/worktrees/wip-export` | 1 commit plus uncommitted edit plus untracked `NOTES.txt`, idle 2 days | Claude Code, **Unmerged**, removal blocked: changes exist only in this folder |
 | `.cursor/worktrees/agent-playground/c4b2a1` | `cursor/form-validation`, 2 commits, idle 3 days | Cursor, **Unmerged**, folder removed and branch kept |
-| `.claude/worktrees/old-websocket-spike` | 1 committed unmerged commit, idle 45 days, 93 MB | Claude Code, **Abandoned**, folder removed and branch kept |
+| `.claude/worktrees/old-websocket-spike` | 1 committed unmerged commit, idle 45 days, 45 MB | Claude Code, **Abandoned**, folder removed and branch kept |
 | `.claude/worktrees/release-prep` | branch `release/3.0` | Claude Code, **Protected**, no removal offered |
 
 Repository branches: each worktree's branch is Protected (checked out in worktree) in the Branches view.
@@ -210,7 +217,7 @@ Repository branches: each worktree's branch is Protected (checked out in worktre
 
 | Worktree | State it is in | Agents page shows |
 |---|---|---|
-| `.claude/worktrees/big-migration` | merged, clean, idle 4 days, **371 MB** (node_modules, .next, dist) | Claude Code, **Finished**, reclaim (the biggest) |
+| `.claude/worktrees/big-migration` | merged, clean, idle 4 days, **214 MB** (node_modules, .next, dist) | Claude Code, **Finished**, reclaim (the biggest) |
 | `.claude/worktrees/locked-docs-sync` | squash merged, clean, idle 6 days, locked | Claude Code, **Finished**, removal blocked: the worktree is locked |
 | `.claude/worktrees/detached-try` | detached HEAD, 1 commit no branch holds, idle 5 days | Claude Code, **Unmerged**, saved as a `lopper/saved/...` branch, then the folder is removed |
 | `.claude/worktrees/ancient-detached` | detached HEAD, 1 commit, idle 70 days | Claude Code, **Abandoned**, saved as a branch, then removed |
@@ -221,21 +228,80 @@ Repository branches: each worktree's branch is Protected (checked out in worktre
 
 | Worktree | State it is in | Agents page shows |
 |---|---|---|
-| `.codex/worktrees/a1b2c3d4/docsbot` | detached at a commit main contains, clean, idle 3 days, 73 MB `.venv` | Codex, **Finished**, reclaim |
+| `.codex/worktrees/a1b2c3d4/docsbot` | detached at a commit main contains, clean, idle 3 days, 26 MB `.venv` | Codex, **Finished**, reclaim |
 | `.codex/worktrees/7e9f0a12/docsbot` | detached, 1 commit nobody else has, idle 2 days | Codex, **Unmerged**, saved as a branch, then removed |
 | `.codex/worktrees/5f2e1d00/docsbot` | detached, tracked file modified, idle 4 days | Codex, **Unmerged**, removal blocked: changes exist only in this folder |
 | `.codex/worktrees/3c5d6e78/docsbot` | commit 18 minutes ago plus an edit just now | Codex, **Active** |
 
-"Reclaim finished" covers the six Finished rows that are not blocked (about 590 MB).
+"Reclaim finished" covers the six Finished rows that are not blocked (about 330 MB).
 
 ## archive (older repositories, completely tidy)
 
 | Repository | State it is in | Lopper shows |
 |---|---|---|
-| `legacy-portal` | PHP, about 11 months old, `main` only, remote `acme/legacy-portal` | nothing to clean (only the protected default branch) |
-| `hackathon-weekend` | Python, about a year old, `main` only, no remote | nothing to clean |
-| `blog-2022` | Jekyll, `main` only, GitLab remote (no GitHub links) | nothing to clean |
+| `legacy-portal` | PHP, about 11 months old, `main` only, remote `acme/legacy-portal`, an ignored `build/` folder | nothing to clean in Branches; Disk shows `build` as not offered |
+| `hackathon-weekend` | Python, about a year old, `main` only, no remote, a forgotten `.venv` | nothing to clean in Branches; Disk offers the `.venv` |
+| `blog-2022` | static blog, `main` only, GitLab remote (no GitHub links), a forgotten `node_modules` | nothing to clean in Branches; Disk offers the `node_modules` |
 | `restored-from-backup` | `.git` folder with a corrupted `HEAD` | the "could not read this repository" card |
+
+## Disk page (generated folders)
+
+The Disk page lists git-ignored folders (`git ls-files --others --ignored --exclude-standard --directory`) and
+offers one only when the project can bring it back (`ArtifactRules` in `Artifacts.swift`). Every repository has a
+lockfile or manifest in its first commits so that the folders below have something to rebuild from. Sizes are real
+bytes on disk (zero-filled files), rounded.
+
+| Project | Generated folders | Lopper shows |
+|---|---|---|
+| web | `node_modules` 88 MB (package-lock.json), `.next` 31 MB | Offered: `npm ci`, "your next build or dev run" |
+| web / web-billing-portal | `node_modules` 98 MB, `.next` 26 MB, untouched 50 days | Offered, counted in "Untouched 30+ days" |
+| web / web-avatar-upload | `node_modules` 25 MB | Offered |
+| bluebird-studio | `node_modules` 98 MB (package-lock.json) | Offered: `npm ci` |
+| fastcsv | `node_modules` 46 MB; `dist/` with a force-added `keep.txt` and an ignored 6 MB bundle | `node_modules` offered; `dist` is **not listed at all**: git reports its ignored files one by one because the folder holds a tracked file |
+| agent-playground (main checkout) | `node_modules` 56 MB, `.next` 10 MB, `dist` 12 MB | Offered |
+| agent-playground / agent worktrees | `node_modules` (18 to 39 MB) and `.next` (5 to 12 MB) in `add-search-box`, `refactor-auth`, `tidy-imports`, `wip-export`, `fix-typo-readme`, `9f8e7d`, `c4b2a1`, and `node_modules` + `dist` in `old-websocket-spike` (45 days idle) | Offered per worktree: "clear build folders, keep the worktree" |
+| refactor-lab | root `node_modules` 46 MB and `.turbo` 3 MB; `packages/ui/node_modules` 18 MB (a workspace member, no lockfile of its own) | Offered: `pnpm install` through the root `pnpm-lock.yaml` and `pnpm-workspace.yaml` |
+| refactor-lab / big-migration, detached-try, lisbon | `node_modules` 130 / 35 / 25 MB, `.next` 52 / 6 MB, `dist` 31 MB | Offered; big-migration is the largest single item |
+| tinyhash | `target` 66 MB (Cargo.toml) | Offered: `cargo build` |
+| mobile | `.build` 66 MB (Package.swift) | Offered: `swift build` (see the note on `.build` below) |
+| pyrate | `.venv` 49 MB (pyproject.toml), `__pycache__`, `.pytest_cache` | Offered: "your environment tool"; the caches come back by themselves |
+| docsbot / Codex worktrees | `.venv` 26 MB in two of them | Offered |
+| blog-2022 (archive) | `node_modules` 109 MB, untouched 300 days | Offered, counted in "Untouched 30+ days" |
+| hackathon-weekend (archive) | `.venv` 45 MB (requirements.txt), untouched 380 days | Offered, counted in "Untouched 30+ days" |
+| **harbor-bakery** | `node_modules` 25 MB, **no lockfile anywhere** | **Not offered**: "There is no lockfile, so reinstalling could pull different versions." |
+| **legacy-portal** (archive) | `build/` 6 MB, **no package.json, Makefile or Gradle file** | **Not offered**: "Lopper cannot tell how this folder is rebuilt." |
+
+"Untouched 30+ days" is non-zero: `web-billing-portal` and `old-websocket-spike` (worktrees, 50 and 45 days),
+plus `blog-2022` and `hackathon-weekend` (300 and 380 days), about 360 MB between them. Their file times and git
+metadata are set back by the generator (`age_wt`, `age_tree`).
+
+### Seeing "never clear a folder with tracked files"
+
+A folder that already holds a tracked file is never even listed (the fastcsv `dist` above). The clear-time
+refusal, "Part of this folder is tracked by git, so it was left alone", only appears when a file becomes tracked
+after the page has loaded. To show it:
+
+```bash
+# 1. open the Disk page so agent-playground/dist (12 MB, offered) is on screen
+# 2. in a terminal, force-add one of its files
+git -C ~/Personal/Projects/LopperDemo/agents-lab/agent-playground add -f dist/bundle.js
+# 3. back in the app, clear that dist folder: Lopper re-checks git and skips it
+```
+
+Rebuild with `--force` afterwards to reset it.
+
+### Notes found while building this (engine behaviour, not generator problems)
+
+- `.build` (Swift) is not in `Settings.defaultDisposableNames`, although `ArtifactRules` knows it. The demo
+  `settings.json` adds it explicitly; with the engine defaults a Swift project's `.build` never reaches the
+  Disk page.
+- "Last edited" (the "Untouched" tile) is the newest regular file under the folder outside disposable folders,
+  and `SizeCalculator` only skips an entry literally named `.git`, not the contents of a `.git` folder. So any
+  git activity in a main checkout counts as an edit, and so does Lopper's own scan: the content check
+  (`git merge-tree --write-tree`) writes loose objects into `.git`, and every scan freshens them. Repositories
+  with a branch that is not an ancestor of the default branch therefore never look untouched. Worktrees
+  (whose `.git` is a single file) and repositories whose branches are all merged by ancestry do, which is why the
+  untouched projects above are worktrees and `main`-only archive repositories.
 
 ## History page (`undo-log.jsonl`, all real: keep-alive refs exist and Restore works)
 
@@ -258,22 +324,27 @@ Repository branches: each worktree's branch is Protected (checked out in worktre
 
 ## Suggested three minute demo
 
-1. **Overview (0:00 to 0:25).** Start with `run.sh`. The totals appear: about 21 branches and 9 worktrees are
-   safe, about 0.8 GB can be reclaimed, and several items need a look. "Nothing is changed while Lopper looks."
+1. **Overview (0:00 to 0:25).** Start with `run.sh`. The totals appear: about 22 branches and 9 worktrees are
+   safe, about 0.45 GB of worktrees can be reclaimed, and several items need a look. "Nothing is changed while Lopper looks."
 2. **One repository, why (0:25 to 1:15).** Open `web`. Click `fix/login-redirect-loop` (Safe, squash merged: the
    content is in main under different commits). Click `feature/billing-portal` (Protected, a worktree has it).
    Click `experiment/edge-runtime` (Review: the remote branch is gone, nothing proves it merged) and
    `feature/dark-mode` (stale, never pushed). Point out the evidence line on each, not just a colour.
-3. **Worktrees (1:15 to 1:40).** Same repository: `web-billing-portal` is Safe and 203 MB, `web-avatar-upload`
+3. **Worktrees (1:15 to 1:40).** Same repository: `web-billing-portal` is Safe and 124 MB, `web-avatar-upload`
    has uncommitted changes, `web-onboarding-checklist` has a `.env.local` and notes git does not track.
    Lopper tells the difference between throwaway folders and files you would miss.
 4. **Clean with undo (1:40 to 2:10).** "Review and clean", "Select all safe", remove. A toast offers Undo; click
    it and everything comes back.
-5. **Agents (2:10 to 2:45).** Open Agents. Show the states: Finished (six, about 590 MB, "Reclaim finished"),
+5. **Agents (2:10 to 2:45).** Open Agents. Show the states: Finished (six, about 330 MB, "Reclaim finished"),
    Active (`add-search-box`, nothing offered), Unmerged (`refactor-auth` keeps its 2 commits, `wip-export` is
    blocked because the changes exist only in the folder), Abandoned, and the locked one. Open
-   `big-migration` (371 MB, merged, clean) and reclaim the finished ones.
+   `big-migration` (214 MB, merged, clean) and reclaim the finished ones.
 6. **History (2:45 to 3:00).** Open History: removals by day, reasons and sizes, one Restored, one expired
    ("No longer restorable"). Click Restore on the day-old `web-search-filters` batch and watch the worktree and
    branch come back for real. Last, glance at `atelier-noir` (default branch unknown) and the broken
    `restored-from-backup` card to show Lopper says "I do not know" instead of guessing.
+7. **Optional extra 30 seconds: Disk.** Open Disk. Group by project, then by kind: `node_modules`, `.next`,
+   `target`, `.build`, `.venv`. Filter to "Untouched 30+ days" (`blog-2022`, `hackathon-weekend`,
+   `web-billing-portal`). Show a blocked row (`harbor-bakery` has no lockfile, `legacy-portal` has no way to
+   rebuild `build/`) and clear one folder to the Trash with Undo. Use the recipe above to show the tracked-file
+   refusal.
