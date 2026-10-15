@@ -7,9 +7,16 @@ public struct RepoScanner: Sendable {
     ]
 
     private let skipNames: Set<String>
+    private let excludePatterns: [String]
 
-    public init(skipNames: Set<String> = RepoScanner.defaultSkipNames) {
+    /// `excludePatterns` are directory-name globs (for example `legacy-*`) that are never entered.
+    public init(skipNames: Set<String> = RepoScanner.defaultSkipNames, excludePatterns: [String] = []) {
         self.skipNames = skipNames
+        self.excludePatterns = excludePatterns
+    }
+
+    private func isExcluded(_ name: String) -> Bool {
+        skipNames.contains(name) || excludePatterns.contains { GlobMatcher.matches(pattern: $0, name: name) }
     }
 
     public func findRepos(in roots: [URL], maxDepth: Int) -> [URL] {
@@ -37,7 +44,7 @@ public struct RepoScanner: Sendable {
             let children = try? fileManager.contentsOfDirectory(
                 at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
         else { return }
-        for child in children where !skipNames.contains(child.lastPathComponent) {
+        for child in children where !isExcluded(child.lastPathComponent) {
             let values = try? child.resourceValues(forKeys: [.isDirectoryKey])
             if values?.isDirectory == true {
                 walk(child, depth: depth + 1, maxDepth: maxDepth, into: &found)

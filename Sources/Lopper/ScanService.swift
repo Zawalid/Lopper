@@ -41,7 +41,7 @@ public struct ScanService: Sendable {
         let repos = await Task.detached { [scanner] in
             scanner.findRepos(in: roots, maxDepth: maxDepth)
         }.value
-        return await inspect(repos: repos)
+        return await inspect(repos: repos.filter { !inspector.isIgnored($0) })
     }
 
     public func inspect(repos: [URL]) async -> [RepoScanResult] {
@@ -66,9 +66,10 @@ public struct ScanService: Sendable {
     public func scanStream(roots: [URL], maxDepth: Int) -> AsyncStream<ScanEvent> {
         AsyncStream { continuation in
             let task = Task {
-                let repos = await Task.detached { [scanner] in
+                let found = await Task.detached { [scanner] in
                     scanner.findRepos(in: roots, maxDepth: maxDepth)
                 }.value
+                let repos = found.filter { !inspector.isIgnored($0) }
                 continuation.yield(.discovered(count: repos.count))
                 await withTaskGroup(of: RepoScanResult.self) { group in
                     var iterator = repos.makeIterator()

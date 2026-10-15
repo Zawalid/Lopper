@@ -28,7 +28,7 @@ public struct RepoInspector: Sendable {
 
     private func makeContext(repoRoot: URL) async throws -> Context {
         let defaultName = await DefaultBranch.resolve(
-            git: git, repoRoot: repoRoot, override: settings.defaultBranchOverrides[repoRoot.path])
+            git: git, repoRoot: repoRoot, override: settings.defaultBranchOverride(for: repoRoot))
         let defaultRefs: [String]
         if let defaultName {
             defaultRefs = await DefaultBranch.existingRefs(git: git, repoRoot: repoRoot, branch: defaultName)
@@ -87,6 +87,11 @@ public struct RepoInspector: Sendable {
             prDetectionAvailable: context.prAvailable, scannedAt: now)
     }
 
+    /// True when the user hid this repository; scans skip it entirely.
+    public func isIgnored(_ repoRoot: URL) -> Bool {
+        settings.isIgnored(repoRoot)
+    }
+
     /// One branch, or nil if it does not exist. Re-verification before a deletion uses this, so a
     /// bulk clean costs a few git calls per item rather than a full scan per item.
     public func inspectBranch(repoRoot: URL, name: String) async throws -> BranchEntry? {
@@ -121,7 +126,7 @@ public struct RepoInspector: Sendable {
             isDefaultBranch: ref.name == context.defaultName,
             isMainWorktreeHead: context.listed.first?.branch == ref.name,
             checkedOutElsewhere: worktreesWithBranch,
-            protectedPatterns: settings.protectedPatterns,
+            protectedPatterns: settings.protectedPatterns(for: context.repoRoot),
             hasStash: context.stashBranches.contains(ref.name),
             worktree: nil)
         return BranchEntry(
@@ -166,7 +171,7 @@ public struct RepoInspector: Sendable {
             isDefaultBranch: entry.branch == context.defaultName,
             isMainWorktreeHead: isMain,
             checkedOutElsewhere: [],
-            protectedPatterns: settings.protectedPatterns,
+            protectedPatterns: settings.protectedPatterns(for: context.repoRoot),
             hasStash: entry.branch.map(context.stashBranches.contains) ?? false,
             worktree: WorktreeConditions(
                 isDirty: status.isDirty, isLocked: entry.isLocked,
