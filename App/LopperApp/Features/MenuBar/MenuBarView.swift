@@ -51,6 +51,18 @@ struct MenuBarView: View {
                         .buttonStyle(.link)
                     }
                 }
+                let folders = model.diskTotals.clearableBytes
+                if folders > 0 {
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Text("\(SizeFormat.string(folders)) in generated folders")
+                            .font(.callout).foregroundStyle(.secondary)
+                        Button("Open Disk") {
+                            openMain()
+                            model.route = .disk
+                        }
+                        .buttonStyle(.link)
+                    }
+                }
                 Button("Review and clean") {
                     openMain()
                     model.beginCleanAllSafe()

@@ -38,6 +38,15 @@ struct GeneralPane: View {
             } footer: {
                 Text("Without a Dock icon, Lopper lives in the menu bar and opens its window from there.")
             }
+
+            Section {
+                Toggle("Tell me once a week what can be cleaned up", isOn: Binding(
+                    get: { preferences.weeklyDigest },
+                    set: { model.setWeeklyDigest($0) }
+                ))
+            } footer: {
+                Text("One notification, at most weekly, and only when at least 1 GB can be given back.")
+            }
         }
     }
 }

@@ -256,4 +256,38 @@ final class DiskModelTests: XCTestCase {
         XCTAssertEqual(model.diskClear?.problemCount, 1)
         XCTAssertEqual(model.diskClear?.outcomes.last?.message, "lockfile out of date")
     }
+
+    private final class RecordingNotifier: DigestNotifying, @unchecked Sendable {
+        private let lock = NSLock()
+        private var log: [String] = []
+        var sent: [String] { lock.withLock { log } }
+        func requestAuthorization() async -> Bool { true }
+        func send(title: String, body: String) async { lock.withLock { log.append(title) } }
+    }
+
+    func testTheDigestGoesOutOnceAfterAScanWhenSwitchedOn() async {
+        let (model, _) = makeModel(artifacts: [mainPath: [artifact("node_modules", bytes: 3_000_000_000, in: mainPath)]])
+        let notifier = RecordingNotifier()
+        model.digest = notifier
+        model.preferences.setWeeklyDigest(true)
+
+        model.startScan()
+        await settle(model)
+        await waitUntil { !notifier.sent.isEmpty }
+        await model.sendDigestIfDue()
+
+        XCTAssertEqual(notifier.sent.count, 1, "a second check the same week sends nothing")
+    }
+
+    func testNoDigestWhileTheSettingIsOff() async {
+        let (model, _) = makeModel()
+        let notifier = RecordingNotifier()
+        model.digest = notifier
+
+        model.startScan()
+        await settle(model)
+        await model.sendDigestIfDue()
+
+        XCTAssertTrue(notifier.sent.isEmpty)
+    }
 }

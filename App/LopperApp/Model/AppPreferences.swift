@@ -83,7 +83,7 @@ final class AppPreferences {
     /// The stored keys. `editorBundleID` and `showCountInMenuBar` keep the names earlier builds used.
     enum Key: String, CaseIterable {
         case appearance, showInDock, showCountInMenuBar, editorBundleID, terminalBundleID, lastRoute, inspectorVisible
-        case sidebarGrouping, sidebarSort, sidebarShowsDetails, sidebarShowsTidy, snoozedItems, keptWorktrees
+        case sidebarGrouping, sidebarSort, sidebarShowsDetails, sidebarShowsTidy, snoozedItems, keptWorktrees, weeklyDigest, lastDigest
     }
 
     /// Things a preference does to the running application, injectable so tests do not change their host.
@@ -126,6 +126,8 @@ final class AppPreferences {
     private(set) var snoozes: Snoozes
     /// Agent worktree folders the person asked Lopper to keep.
     private(set) var keptWorktrees: Set<String>
+    private(set) var weeklyDigest: Bool
+    private(set) var lastDigest: Date?
 
     /// The instance the running app uses: real defaults, real effects.
     static let standard = AppPreferences(
@@ -154,6 +156,9 @@ final class AppPreferences {
         sidebarShowsDetails = store.bool(forKey: Key.sidebarShowsDetails.rawValue) ?? true
         sidebarShowsTidy = store.bool(forKey: Key.sidebarShowsTidy.rawValue) ?? true
         snoozes = Snoozes(encoded: store.string(forKey: Key.snoozedItems.rawValue)).pruned(now: Date())
+        weeklyDigest = store.bool(forKey: Key.weeklyDigest.rawValue) ?? false
+        lastDigest = store.string(forKey: Key.lastDigest.rawValue)
+            .flatMap(Double.init).map { Date(timeIntervalSince1970: $0) }
         keptWorktrees = Set(
             store.string(forKey: Key.keptWorktrees.rawValue)
                 .flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? [])
@@ -235,6 +240,17 @@ final class AppPreferences {
     func wake(_ id: String) {
         snoozes = snoozes.waking(id)
         store.set(snoozes.encoded, forKey: Key.snoozedItems.rawValue)
+    }
+
+    func setWeeklyDigest(_ value: Bool) {
+        guard value != weeklyDigest else { return }
+        weeklyDigest = value
+        store.set(value, forKey: Key.weeklyDigest.rawValue)
+    }
+
+    func recordDigest(at date: Date) {
+        lastDigest = date
+        store.set(String(date.timeIntervalSince1970), forKey: Key.lastDigest.rawValue)
     }
 
     func setWorktreeKept(_ path: String, _ kept: Bool) {

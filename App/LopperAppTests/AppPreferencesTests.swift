@@ -26,7 +26,7 @@ final class AppPreferencesTests: XCTestCase {
             AppPreferences.Key.allCases.map(\.rawValue).sorted(),
             ["appearance", "editorBundleID", "inspectorVisible", "lastRoute", "showCountInMenuBar",
              "showInDock", "sidebarGrouping", "sidebarShowsDetails", "sidebarShowsTidy", "sidebarSort",
-             "snoozedItems", "keptWorktrees", "terminalBundleID"].sorted())
+             "snoozedItems", "keptWorktrees", "weeklyDigest", "lastDigest", "terminalBundleID"].sorted())
     }
 
     func testSidebarGroupingDefaultsToAttentionAndIsRemembered() {
@@ -68,6 +68,21 @@ final class AppPreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.sidebarSort, .attention)
         XCTAssertTrue(prefs.sidebarShowsDetails)
         XCTAssertTrue(prefs.sidebarShowsTidy)
+    }
+
+    func testTheDigestIsOffUntilAskedForAndRemembersWhenItLastWent() {
+        let store = MemoryPreferenceStore()
+        let (first, _) = make(store: store)
+        XCTAssertFalse(first.weeklyDigest)
+        XCTAssertNil(first.lastDigest)
+
+        first.setWeeklyDigest(true)
+        let sent = Date(timeIntervalSince1970: 1_800_000_000)
+        first.recordDigest(at: sent)
+        let (second, _) = make(store: store)
+
+        XCTAssertTrue(second.weeklyDigest)
+        XCTAssertEqual(second.lastDigest, sent)
     }
 
     func testKeptWorktreesAreRemembered() {

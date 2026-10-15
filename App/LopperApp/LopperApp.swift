@@ -4,7 +4,11 @@ import SwiftUI
 @main
 struct LopperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var model = AppModel(client: LiveEngineClient(), preferences: .standard)
+    @State private var model: AppModel = {
+        let model = AppModel(client: LiveEngineClient(), preferences: .standard)
+        model.digest = SystemDigestNotifier()
+        return model
+    }()
 
     var body: some Scene {
         Window("Lopper", id: "main") {

@@ -180,6 +180,8 @@ final class AppModel {
     var diskFocusedID: String?
     var diskClear: DiskClearState?
     var showsPalette = false
+    /// Tells the person what could be cleaned up. Replaced by a silent one in tests and previews.
+    var digest: any DigestNotifying = SilentDigestNotifier()
 
     /// A short message about something that did not work (for example a restore that was blocked).
     var notice: String?
@@ -664,6 +666,7 @@ final class AppModel {
             await reloadHistory()
             await measureSizes()
             await scanArtifacts()
+            await sendDigestIfDue()
         }
     }
 

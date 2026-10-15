@@ -65,6 +65,31 @@ extension AppModel {
         }
     }
 
+    /// Once a week, when the preference is on and there is enough to say, tells the person what can go.
+    func sendDigestIfDue() async {
+        guard preferences.weeklyDigest else { return }
+        let now = clock()
+        let items = totals
+        let folders = diskTotals.clearableBytes + developerCaches.reduce(0) { $0 + $1.bytes }
+        let reclaimable = items.reclaimableBytes + folders
+        guard DigestPolicy.shouldNotify(reclaimable: reclaimable, last: preferences.lastDigest, now: now) else { return }
+        let message = DigestPolicy.message(
+            safeItems: items.safe, itemBytes: items.reclaimableBytes, folderBytes: folders,
+            agentsFinished: agentsSummary.reclaimable)
+        await digest.send(title: message.title, body: message.body)
+        preferences.recordDigest(at: now)
+    }
+
+    /// Asks macOS for permission when the person turns the digest on; turns it back off when they decline.
+    func setWeeklyDigest(_ enabled: Bool) {
+        preferences.setWeeklyDigest(enabled)
+        guard enabled else { return }
+        let digest = self.digest
+        Task {
+            if await digest.requestAuthorization() == false { preferences.setWeeklyDigest(false) }
+        }
+    }
+
     // MARK: Scanning
 
     /// Looks for generated folders in every working folder, a few at a time.
