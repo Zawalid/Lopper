@@ -287,3 +287,25 @@ struct UndoToastView: View {
         return "Removed \(Plural.count(toast.removed, "item"))\(size)"
     }
 }
+
+/// A repository card that has not been read yet. It breathes slowly so the page does not look frozen.
+struct SkeletonCard: View {
+    @State private var dim = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.1)).frame(width: 110, height: 12)
+            RoundedRectangle(cornerRadius: 3).fill(Color.primary.opacity(0.07)).frame(height: 6)
+            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.07)).frame(width: 150, height: 9)
+        }
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 79)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
+        .opacity(dim ? 0.55 : 1)
+        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)
+        .onAppear { dim = true }
+        .accessibilityHidden(true)
+    }
+}

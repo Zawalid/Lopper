@@ -97,4 +97,99 @@ final class OverviewInsightsTests: XCTestCase {
         XCTAssertTrue(later.hasPrefix("Scanned "), later)
         XCTAssertFalse(later.contains("just now"))
     }
+
+    // MARK: Worth a look
+
+    private func row(
+        _ title: String, repo: String = "api", verdict: VerdictKind = .review, daysAgo: Int? = 10,
+        kind: CleanupRow.Kind = .branch, evidence: String = "No merge evidence"
+    ) -> CleanupRow {
+        CleanupRow(
+            id: "\(repo):\(title)", kind: kind, repoRoot: URL(fileURLWithPath: "/code/\(repo)"), repoName: repo,
+            title: title, location: "Local branch", path: nil, verdict: verdict, reasons: [], evidence: evidence,
+            prNumber: nil, prURL: nil,
+            lastCommit: daysAgo.map { now.addingTimeInterval(-Double($0) * 86_400) },
+            size: nil, agentHint: nil, extraFiles: [], bundledBranch: nil)
+    }
+
+    func testHighlightsAreReviewItemsOnlyOldestFirst() {
+        let rows = [
+            row("fresh", daysAgo: 1), row("old", daysAgo: 60), row("safe-one", verdict: .safe, daysAgo: 90),
+            row("protected-one", verdict: .protected, daysAgo: 99), row("mid", daysAgo: 20),
+        ]
+        let result = OverviewInsights.reviewHighlights(rows: rows)
+
+        XCTAssertEqual(result.map(\.title), ["old", "mid", "fresh"])
+    }
+
+    func testHighlightsAreLimitedAndPutUnknownAgesLast() {
+        let rows = [row("unknown", daysAgo: nil), row("a", daysAgo: 5), row("b", daysAgo: 6), row("c", daysAgo: 7)]
+        let result = OverviewInsights.reviewHighlights(rows: rows, limit: 3)
+
+        XCTAssertEqual(result.map(\.title), ["c", "b", "a"])
+        XCTAssertEqual(OverviewInsights.reviewHighlights(rows: rows, limit: 4).last?.title, "unknown")
+    }
+
+    func testHighlightsCarryWhatTheListNeedsToOpenTheItem() {
+        let result = OverviewInsights.reviewHighlights(
+            rows: [row("fix/x", repo: "web", kind: .worktree, evidence: "Not merged")])
+
+        XCTAssertEqual(result.first?.repoID, "/code/web")
+        XCTAssertEqual(result.first?.repoName, "web")
+        XCTAssertEqual(result.first?.evidence, "Not merged")
+        XCTAssertEqual(result.first?.kind, .worktree)
+    }
+
+    // MARK: Stale work
+
+    func testStaleInsightCountsUntouchedItemsPastTheThresholdOnly() {
+        let rows = [
+            row("old-review", daysAgo: 45), row("old-safe", verdict: .safe, daysAgo: 90),
+            row("recent", daysAgo: 3), row("old-protected", verdict: .protected, daysAgo: 400),
+            row("unknown", daysAgo: nil),
+        ]
+        let insight = OverviewInsights.staleInsight(rows: rows, staleDays: 30, now: now)
+
+        XCTAssertEqual(insight, StaleInsight(count: 2, days: 30))
+    }
+
+    func testNoStaleInsightWhenNothingIsOld() {
+        XCTAssertNil(OverviewInsights.staleInsight(rows: [row("new", daysAgo: 2)], staleDays: 30, now: now))
+        XCTAssertNil(OverviewInsights.staleInsight(rows: [], staleDays: 30, now: now))
+    }
+
+    func testStaleInsightSentence() {
+        XCTAssertEqual(
+            StaleInsight(count: 4, days: 30).sentence, "4 items haven't been touched in 30+ days")
+        XCTAssertEqual(
+            StaleInsight(count: 1, days: 14).sentence, "1 item hasn't been touched in 14+ days")
+    }
+
+    // MARK: Scanning placeholders
+
+    func testSkeletonCountIsWhatIsLeftToScanWithinTheLimit() {
+        XCTAssertEqual(OverviewInsights.skeletonCount(done: 3, total: 17, limit: 6), 6)
+        XCTAssertEqual(OverviewInsights.skeletonCount(done: 15, total: 17, limit: 6), 2)
+        XCTAssertEqual(OverviewInsights.skeletonCount(done: 17, total: 17, limit: 6), 0)
+        XCTAssertEqual(OverviewInsights.skeletonCount(done: 0, total: 0, limit: 6), 0)
+        XCTAssertEqual(OverviewInsights.skeletonCount(done: 20, total: 17, limit: 6), 0)
+    }
+
+    // MARK: Just removed
+
+    func testJustRemovedMentionsACleanupFromTheLastTenMinutes() {
+        let batch = UUID()
+        let history = [record("a", minutesAgo: 3, batch: batch), record("b", minutesAgo: 3, batch: batch)]
+
+        XCTAssertEqual(OverviewInsights.justRemoved(history: history, now: now), "Just removed 2 items")
+    }
+
+    func testJustRemovedIsSilentForOldOrRestoredCleanups() {
+        let old = [record("a", minutesAgo: 40, batch: UUID())]
+        let restored = [record("a", minutesAgo: 2, status: .restored, batch: UUID())]
+
+        XCTAssertNil(OverviewInsights.justRemoved(history: old, now: now))
+        XCTAssertNil(OverviewInsights.justRemoved(history: restored, now: now))
+        XCTAssertNil(OverviewInsights.justRemoved(history: [], now: now))
+    }
 }

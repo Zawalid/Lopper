@@ -150,6 +150,32 @@ final class WindowSmokeTests: XCTestCase {
         XCTAssertEqual(OverviewInsights.recentActivity(history: model.history).first?.itemCount, 2)
     }
 
+    func testOverviewWhileScanningShowsPlaceholdersInARealWindow() async {
+        let model = AppModel.preview(phase: .scanning(done: 3, total: 17))
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump(0.6)
+
+        assertPanesInsideWindow(window, "overview while scanning")
+        XCTAssertTrue(model.isScanning)
+    }
+
+    func testOverviewShowsTheJustRemovedBannerForARecentCleanup() async {
+        let history = [
+            UndoRecord(
+                timestamp: Date().addingTimeInterval(-90), repoPath: Fixtures.root.path,
+                action: .deleteBranch, branch: "feat/gone", tip: "abc", upstream: nil, worktreePath: nil,
+                trashRef: "refs/lopper/gone", status: .completed, batchID: UUID()),
+        ]
+        let model = AppModel.preview(history: history, route: .overview)
+        let window = makeWindow(model: model)
+        defer { window.close() }
+        await pump(0.6)
+
+        assertPanesInsideWindow(window, "overview with just-removed banner")
+        XCTAssertEqual(OverviewInsights.justRemoved(history: model.history), "Just removed 1 item")
+    }
+
     func testHidingTheOpenRepositoryReturnsToTheOverviewWithoutCrashing() async {
         let model = await readyModel()
         let window = makeWindow(model: model)

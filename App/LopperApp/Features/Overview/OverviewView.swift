@@ -21,6 +21,8 @@ struct OverviewContent: View {
             banners
             hero(totals)
             statStrip(totals)
+            worthALook(totals)
+            staleRow
             cards
             activity
             foldersFooter
@@ -32,6 +34,17 @@ struct OverviewContent: View {
 
     @ViewBuilder
     private var banners: some View {
+        if let removed = OverviewInsights.justRemoved(history: model.history) {
+            Banner(
+                symbol: "checkmark.circle.fill",
+                message: "\(removed). Everything can be undone for \(model.settings.trashRetentionDays) days.",
+                actionTitle: "Undo",
+                action: {
+                    if let id = OverviewInsights.recentActivity(history: model.history, limit: 1).first?.batchID {
+                        model.restoreBatch(id)
+                    }
+                })
+        }
         if !model.githubCLIAvailable && !dismissedGitHubBanner && !model.snapshots.isEmpty {
             Banner(
                 symbol: "link",
@@ -51,13 +64,24 @@ struct OverviewContent: View {
                 message: "Lopper looks for git repositories inside the folders you pick.",
                 actionTitle: "Choose folders", action: { FolderPicker.choose { model.setRoots($0) } })
         case .scanning(let done, let total):
-            VStack(spacing: Theme.Spacing.md) {
-                ProgressView()
-                Text(total == 0 ? "Looking for repositories…" : "Scanning \(done) of \(total)…")
-                    .foregroundStyle(.secondary)
+            VStack(spacing: Theme.Spacing.xl) {
+                VStack(spacing: Theme.Spacing.md) {
+                    Text(total == 0 ? "Looking for repositories…" : "Scanning \(done) of \(total)…")
+                        .font(.title3.weight(.medium))
+                    if total > 0 {
+                        ProgressView(value: Double(done), total: Double(total))
+                            .frame(maxWidth: 320)
+                    } else {
+                        ProgressView().controlSize(.large)
+                    }
+                    Text("Nothing is changed while Lopper looks.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 40)
+                skeletonGrid(count: max(3, OverviewInsights.skeletonCount(done: done, total: total, limit: 6)))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 60)
         case .nothingFound:
             EmptyState(
                 symbol: "magnifyingglass", title: "No repositories found",
@@ -69,9 +93,10 @@ struct OverviewContent: View {
                 message: review > 0
                     ? "Nothing is safe to remove. \(Plural.count(review, "item")) need a look."
                     : "Nothing is waiting to be cleaned up.")
+            if review > 0 { worthALook(totals) }
         case .ready:
             ReclaimHero(
-                headline: model.heroHeadline,
+                headline: model.isScanning ? "Found so far" : model.heroHeadline,
                 value: model.heroValue,
                 summary: summary(totals),
                 actionTitle: "Review and clean",
@@ -83,6 +108,8 @@ struct OverviewContent: View {
                 freshness: model.lastScan,
                 onRescan: { model.startScan() },
                 action: { model.beginCleanAllSafe() })
+            // Cleaning a partial list would leave out whatever has not been read yet.
+            .disabled(model.isScanning)
         }
     }
 
@@ -157,42 +184,116 @@ struct OverviewContent: View {
     private var cards: some View {
         let attention = model.attentionSummaries
         let tidy = model.tidySummaries
+        let pending: Int = {
+            if case .scanning(let done, let total) = model.phase {
+                return OverviewInsights.skeletonCount(done: done, total: total, limit: 3)
+            }
+            return 0
+        }()
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-            if !attention.isEmpty {
-                grid(attention)
+            if !attention.isEmpty || pending > 0 {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)],
+                    spacing: Theme.Spacing.lg
+                ) {
+                    ForEach(attention) { summary in
+                        RepoCard(
+                            summary: summary,
+                            onClean: { model.beginCleanSafe(inRepo: summary.id) },
+                            action: { model.route = .repo(summary.id) })
+                    }
+                    ForEach(0..<pending, id: \.self) { _ in SkeletonCard() }
+                }
             }
             if !tidy.isEmpty {
                 DisclosureGroup("\(Plural.count(tidy.count, "repository", "repositories")) already tidy") {
-                    grid(tidy).padding(.top, Theme.Spacing.sm)
+                    FlowLayout(spacing: Theme.Spacing.sm) {
+                        ForEach(tidy) { summary in
+                            Button { model.route = .repo(summary.id) } label: {
+                                Text(summary.name)
+                                    .font(.callout)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                            }
+                            .buttonStyle(.lopperSecondary)
+                            .controlSize(.small)
+                        }
+                    }
+                    .padding(.top, Theme.Spacing.sm)
                 }
                 .foregroundStyle(.secondary)
             }
         }
     }
 
-    private func grid(_ summaries: [RepoSummary]) -> some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)], spacing: Theme.Spacing.lg) {
-            ForEach(summaries) { summary in
-                RepoCard(
-                    summary: summary,
-                    onClean: { model.beginCleanSafe(inRepo: summary.id) },
-                    action: { model.route = .repo(summary.id) })
+    private func skeletonGrid(count: Int) -> some View {
+        LazyVGrid(
+            columns: [GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)], spacing: Theme.Spacing.lg
+        ) {
+            ForEach(0..<count, id: \.self) { _ in SkeletonCard() }
+        }
+    }
+
+    @ViewBuilder
+    private func worthALook(_ totals: Totals) -> some View {
+        let highlights = OverviewInsights.reviewHighlights(rows: model.allRows)
+        if !highlights.isEmpty {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                HStack {
+                    Text("Worth a look").font(.headline)
+                    Text("Not merged anywhere Lopper can see. Nothing here is removed without you.")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                    Spacer()
+                    if totals.review > highlights.count, let repo = model.repositoryWithMostToReview {
+                        Button("See all \(totals.review)") { model.openRepository(repo.id, showing: .review) }
+                            .buttonStyle(.lopperLink)
+                    }
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(highlights.enumerated()), id: \.element.id) { index, highlight in
+                        if index > 0 { Divider() }
+                        HighlightRow(highlight: highlight) {
+                            model.openRepository(highlight.repoID, showing: .review)
+                            model.focusedRowID = highlight.id
+                        }
+                    }
+                }
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
             }
+        }
+    }
+
+    @ViewBuilder
+    private var staleRow: some View {
+        if let insight = OverviewInsights.staleInsight(rows: model.allRows, staleDays: model.settings.staleDays) {
+            Label(insight.sentence, systemImage: "clock.arrow.circlepath")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     private var foldersFooter: some View {
         HStack(spacing: Theme.Spacing.md) {
+            Image(systemName: "folder")
+                .foregroundStyle(.tertiary)
             Text(model.foldersSummary)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            Divider().frame(height: 14)
             Button("Add folder…") { FolderPicker.choose { model.addRoots($0) } }
                 .buttonStyle(.lopperLink)
-            SettingsLink { Text("Manage folders") }
+            SettingsLink { Text("Manage") }
                 .buttonStyle(.lopperLink)
         }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(Color.primary.opacity(0.05), in: Capsule())
         .frame(maxWidth: .infinity)
         .padding(.top, Theme.Spacing.md)
     }
@@ -232,5 +333,49 @@ private struct ActivityRow: View {
         let when = batch.date.formatted(.relative(presentation: .named))
         let repos = batch.repoNames.prefix(3).joined(separator: ", ")
         return repos.isEmpty ? when : "\(repos) · \(when)"
+    }
+}
+
+private struct HighlightRow: View {
+    let highlight: ReviewHighlight
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Theme.Spacing.md) {
+                Image(systemName: highlight.kind.symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(VerdictKind.review.tint)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        VerdictKind.review.tint.opacity(0.14),
+                        in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(highlight.title)
+                        .font(.callout.weight(.medium))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text("\(highlight.repoName) · \(highlight.evidence)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: Theme.Spacing.md)
+                if let date = highlight.lastCommit {
+                    Text(AgeFormat.short(from: date))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.tertiary)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .hoverHighlight(cornerRadius: Theme.cardRadius)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(highlight.title) in \(highlight.repoName). \(highlight.evidence)")
+        .accessibilityHint("Opens it in the repository")
     }
 }
