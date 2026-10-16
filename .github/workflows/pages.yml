@@ -1,6 +1,7 @@
 name: Website
 
-# Builds the Astro site in website/ and publishes it to GitHub Pages (custom domain: website/public/CNAME).
+# Builds the Astro site in website/ and deploys it to Cloudflare (lopper.zawalid.com, see website/wrangler.jsonc).
+# Needs repo secrets CLOUDFLARE_API_TOKEN (Workers Scripts edit + DNS edit) and CLOUDFLARE_ACCOUNT_ID.
 on:
   push:
     branches: [main]
@@ -12,15 +13,13 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: website
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,16 +34,9 @@ jobs:
       - name: Build
         working-directory: website
         run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: website/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy
+        working-directory: website
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
