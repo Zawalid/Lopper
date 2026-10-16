@@ -6,7 +6,7 @@ enum ProjectLinks {
     static let authorHandle = "Zawalid"
 
     enum Link: CaseIterable {
-        case authorGitHub, authorWebsite, authorX, repository, issues, license
+        case authorGitHub, authorWebsite, authorX, repository, issues, newIssue, license
 
         var url: URL {
             let address: String
@@ -16,6 +16,7 @@ enum ProjectLinks {
             case .authorX: address = "https://x.com/Zawaalid"
             case .repository: address = "https://github.com/Zawalid/Lopper"
             case .issues: address = "https://github.com/Zawalid/Lopper/issues"
+            case .newIssue: address = "https://github.com/Zawalid/Lopper/issues/new?template=bug_report.md"
             case .license: address = "https://github.com/Zawalid/Lopper/blob/main/LICENSE"
             }
             return URL(string: address) ?? URL(fileURLWithPath: "/")

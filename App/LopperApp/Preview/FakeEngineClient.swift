@@ -211,6 +211,12 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
 
     func toolStatus() async -> ToolStatus { tools }
 
+    private(set) var diagnostics: [DiagnosticEvent] = []
+
+    func recordDiagnostic(_ event: DiagnosticEvent) async { diagnostics.append(event) }
+
+    func diagnosticEvents() async -> [DiagnosticEvent] { diagnostics }
+
     var localOnly: [LocalOnlyItem] = []
     private(set) var localOnlyRequests = 0
 

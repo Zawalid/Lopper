@@ -9,6 +9,7 @@ final class ProjectLinksTests: XCTestCase {
             (.authorX, "x.com"),
             (.repository, "github.com"),
             (.issues, "github.com"),
+            (.newIssue, "github.com"),
             (.license, "github.com"),
         ]
         for (link, host) in expected {

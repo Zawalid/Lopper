@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct AboutPane: View {
+    @State private var showsDiagnostics = false
     private var version: String {
         let info = Bundle.main.infoDictionary
         let short = info?["CFBundleShortVersionString"] as? String ?? "development"
@@ -45,9 +46,14 @@ struct AboutPane: View {
                 AboutLink(title: "Report an issue", symbol: "exclamationmark.bubble", link: .issues)
                 AboutLink(title: "MIT licence", symbol: "doc.text", link: .license)
             }
+
+            Button("Diagnostics…") { showsDiagnostics = true }
+                .buttonStyle(.lopperSecondary)
+                .help("See what a bug report would contain. Nothing is sent.")
         }
         .padding(Theme.Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showsDiagnostics) { DiagnosticsSheet() }
     }
 }
 

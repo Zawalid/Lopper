@@ -118,4 +118,31 @@ final class ScanListWhyTests: XCTestCase {
 
         XCTAssertTrue(result.out.contains("backed up or merged"), result.out)
     }
+    func testDiagnosticsPrintsAReportWithoutNamesByDefault() async throws {
+        let harness = try Harness()
+        let result = try await harness.run(["diagnostics"])
+
+        XCTAssertTrue(result.out.contains("Lopper diagnostics"), result.out)
+        XCTAssertTrue(result.out.contains("Names: left out"), result.out)
+        XCTAssertTrue(result.out.contains("lop "), result.out)
+        XCTAssertTrue(result.out.contains("1 repositories, 0 failed"), result.out)
+        XCTAssertFalse(result.out.contains(harness.repo.sandbox.path), "no folder paths: \(result.out)")
+        XCTAssertFalse(result.out.contains("wip"), "branch names are hidden: \(result.out)")
+    }
+
+    func testDiagnosticsCanIncludeNamesAndEmitJSON() async throws {
+        let harness = try Harness()
+        let result = try await harness.run(["diagnostics", "--include-names", "--json"])
+
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(result.out.utf8)) as? [String: Any])
+        let text = try XCTUnwrap(object["report"] as? String)
+        XCTAssertTrue(text.contains("Names: included"), text)
+        XCTAssertEqual(object["namesIncluded"] as? String, "true")
+    }
+
+    func testDiagnosticsKeepsWorkingWithNoFolders() async throws {
+        let harness = try Harness(foldersConfigured: false)
+        let result = try await harness.run(["diagnostics"])
+        XCTAssertTrue(result.out.contains("none recorded"), result.out)
+    }
 }

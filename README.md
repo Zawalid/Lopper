@@ -210,6 +210,9 @@ at their exact commit.
 No. There is no account, no analytics and no crash reporting. Lopper only runs `git` (and `gh`, if you have it) on your
 machine, and reads the folders you chose.
 
+If something goes wrong, Settings, About, Diagnostics shows the report a bug report would contain, with repository and
+branch names left out unless you include them. You copy or save it yourself; Lopper never sends it.
+
 </details>
 
 <details>

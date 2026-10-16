@@ -441,6 +441,46 @@ final class AppModel {
     func refreshToolStatus() async {
         toolStatus = await client.toolStatus()
         toolStatusLoaded = true
+        noteSetupIssue()
+    }
+
+    // MARK: Diagnostics
+
+    private var notedSetupIssue: SetupIssue?
+
+    /// Records a diagnostic event without making the caller wait for the disk.
+    func record(_ kind: DiagnosticEvent.Kind, _ message: String, _ numbers: [String: Double] = [:]) {
+        let event = DiagnosticEvent(timestamp: Date(), kind: kind, message: message, numbers: numbers)
+        let client = self.client
+        Task { await client.recordDiagnostic(event) }
+    }
+
+    private func noteSetupIssue() {
+        let issue = setupIssue
+        guard issue != notedSetupIssue else { return }
+        notedSetupIssue = issue
+        guard let issue else { return }
+        record(.setupIssue, issue == .gitMissing ? "git is not installed" : "none of the chosen folders can be read")
+    }
+
+    /// The text the Diagnostics sheet shows, copies and saves. Names are left out unless asked for.
+    func diagnosticsReport(includeNames: Bool) async -> String {
+        let events = await client.diagnosticEvents()
+        let ghVersion: String?
+        if case .installed(let version, _) = toolStatus.gitHubCLI { ghVersion = version } else { ghVersion = nil }
+        var problems: [String] = []
+        if toolStatusLoaded && toolStatus.gitVersion == nil { problems.append("git is not installed (Apple's command line tools are missing)") }
+        let blocked = unreadableFolders.count
+        if blocked > 0 { problems.append("\(blocked) of \(settings.folders.filter(\.isEnabled).count) folders cannot be read") }
+        let info = Bundle.main.infoDictionary
+        let version = "\(info?["CFBundleShortVersionString"] as? String ?? "development") (\(info?["CFBundleVersion"] as? String ?? "0"))"
+        let input = DiagnosticsInput(
+            appVersion: version, osVersion: SystemFacts.osVersion(), architecture: SystemFacts.architecture(),
+            gitVersion: toolStatusLoaded ? toolStatus.gitVersion : nil, gitHubCLIVersion: ghVersion, setupProblems: problems,
+            settings: settings, folderAccess: settings.folders.filter(\.isEnabled).map { access(of: $0.path) },
+            history: history, events: events, repositoryNames: snapshots.map(\.repo.name),
+            branchNames: allRows.map(\.title), now: Date())
+        return DiagnosticsReport.text(input, includeNames: includeNames)
     }
 
     // MARK: Work that exists only on this Mac
@@ -468,6 +508,7 @@ final class AppModel {
     func refreshFolderAccess() async {
         folderAccess = await client.folderAccess(of: settings.folders.map(\.path))
         folderAccessChecked = true
+        noteSetupIssue()
     }
 
     /// Enabled folders Lopper cannot open right now.
@@ -714,6 +755,7 @@ final class AppModel {
         scanTask?.cancel()
         let progressive = results.isEmpty
         phase = .scanning(done: 0, total: 0)
+        let scanStarted = Date()
         scanTask = Task {
             await refreshFolderAccess()
             guard !Task.isCancelled else { return }
@@ -749,7 +791,16 @@ final class AppModel {
             lastCompletedScan = finished
             phase = .ready(finished)
             await reloadHistory()
+            let sizesStarted = Date()
             await measureSizes()
+            record(
+                .scanFinished, "",
+                ["repositories": Double(snapshots.count), "failures": Double(results.count - snapshots.count),
+                 "scanSeconds": sizesStarted.timeIntervalSince(scanStarted),
+                 "sizeSeconds": Date().timeIntervalSince(sizesStarted)])
+            for case .failure(let root, let message) in results {
+                record(.scanFailure, "\(root.lastPathComponent): \(message)")
+            }
             await scanLocalOnly()
             await scanArtifacts()
             await sendDigestIfDue()
@@ -995,6 +1046,11 @@ final class AppModel {
                     let row = rowsByItemID[item.id]
                     let title = row?.title ?? Self.title(of: item)
                     current.outcomes.append(Self.outcome(id: item.id, title: title, outcome))
+                    switch outcome {
+                    case .skipped(let reason): record(.cleanProblem, "\(title) skipped: \(reason)")
+                    case .failed(let message): record(.cleanProblem, "\(title) failed: \(message)")
+                    case .removed: break
+                    }
                     if case .removed = outcome, row != nil {
                         current.reclaimedBytes += row?.size ?? 0
                         current.removedRows += 1
@@ -1077,6 +1133,7 @@ final class AppModel {
         let restored = HistoryCounts.items(in: outcomes.compactMap { outcome -> UndoRecord? in
             if case .restored(let record) = outcome { record } else { nil }
         })
+        for message in failures { record(.restoreProblem, message) }
         guard let first = failures.first else {
             notice = nil
             if restored > 0 { confirm("Restored \(Plural.count(restored, "item"))") }

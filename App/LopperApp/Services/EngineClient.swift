@@ -35,6 +35,9 @@ protocol EngineClient: Sendable {
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
     func toolStatus() async -> ToolStatus
+    /// Adds to the local diagnostics log. It never leaves this Mac.
+    func recordDiagnostic(_ event: DiagnosticEvent) async
+    func diagnosticEvents() async -> [DiagnosticEvent]
     /// Work in these repositories that exists only on this Mac. Reads git; changes nothing.
     func localOnlyWork(for snapshots: [RepoSnapshot]) async -> [LocalOnlyItem]
     /// Whether each folder can be read, keyed by canonical path. Opens the folders, so it can wait on a slow drive.
@@ -52,6 +55,7 @@ struct LiveEngineClient: EngineClient {
     private let gate = RepoGate()
     private let undoLog = UndoLog(url: UndoLog.defaultURL)
     private let git = GitRunner()
+    private let diagnostics = DiagnosticLog(url: DiagnosticLog.defaultURL)
 
     var githubCLIAvailable: Bool { GhCliProvider.locate() != nil }
 
@@ -151,6 +155,10 @@ struct LiveEngineClient: EngineClient {
     func folderAccess(of folders: [URL]) async -> [String: FolderAccess] {
         await Task.detached(priority: .utility) { FolderProbe.check(folders) }.value
     }
+
+    func recordDiagnostic(_ event: DiagnosticEvent) async { await diagnostics.record(event) }
+
+    func diagnosticEvents() async -> [DiagnosticEvent] { await diagnostics.events() }
 
     func toolStatus() async -> ToolStatus {
         let home = FileManager.default.homeDirectoryForCurrentUser

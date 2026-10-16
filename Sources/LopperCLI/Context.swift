@@ -13,11 +13,15 @@ public struct CLIContext: Sendable {
     /// Where cleared generated folders go. The system Trash, except in tests.
     public var trash: any TrashProvider
     public var now: @Sendable () -> Date
+    /// The local diagnostics log. Beside the settings file unless a test or the live context says otherwise.
+    public var diagnosticLogURL: URL
 
     public init(
         console: any Console, settingsURL: URL, undoLogURL: URL, detectPullRequests: Bool = true,
-        trash: any TrashProvider = SystemTrash(), now: @escaping @Sendable () -> Date = { Date() }
+        trash: any TrashProvider = SystemTrash(), now: @escaping @Sendable () -> Date = { Date() },
+        diagnosticLogURL: URL? = nil
     ) {
+        self.diagnosticLogURL = diagnosticLogURL ?? settingsURL.deletingLastPathComponent().appendingPathComponent("diagnostics.log")
         self.console = console
         self.settingsURL = settingsURL
         self.undoLogURL = undoLogURL

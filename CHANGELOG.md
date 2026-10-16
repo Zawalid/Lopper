@@ -13,6 +13,11 @@ work lands; `scripts/release.sh` moves them under the new version.
 - Setup screens when git is missing (Apple's command line tools) or macOS blocks the folders you chose, and
   `lop doctor` and `lop folders` now report which folder cannot be read and why.
 
+- Diagnostics: Settings, About, Diagnostics and `lop diagnostics` show a report for bug reports (versions, setup
+  problems, settings as counts, last scan timings, recent problems). Repository and branch names are left out unless
+  you include them; home folders, credentials and email addresses are always removed. Nothing is sent. Events are kept
+  in a small local log, capped at 500 entries and 30 days.
+
 ### Fixed
 - A folder macOS refused to open used to look like "No repositories found". It is now named, and the other folders
   are still scanned.

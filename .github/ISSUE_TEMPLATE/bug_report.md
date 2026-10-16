@@ -12,4 +12,12 @@ If Lopper removed something it should not have, say so first.
 
 **Steps to reproduce**
 
-**Lopper version, macOS version, git version**
+**Diagnostics**
+
+Open Lopper, Settings, About, Diagnostics, and paste the text here. Or run `lop diagnostics` in a terminal.
+Nothing is sent for you: you see everything first. Repository and branch names are left out unless you choose to
+include them, and home folders, credentials and email addresses are always removed.
+
+```
+paste here
+```

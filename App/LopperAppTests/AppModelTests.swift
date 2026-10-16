@@ -1102,4 +1102,71 @@ final class AppModelTests: XCTestCase {
             LocalOnlyKindStyle.headline(LocalOnlySummary(items: 1, repositories: 1, unpushedCommits: 1)),
             "1 item in 1 repository exists only on this Mac")
     }
+    // MARK: Diagnostics
+
+    func testAScanRecordsHowManyRepositoriesAndHowLongItTook() async {
+        let (model, client) = makeModel([Fixtures.sample], failures: [URL(fileURLWithPath: "/code/broken")])
+        model.startScan()
+        await settle(model)
+        await waitUntil { client.diagnostics.contains { $0.kind == .scanFinished } }
+
+        let finished = client.diagnostics.first { $0.kind == .scanFinished }
+        XCTAssertEqual(finished?.numbers["repositories"], 1)
+        XCTAssertEqual(finished?.numbers["failures"], 1)
+        XCTAssertNotNil(finished?.numbers["scanSeconds"])
+        XCTAssertNotNil(finished?.numbers["sizeSeconds"])
+        await waitUntil { client.diagnostics.contains { $0.kind == .scanFailure } }
+        XCTAssertEqual(client.diagnostics.first { $0.kind == .scanFailure }?.message, "broken: boom")
+    }
+
+    func testASkippedOrFailedCleanIsRecordedButARemovalIsNot() async {
+        let (model, client) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
+        let base = client.cleanOutcome
+        client.cleanOutcome = { item in
+            if case .branch(_, let name, _) = item, name == "feat/old-1" { return .skipped(reason: "Verdict changed") }
+            return base(item)
+        }
+        model.startScan()
+        await settle(model, sizes: 1)
+        model.beginCleanAllSafe()
+        model.runClean()
+        await waitUntil { model.clean?.phase == .finished }
+        await waitUntil { client.diagnostics.contains { $0.kind == .cleanProblem } }
+
+        let problems = client.diagnostics.filter { $0.kind == .cleanProblem }
+        XCTAssertEqual(problems.count, 1)
+        XCTAssertTrue(problems[0].message.contains("Verdict changed"), problems[0].message)
+    }
+
+    func testASetupProblemIsRecordedOnceNotOnEveryCheck() async {
+        let (model, client) = makeModel([])
+        client.tools = ToolStatus(gitVersion: nil, gitHubCLI: .notInstalled)
+
+        await model.refreshToolStatus()
+        await model.refreshToolStatus()
+        await waitUntil { !client.diagnostics.isEmpty }
+        try? await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(client.diagnostics.filter { $0.kind == .setupIssue }.count, 1)
+    }
+
+    func testTheReportHidesNamesUnlessAskedAndNeverShowsFolderPaths() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        await model.refreshToolStatus()
+        let branch = model.allRows.first { $0.kind == .branch }?.title ?? "feat/old-1"
+        model.record(.cleanProblem, "\(branch) skipped: Verdict changed in /Users/someone/code/api")
+        try? await Task.sleep(for: .milliseconds(50))
+
+        let hidden = await model.diagnosticsReport(includeNames: false)
+        let shown = await model.diagnosticsReport(includeNames: true)
+
+        XCTAssertFalse(hidden.contains(branch), hidden)
+        XCTAssertTrue(hidden.contains("branch-"), hidden)
+        XCTAssertTrue(shown.contains(branch), shown)
+        XCTAssertFalse(hidden.contains("/Users/someone"), hidden)
+        XCTAssertFalse(shown.contains("/Users/someone"), shown)
+        XCTAssertTrue(hidden.contains("GitHub CLI: 2.98.0"), hidden)
+    }
 }

@@ -38,6 +38,7 @@ lop scan                    # one line per repository
 | `lop list [--safe] [--review] [--protected] [--repo NAME] [TEXT]` | Every branch and worktree with its verdict and the evidence behind it. |
 | `lop why NAME` | The full explanation for one branch or worktree: evidence, last commit, how it compares to the default branch, pull request, agent state. |
 | `lop clean [--dry-run] [--yes] [--repo NAME] [TEXT]` | Shows the plan, asks you to confirm, removes the safe items. |
+| `lop diagnostics [--include-names]` | A report to paste into a bug report: versions, setup problems, settings as counts, last scan timings, recent problems. Names are left out unless you ask; nothing is sent. |
 | `lop risk` | Work that exists only on this Mac: unpushed commits, uncommitted changes, stashes. Read only, nothing is removed or pushed. |
 | `lop agents [--reclaim-finished]` | Worktrees from Claude Code, Cursor, Codex and Conductor, grouped by state. `--reclaim-finished` removes the finished ones. |
 | `lop disk [--caches] [--clear] [--untouched-days N]` | Generated folders and, with `--caches`, tool caches. `--clear` moves the offered folders to the Trash. |
