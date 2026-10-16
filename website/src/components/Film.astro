@@ -97,7 +97,10 @@ const chapters: Chapter[] = [
         {chapters.map((c, i) => c.media.kind === 'image' ? (
           <img class="layer" data-layer={c.id} src={`/media/film-${c.media.key}-1920.webp`} srcset={`/media/film-${c.media.key}-1920.webp 1920w, /media/film-${c.media.key}-2560.webp 2560w`} sizes="(max-width: 899px) 240vw, 90vw" alt="" width="2560" height="1600" loading="lazy" decoding="async" />
         ) : (
-          <video class="layer" data-layer={c.id} data-src={`/media/film-${c.media.key}-{w}.mp4`} data-poster={`/media/film-${c.media.key}-{w}.webp`} muted playsinline preload="none" width="2560" height="1600" tabindex="-1"></video>
+          <div class="layer" data-layer={c.id}>
+            <img class="still" src={`/media/film-${c.media.key}-1920.webp`} srcset={`/media/film-${c.media.key}-1920.webp 1920w, /media/film-${c.media.key}-2560.webp 2560w`} sizes="(max-width: 899px) 240vw, 130vw" alt="" width="2560" height="1600" loading="lazy" decoding="async" />
+            <video data-src={`/media/film-${c.media.key}-{w}.mp4`} muted playsinline preload="none" width="2560" height="1600" tabindex="-1"></video>
+          </div>
         ))}
       </div>
     </div>
@@ -158,7 +161,7 @@ const chapters: Chapter[] = [
   .chapter-text { display: grid; gap: 18px; }
   .chapter-title { max-width: 14em; }
   .chapter-body { max-width: 34rem; }
-  .cw-mask { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.12em; margin-bottom: -0.12em; margin-right: 0.22em; }
+  .cw-mask { display: inline-block; overflow: hidden; vertical-align: top; padding: 0.08em 0 0.22em; margin: -0.08em 0.22em -0.22em 0; }
   .cw { display: inline-block; }
   .chapter-list { list-style: none; display: grid; gap: 8px; margin-top: 6px; font: 500 1rem/1.4 var(--font-mono); }
   .chapter-list li { display: flex; align-items: center; gap: 10px; }
@@ -184,7 +187,8 @@ const chapters: Chapter[] = [
   :global(.motion) .film-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; padding: 0; }
   :global(.motion) .film-lens { display: block; position: absolute; inset: 0; overflow: hidden; }
   :global(.motion) .film-device { position: absolute; left: 0; top: 0; width: 1000px; transform-origin: 0 0; will-change: transform; border-radius: 14px; }
-  :global(.motion) .film-device .layer { opacity: 0; }
+  :global(.motion) .film-device .layer { position: absolute; inset: 0; opacity: 0; }
+  :global(.motion) .film-device .layer > img, :global(.motion) .film-device .layer > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   :global(.motion) .film-device .layer:first-child { opacity: 1; }
   :global(.motion) .film-scrim { display: block; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, var(--ink) 0%, rgba(11, 16, 15, 0.94) 30%, rgba(11, 16, 15, 0.55) 42%, rgba(11, 16, 15, 0) 54%); }
   :global(.motion) .film-chapters { display: block; position: absolute; inset: 0; pointer-events: none; }
@@ -192,10 +196,10 @@ const chapters: Chapter[] = [
   :global(.motion) .chapter-text { width: min(31vw, 30rem); margin: 0 0 0 var(--gutter); padding: 0; max-width: none; pointer-events: auto; }
   :global(.motion) .chapter-title { font-size: clamp(2.2rem, 3.9vw, 4rem); }
   :global(.motion) .chapter-shot { display: none; }
-  :global(.motion) .chapter .cw { transform: translateY(140%); }
-  :global(.motion) .chapter:not(:first-child) .chapter-body,
-  :global(.motion) .chapter:not(:first-child) .chapter-list,
-  :global(.motion) .chapter:not(:first-child) .chapter-note { opacity: 0; }
+  :global(.motion) .chapter .cw { transform: translateY(160%); }
+  :global(.motion) .chapter .chapter-body,
+  :global(.motion) .chapter .chapter-list,
+  :global(.motion) .chapter .chapter-note { opacity: 0; }
   :global(.motion) .list-evidence li { color: var(--faint); transition: color 300ms; }
   :global(.motion) .list-evidence li.on { color: var(--mint); }
   :global(.motion) .list-tools { font-size: clamp(1.05rem, 1.4vw, 1.25rem); }

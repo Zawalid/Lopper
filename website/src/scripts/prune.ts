@@ -9,10 +9,10 @@ interface Snip { ids: string[]; x: number; y: number; rot: number }
 /** Swap one display line for the next, word by word. */
 export function swapWords(tl: gsap.core.Timeline, out: Element | null, inn: Element | null, at: number): void {
   if (out) {
-    tl.fromTo(all('.pw, .cw', out), { yPercent: 0 }, { yPercent: -140, duration: 0.28, stagger: 0.025, ease: 'power2.in', immediateRender: false }, at);
+    tl.fromTo(all('.pw, .cw', out), { yPercent: 0 }, { yPercent: -160, duration: 0.28, stagger: 0.025, ease: 'power2.in', immediateRender: false }, at);
   }
   if (inn) {
-    tl.fromTo(all('.pw, .cw', inn), { yPercent: 140 }, { yPercent: 0, duration: 0.42, stagger: 0.035, ease: 'power3.out', immediateRender: false }, at + 0.22);
+    tl.fromTo(all('.pw, .cw', inn), { yPercent: 160 }, { yPercent: 0, duration: 0.42, stagger: 0.035, ease: 'power3.out', immediateRender: false }, at + 0.22);
   }
 }
 
@@ -37,7 +37,7 @@ export function initPrune(): void {
   if (!trunk || !head || !scissors || !bladeA || !bladeB) return;
 
   // Initial state: line 0 shown, everything else hidden, graph undrawn.
-  lines.forEach((line, i) => gsap.set(all('.pw', line), { y: 0, yPercent: i === 0 ? 0 : 140 }));
+  lines.forEach((line, i) => gsap.set(all('.pw', line), { y: 0, yPercent: i === 0 ? 0 : 160 }));
   gsap.set(receipts, { opacity: 0, x: -12 });
   const trunkLen = drawable(trunk);
   gsap.set(trunk, { opacity: 0 });

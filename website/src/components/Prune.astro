@@ -145,7 +145,7 @@ const receipts = ['already in the default branch', 'merged through a pull reques
   .pl { max-width: 15em; font-size: clamp(1.9rem, 3.6vw, 3.4rem); }
   .pl:nth-child(n + 4) { color: var(--muted); }
   .pl:nth-child(n + 5) { color: var(--text); }
-  .pw-mask { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.12em; margin-bottom: -0.12em; margin-right: 0.24em; }
+  .pw-mask { display: inline-block; overflow: hidden; vertical-align: top; padding: 0.08em 0 0.22em; margin: -0.08em 0.24em -0.22em 0; }
   .pw { display: inline-block; }
   .receipts { list-style: none; margin-top: 28px; display: grid; gap: 6px; font: 500 clamp(0.95rem, 1.2vw, 1.1rem) / 1.5 var(--font-mono); color: var(--mint); }
   .slash { color: var(--faint); }
@@ -186,7 +186,7 @@ const receipts = ['already in the default branch', 'merged through a pull reques
   :global(.motion) .prune-copy { position: absolute; inset: 0; padding-top: calc(var(--nav-h) + clamp(32px, 9vh, 120px)); padding-bottom: 0; }
   :global(.motion) .prune-lines { display: grid; gap: 0; }
   :global(.motion) .pl { grid-area: 1 / 1; color: var(--text); max-width: 13em; font-size: clamp(2.2rem, 4.2vw, 4.4rem); }
-  :global(.motion) .pl:not(:first-child) .pw { transform: translateY(140%); }
+  :global(.motion) .pl:not(:first-child) .pw { transform: translateY(160%); }
   :global(.motion) .receipts { margin-top: clamp(20px, 4vh, 40px); }
   :global(.motion) .receipts li { opacity: 0; }
   :global(.motion) .prune-art { position: absolute; inset: 0; margin: 0; }

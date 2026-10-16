@@ -86,7 +86,7 @@ const lines = [['keep', 'your'], ['repositories', 'light.']];
   .hero-copy { position: relative; z-index: 1; }
   .hero-title { display: flex; flex-direction: column; }
   .line { display: block; white-space: nowrap; }
-  .w-mask { display: inline-block; overflow: hidden; padding-bottom: 0.1em; margin-bottom: -0.1em; vertical-align: top; }
+  .w-mask { display: inline-block; overflow: hidden; padding: 0.08em 0 0.2em; margin: -0.08em 0 -0.2em; vertical-align: top; }
   .w { display: inline-block; }
   .hero-sub { display: grid; gap: 28px; margin-top: clamp(24px, 4vh, 44px); }
   @media (min-width: 1000px) {
@@ -129,7 +129,7 @@ const lines = [['keep', 'your'], ['repositories', 'light.']];
     :global(.motion) .hero-sub { animation: fade 900ms var(--ease-out) 420ms both; }
     :global(.motion) .hero-device { animation: lift 1400ms var(--ease-out) 300ms both; }
   }
-  @keyframes rise { from { transform: translateY(105%); } to { transform: none; } }
+  @keyframes rise { from { transform: translateY(130%); } to { transform: none; } }
   @keyframes fade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   @keyframes lift { from { opacity: 0; transform: translateY(80px); } to { opacity: 1; transform: none; } }
 
