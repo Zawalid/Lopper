@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-16
+
 ### Added
 - First public release.
 - Scans the folders you choose for git repositories and classifies every branch and worktree as safe to remove,
