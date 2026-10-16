@@ -72,7 +72,7 @@ Lopper's job is to never remove work that exists nowhere else.
 You need Xcode 16 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
-git clone <repository url> Lopper
+git clone https://github.com/Zawalid/Lopper.git
 cd Lopper/App && xcodegen generate && open Lopper.xcodeproj
 ```
 
@@ -111,6 +111,10 @@ See [docs/development.md](docs/development.md) for the rest of the development l
 
 Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first; changes to anything that
 deletes things need tests that prove the safety rules still hold.
+
+## Author
+
+Made by [Walid Zakan](https://zawalid.com): [GitHub](https://github.com/Zawalid) · [X](https://x.com/Zawaalid)
 
 ## License
 
