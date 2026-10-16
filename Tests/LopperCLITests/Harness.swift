@@ -65,7 +65,8 @@ struct Harness {
         let console = TestConsole(interactive: interactive, answers: answers)
         let context = CLIContext(
             console: console, settingsURL: settingsURL, undoLogURL: support.appendingPathComponent("undo-log.jsonl"),
-            detectPullRequests: false, now: { Harness.fixedNow })
+            detectPullRequests: false,
+            trash: FolderTrash(folder: repo.sandbox.appendingPathComponent("FakeTrash")), now: { Harness.fixedNow })
         try await CLIContext.$current.withValue(context) {
             var command = try Lop.parseAsRoot(arguments)
             if var asyncCommand = command as? AsyncParsableCommand {
@@ -77,7 +78,31 @@ struct Harness {
         return Result(out: console.out, err: console.err)
     }
 
+    /// A Claude Code worktree whose branch is merged (finished) and one with work only on itself (not merged).
+    func addAgentWorktrees() throws {
+        let directory = repo.sandbox.appendingPathComponent(".claude/worktrees", isDirectory: true)
+        let finished = directory.appendingPathComponent("finished")
+        try repo.git("worktree", "add", "-b", "claude/finished", finished.path)
+        try repo.commit("finished work", files: ["f.txt": "f"], in: finished)
+        try repo.git("merge", "--no-ff", "-m", "merge finished", "claude/finished")
+        let unmerged = directory.appendingPathComponent("unmerged")
+        try repo.git("worktree", "add", "-b", "claude/unmerged", unmerged.path)
+        try repo.commit("only here", files: ["u.txt": "u"], in: unmerged)
+    }
+
     func branches() throws -> [String] {
         try repo.git("branch", "--format=%(refname:short)").split(separator: "\n").map(String.init)
+    }
+}
+
+/// A trash that moves into a throwaway folder, so tests never touch the real Trash.
+struct FolderTrash: TrashProvider {
+    let folder: URL
+
+    func moveToTrash(_ url: URL) throws -> URL {
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let destination = folder.appendingPathComponent("\(UUID().uuidString)-\(url.lastPathComponent)")
+        try FileManager.default.moveItem(at: url, to: destination)
+        return destination
     }
 }

@@ -1,5 +1,6 @@
 import ArgumentParser
 
+@available(macOS 14, *)
 public struct Lop: AsyncParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "lop",
@@ -7,7 +8,7 @@ public struct Lop: AsyncParsableCommand {
         version: LopVersion.current,
         subcommands: [
             ScanCommand.self, ListCommand.self, WhyCommand.self, CleanCommand.self, HistoryCommand.self,
-            UndoCommand.self,
+            UndoCommand.self, AgentsCommand.self, DiskCommand.self, FoldersCommand.self, DoctorCommand.self,
         ])
 
     public init() {}

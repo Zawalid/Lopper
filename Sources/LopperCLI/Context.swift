@@ -10,16 +10,19 @@ public struct CLIContext: Sendable {
     public var undoLogURL: URL
     /// Whether to ask the GitHub CLI about merged pull requests. Off in tests.
     public var detectPullRequests: Bool
+    /// Where cleared generated folders go. The system Trash, except in tests.
+    public var trash: any TrashProvider
     public var now: @Sendable () -> Date
 
     public init(
         console: any Console, settingsURL: URL, undoLogURL: URL, detectPullRequests: Bool = true,
-        now: @escaping @Sendable () -> Date = { Date() }
+        trash: any TrashProvider = SystemTrash(), now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.console = console
         self.settingsURL = settingsURL
         self.undoLogURL = undoLogURL
         self.detectPullRequests = detectPullRequests
+        self.trash = trash
         self.now = now
     }
 
@@ -74,7 +77,7 @@ struct Session {
         let usePRs = context.detectPullRequests && !options.noGitHub
         let workspace = Workspace(
             settings: settings, prProvider: usePRs ? GhCliProvider() : nil,
-            undoLog: UndoLog(url: context.undoLogURL), now: context.now)
+            undoLog: UndoLog(url: context.undoLogURL), trash: context.trash, now: context.now)
         let console = context.console
         let color = console.useColor && !options.noColor
         return Session(

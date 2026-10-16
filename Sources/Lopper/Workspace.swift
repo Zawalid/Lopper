@@ -25,17 +25,19 @@ public struct Workspace: Sendable {
     private let git: GitRunner
     private let prProvider: PRProvider?
     private let undoLog: UndoLog
+    private let trash: TrashProvider
     private let gate = RepoGate()
     private let now: @Sendable () -> Date
 
     public init(
         settings: Settings, prProvider: PRProvider? = GhCliProvider(), undoLog: UndoLog = UndoLog(url: UndoLog.defaultURL),
-        git: GitRunner = GitRunner(), now: @escaping @Sendable () -> Date = { Date() }
+        git: GitRunner = GitRunner(), trash: TrashProvider = SystemTrash(), now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.settings = settings
         self.prProvider = prProvider
         self.undoLog = undoLog
         self.git = git
+        self.trash = trash
         self.now = now
     }
 
@@ -124,5 +126,60 @@ public struct Workspace: Sendable {
 
     public func restoreBatch(_ id: UUID) async -> [RestoreOutcome] {
         await cleaner.restoreBatch(id, now: now())
+    }
+
+    // MARK: Generated folders
+
+    /// The generated folders (node_modules, build output, ...) git ignores inside every working folder of a scan.
+    public func artifacts(for scan: WorkspaceScan) async -> [DiskArtifact] {
+        struct Target: Sendable {
+            let root: URL
+            let repoRoot: URL
+            let location: ArtifactLocation
+            let names: Set<String>
+        }
+        let targets = scan.snapshots.flatMap { snapshot -> [Target] in
+            let names = settings.disposableSet(for: snapshot.repo.root)
+            return snapshot.worktrees.filter { !$0.isPrunable }.map { entry in
+                Target(
+                    root: entry.path, repoRoot: snapshot.repo.root,
+                    location: entry.isMain ? .mainCheckout : .worktree(branch: entry.branch), names: names)
+            }
+        }
+        let git = self.git
+        var found: [DiskArtifact] = []
+        await withTaskGroup(of: [DiskArtifact].self) { group in
+            var iterator = targets.makeIterator()
+            func addNext() {
+                guard let target = iterator.next() else { return }
+                group.addTask {
+                    await ArtifactScanner(git: git).scan(
+                        root: target.root, repoRoot: target.repoRoot, names: target.names, location: target.location)
+                }
+            }
+            for _ in 0..<4 { addNext() }
+            while let items = await group.next() {
+                found.append(contentsOf: items)
+                addNext()
+            }
+        }
+        return found.sorted { $0.bytes > $1.bytes }
+    }
+
+    /// Tool caches in the home folder (Xcode build data, the npm cache, ...), as clearable folders.
+    public func developerCaches() async -> [DiskArtifact] {
+        await DeveloperCaches.scan()
+    }
+
+    /// Moves each folder to the Trash after re-checking it, as one batch the undo log can restore together.
+    public func clear(_ artifacts: [DiskArtifact]) async -> [CleanOutcome] {
+        let cleaner = ArtifactCleaner(undoLog: undoLog, trash: trash, git: git, gate: gate)
+        let batch = UUID()
+        var outcomes: [CleanOutcome] = []
+        for artifact in artifacts {
+            let names = settings.disposableSet(for: artifact.repoRoot)
+            outcomes.append(await cleaner.clear(artifact, names: names, batchID: batch, now: now()))
+        }
+        return outcomes
     }
 }
