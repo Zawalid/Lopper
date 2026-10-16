@@ -6,30 +6,34 @@ import Lopper
 struct OnboardingView: View {
     @Environment(AppModel.self) private var app
     var startingAt: OnboardingModel.Step = .welcome
+    /// A fixed moment of the welcome animation, for snapshots.
+    var sceneTime: Double?
 
     var body: some View {
-        OnboardingHost(app: app, startingAt: startingAt)
+        OnboardingHost(app: app, startingAt: startingAt, sceneTime: sceneTime)
     }
 }
 
 private struct OnboardingHost: View {
     let app: AppModel
+    let sceneTime: Double?
     @State private var flow: OnboardingModel
     @State private var isDropTargeted = false
 
-    init(app: AppModel, startingAt step: OnboardingModel.Step) {
+    init(app: AppModel, startingAt step: OnboardingModel.Step, sceneTime: Double?) {
         self.app = app
+        self.sceneTime = sceneTime
         _flow = State(initialValue: OnboardingModel(
             client: app.client, existingRoots: app.settings.roots, startingAt: step))
     }
 
     var body: some View {
         ZStack {
-            Backdrop()
+            if flow.step != .welcome { Backdrop() }
             Group {
                 switch flow.step {
                 case .welcome:
-                    WelcomeStep(flow: flow)
+                    WelcomeStep(flow: flow, sceneTime: sceneTime)
                 case .choose:
                     ChooseStep(flow: flow, app: app)
                 case .scan:
@@ -103,20 +107,35 @@ private struct DropHint: View {
 
 private struct WelcomeStep: View {
     let flow: OnboardingModel
+    let sceneTime: Double?
+
+    private let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
 
     var body: some View {
-        HStack(spacing: 56) {
+        ZStack(alignment: .leading) {
+            ink
+            LopperScene(fixedTime: sceneTime)
+            // Keeps the words readable over the picture.
+            LinearGradient(
+                stops: [
+                    .init(color: ink.opacity(0.96), location: 0),
+                    .init(color: ink.opacity(0.88), location: 0.38),
+                    .init(color: ink.opacity(0), location: 0.66),
+                ],
+                startPoint: .leading, endPoint: .trailing)
+                .allowsHitTesting(false)
+
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 HStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "scissors").foregroundStyle(.tint)
+                    Image(systemName: "scissors").foregroundStyle(Color(red: 0.55, green: 0.95, blue: 0.8))
                     Text("Lopper").font(.headline)
                 }
                 Text("Keep your repositories light.")
-                    .font(.system(size: 38, weight: .bold))
+                    .font(.system(size: 42, weight: .bold))
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Lopper finds the branches, worktrees and build folders you no longer need, shows why each one is safe to remove, and lets you undo anything.")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.7))
                     .fixedSize(horizontal: false, vertical: true)
 
                 VStack(alignment: .leading, spacing: Theme.Spacing.md) {
@@ -137,12 +156,10 @@ private struct WelcomeStep: View {
                 .padding(.top, Theme.Spacing.sm)
             }
             .frame(maxWidth: 470, alignment: .leading)
-
-            WelcomeArt()
-                .frame(width: 340, height: 400)
+            .padding(.leading, 64)
         }
-        .padding(.horizontal, 56)
-        .padding(.vertical, 36)
+        .foregroundStyle(.white)
+        .environment(\.colorScheme, .dark)
     }
 }
 
@@ -155,12 +172,12 @@ private struct TrustLine: View {
         HStack(alignment: .top, spacing: Theme.Spacing.md) {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Color(red: 0.55, green: 0.95, blue: 0.8))
                 .frame(width: 30, height: 30)
-                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.callout.weight(.semibold))
-                Text(detail).font(.callout).foregroundStyle(.secondary)
+                Text(detail).font(.callout).foregroundStyle(.white.opacity(0.62))
             }
         }
     }
@@ -434,7 +451,12 @@ private struct ScanStep: View {
 
     private var scanning: some View {
         VStack(spacing: Theme.Spacing.lg) {
-            WelcomeArt().frame(width: 220, height: 260)
+            LopperScene(compact: true)
+                .frame(width: 320, height: 230)
+                .background(Color(red: 0.045, green: 0.055, blue: 0.09))
+                .clipShape(RoundedRectangle(cornerRadius: 18))
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.08)))
+                .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
             if case .scanning(let done, let total) = app.phase, total > 0 {
                 Text("Reading repository \(done) of \(total)…").font(.title3.weight(.medium)).monospacedDigit()
                 ProgressView(value: Double(done), total: Double(total)).frame(maxWidth: 320)
