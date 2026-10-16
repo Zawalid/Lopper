@@ -36,10 +36,11 @@ private struct OnboardingHost: View {
 
     var body: some View {
         ZStack {
-            Stage.ink
+            Stage.ink.ignoresSafeArea()
             // One scene for the whole flow: it keeps running as the steps change, only quieter behind a panel.
             LopperScene(compact: flow.step != .welcome, intensity: flow.step == .welcome ? 1 : 0.7, fixedTime: sceneTime)
-            Scrim(step: flow.step)
+                .ignoresSafeArea()
+            Scrim(step: flow.step).ignoresSafeArea()
 
             Group {
                 switch flow.step {
