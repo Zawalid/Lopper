@@ -38,9 +38,9 @@ private struct OnboardingHost: View {
         ZStack {
             Stage.ink.ignoresSafeArea()
             // One scene for the whole flow: it keeps running as the steps change, only quieter behind a panel.
-            LopperScene(compact: flow.step != .welcome, intensity: flow.step == .welcome ? 1 : 0.7, fixedTime: sceneTime)
+            LopperScene(compact: flow.step != .welcome, intensity: flow.step == .welcome ? 1 : 0.85, fixedTime: sceneTime)
                 .ignoresSafeArea()
-            Scrim(step: flow.step).ignoresSafeArea()
+            Scrim().ignoresSafeArea()
 
             Group {
                 switch flow.step {
@@ -56,11 +56,6 @@ private struct OnboardingHost: View {
             .transition(.asymmetric(
                 insertion: .opacity.combined(with: .offset(x: 24)), removal: .opacity.combined(with: .offset(x: -24))))
 
-            if flow.step != .welcome {
-                StepMarker(step: flow.step)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .padding(.top, 26)
-            }
         }
         .animation(.smooth(duration: 0.4), value: flow.step)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -80,44 +75,18 @@ private struct OnboardingHost: View {
     }
 }
 
-/// Keeps the words readable over the picture: a left-to-right fade on the welcome, a soft vignette behind panels.
+/// Keeps the words readable over the picture: the same left-to-right fade on every step, so the three screens share
+/// one composition, words on the left and the graph on the right.
 private struct Scrim: View {
-    let step: OnboardingModel.Step
-
     var body: some View {
-        Group {
-            if step == .welcome {
-                LinearGradient(
-                    stops: [
-                        .init(color: Stage.ink.opacity(0.96), location: 0),
-                        .init(color: Stage.ink.opacity(0.88), location: 0.38),
-                        .init(color: Stage.ink.opacity(0), location: 0.66),
-                    ],
-                    startPoint: .leading, endPoint: .trailing)
-            } else {
-                RadialGradient(
-                    colors: [Stage.ink.opacity(0.78), Stage.ink.opacity(0.35)],
-                    center: .center, startRadius: 60, endRadius: 720)
-            }
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-private struct StepMarker: View {
-    let step: OnboardingModel.Step
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ForEach([OnboardingModel.Step.welcome, .choose, .scan], id: \.self) { item in
-                Capsule()
-                    .fill(item == step ? Stage.mint : Color.white.opacity(0.18))
-                    .frame(width: item == step ? 26 : 8, height: 6)
-            }
-        }
-        .animation(.smooth, value: step)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Step \(step == .choose ? 2 : 3) of 3")
+        LinearGradient(
+            stops: [
+                .init(color: Stage.ink.opacity(0.96), location: 0),
+                .init(color: Stage.ink.opacity(0.88), location: 0.38),
+                .init(color: Stage.ink.opacity(0), location: 0.66),
+            ],
+            startPoint: .leading, endPoint: .trailing)
+            .allowsHitTesting(false)
     }
 }
 
@@ -154,22 +123,6 @@ private struct DropHint: View {
 }
 
 // MARK: Shared pieces
-
-private struct GlassPanel<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        content
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22))
-            .background(
-                LinearGradient(colors: [Color.white.opacity(0.07), Color.white.opacity(0.015)], startPoint: .top, endPoint: .bottom),
-                in: RoundedRectangle(cornerRadius: 22))
-            .overlay(
-                RoundedRectangle(cornerRadius: 22).strokeBorder(
-                    LinearGradient(colors: [Color.white.opacity(0.20), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom)))
-            .shadow(color: .black.opacity(0.35), radius: 34, y: 14)
-    }
-}
 
 private struct StageButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, ghost }
@@ -299,152 +252,126 @@ private struct ChooseStep: View {
     let app: AppModel
 
     var body: some View {
-        VStack(spacing: 22) {
-            VStack(spacing: 8) {
-                Eyebrow(text: "STEP 2 OF 3")
-                Text("Where do your projects live?")
-                    .font(.system(size: 32, weight: .bold))
-                    .tracking(-0.4)
-                Text("Pick the folders Lopper should look in. It only reads them, and you can change this any time.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.white.opacity(0.62))
-                    .multilineTextAlignment(.center)
-            }
+        VStack(alignment: .leading, spacing: 18) {
+            Eyebrow(text: "STEP 2 OF 3")
+            Text("Where do your projects live?")
+                .font(.system(size: 38, weight: .bold))
+                .tracking(-0.5)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Pick the folders Lopper should look in. It only reads them.")
+                .font(.title3)
+                .foregroundStyle(.white.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
 
             if app.toolStatusLoaded && app.toolStatus.gitVersion == nil {
                 Banner(
                     symbol: "exclamationmark.triangle",
-                    message: "Git is not installed. Install the Xcode command line tools (run xcode-select --install in Terminal), then reopen Lopper.")
-                    .frame(maxWidth: 640)
+                    message: "Git is not installed. Run xcode-select --install in Terminal, then reopen Lopper.")
             }
 
-            GlassPanel {
-                VStack(spacing: 0) {
-                    if flow.candidates.isEmpty && flow.suggestionsLoaded {
-                        EmptyHero(flow: flow)
-                    } else if flow.candidates.isEmpty {
-                        VStack(spacing: 0) {
-                            ForEach(0..<3, id: \.self) { index in
-                                if index > 0 { Divider().overlay(Stage.hairline) }
-                                SkeletonRow()
-                            }
-                        }
-                    } else {
-                        FolderList(flow: flow)
-                        Divider().overlay(Stage.hairline)
-                        ActionsBar(flow: flow)
-                    }
-                }
+            if flow.candidates.isEmpty && flow.suggestionsLoaded {
+                emptyBody
+            } else if flow.candidates.isEmpty {
+                VStack(spacing: 0) { ForEach(0..<3, id: \.self) { _ in SkeletonRow() } }
+            } else {
+                FolderList(flow: flow)
+                searchLine
             }
-            .frame(maxWidth: 640)
 
-            HStack {
-                Button("Back") { flow.back() }
-                    .buttonStyle(.stageGhost)
-                Spacer()
+            HStack(spacing: 10) {
                 Button {
                     flow.begin(app: app)
                 } label: {
-                    Text(flow.canContinue ? "Scan \(Plural.count(flow.selectedURLs.count, "folder"))" : "Choose a folder to continue")
-                        .frame(minWidth: 150)
+                    Text(flow.canContinue ? "Scan \(Plural.count(flow.selectedURLs.count, "folder"))" : "Scan")
+                        .frame(minWidth: 110)
                 }
                 .buttonStyle(.stagePrimary)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!flow.canContinue)
+                Button("Back") { flow.back() }.buttonStyle(.stageGhost)
             }
-            .frame(maxWidth: 640)
+            .padding(.top, 2)
         }
-        .padding(.horizontal, 40)
-        .padding(.top, 36)
-        .padding(.bottom, 28)
+        .frame(maxWidth: 480, alignment: .leading)
+        .padding(.leading, 64)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .task { await app.refreshToolStatus() }
     }
-}
 
-/// Shown when none of the usual folders exist: searching the Mac is the obvious next move, so it is the headline.
-private struct EmptyHero: View {
-    let flow: OnboardingModel
-
-    var body: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                PulseRings(running: flow.isScanningSystem)
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 26, weight: .medium))
-                    .foregroundStyle(Stage.mint)
-            }
-            .frame(width: 120, height: 120)
-
-            switch flow.systemScan {
-            case .running(let folders, let repos):
-                VStack(spacing: 4) {
-                    Text("Looking through your Mac…").font(.system(size: 18, weight: .semibold))
-                    Text("\(Plural.count(repos, "repository", "repositories")) found · \(folders) folders checked")
-                        .font(.system(size: 13, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.62))
-                        .monospacedDigit()
-                }
-                Button("Stop") { flow.stopSystemScan() }.buttonStyle(.stageSecondary)
-            case .finished(0), .stopped:
-                VStack(spacing: 4) {
-                    Text("No repositories found").font(.system(size: 18, weight: .semibold))
-                    Text("Nothing turned up in the places Lopper looked. Choose a folder yourself.")
-                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.62))
-                }
-                HStack(spacing: 10) {
-                    Button("Search again") { flow.startSystemScan() }.buttonStyle(.stageSecondary)
-                    Button("Choose a folder…") { FolderPicker.choose { flow.add($0) } }.buttonStyle(.stagePrimary)
-                }
-            default:
-                VStack(spacing: 4) {
-                    Text("Nothing in the usual places").font(.system(size: 18, weight: .semibold))
-                    Text("Let Lopper look through your Mac for git repositories, or point it at a folder.")
-                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.62))
-                        .multilineTextAlignment(.center)
-                }
+    /// None of the usual folders exist. Said plainly, with the two ways forward.
+    @ViewBuilder private var emptyBody: some View {
+        switch flow.systemScan {
+        case .running:
+            searchLine
+        default:
+            VStack(alignment: .leading, spacing: 14) {
+                Text("None of the usual folders (Developer, Projects, Code and so on) exist on this Mac.")
+                    .font(.system(size: 14)).foregroundStyle(.white.opacity(0.55))
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     Button { flow.startSystemScan() } label: {
                         Label("Search this Mac", systemImage: "sparkle.magnifyingglass")
                     }
-                    .buttonStyle(.stagePrimary)
-                    Button("Choose a folder…") { FolderPicker.choose { flow.add($0) } }
-                        .buttonStyle(.stageSecondary)
+                    .buttonStyle(.stageSecondary)
+                    Button { FolderPicker.choose { flow.add($0) } } label: {
+                        Label("Choose a folder", systemImage: "folder.badge.plus")
+                    }
+                    .buttonStyle(.stageSecondary)
                 }
-                Text("macOS may ask for access to Documents, Desktop or Downloads. Allow it, or skip those. Lopper only reads.")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(.white.opacity(0.42))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 420)
+                Text("macOS may ask for access to Documents, Desktop or Downloads. Allow it or skip those.")
+                    .font(.system(size: 12)).foregroundStyle(.white.opacity(0.4))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 26)
-        .padding(.horizontal, 24)
+    }
+
+    /// Under the list: two quiet actions, or the live count while a search runs.
+    @ViewBuilder private var searchLine: some View {
+        switch flow.systemScan {
+        case .running(let folders, let repos):
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small).tint(Stage.mint)
+                Text("\(Plural.count(repos, "repository", "repositories")) · \(folders) folders")
+                    .font(.system(size: 12.5, design: .monospaced)).monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.7))
+                Button("Stop") { flow.stopSystemScan() }.buttonStyle(.stageGhost)
+            }
+        default:
+            HStack(spacing: 22) {
+                QuietAction(title: flow.systemScan == .idle ? "Search this Mac" : "Search again", symbol: "sparkle.magnifyingglass") {
+                    flow.startSystemScan()
+                }
+                QuietAction(title: "Choose a folder", symbol: "folder.badge.plus") {
+                    FolderPicker.choose { flow.add($0) }
+                }
+                if case .finished(let found) = flow.systemScan {
+                    Text(found == 0 ? "Nothing new found" : "Added \(found)")
+                        .font(.system(size: 12.5)).foregroundStyle(Stage.mint.opacity(0.85))
+                }
+            }
+        }
     }
 }
 
-/// Rings that spread out from the middle, like a sonar. They speed up while a search is running.
-private struct PulseRings: View {
-    let running: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+/// A text action with a small mint icon. No capsule: it should read as part of the page, not as a button row.
+private struct QuietAction: View {
+    let title: String
+    let symbol: String
+    let action: () -> Void
+    @State private var isHovering = false
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { timeline in
-            let time = timeline.date.timeIntervalSinceReferenceDate
-            Canvas { context, size in
-                let center = CGPoint(x: size.width / 2, y: size.height / 2)
-                let speed = running ? 0.55 : 0.22
-                for ring in 0..<3 {
-                    let phase = (time * speed + Double(ring) / 3).truncatingRemainder(dividingBy: 1)
-                    let radius = 18 + phase * (size.width / 2 - 18)
-                    let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-                    context.stroke(
-                        Path(ellipseIn: rect), with: .color(Stage.mint.opacity((1 - phase) * (running ? 0.55 : 0.32))),
-                        lineWidth: 1.5)
-                }
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Image(systemName: symbol).foregroundStyle(Stage.mint)
+                Text(title).underline(isHovering)
             }
+            .font(.system(size: 13.5, weight: .medium))
+            .foregroundStyle(.white.opacity(isHovering ? 1 : 0.8))
         }
-        .accessibilityHidden(true)
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .pointerCursor()
     }
 }
 
@@ -454,14 +381,15 @@ private struct FolderList: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                ForEach(Array(flow.candidates.enumerated()), id: \.element.id) { index, candidate in
-                    if index > 0 { Divider().overlay(Stage.hairline) }
+                ForEach(flow.candidates) { candidate in
                     CandidateRow(candidate: candidate) { flow.toggle(candidate.id) }
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity)
                 }
             }
         }
-        .frame(height: min(268, CGFloat(flow.candidates.count) * 56))
+        .scrollIndicators(.hidden)
+        .frame(height: min(232, CGFloat(flow.candidates.count) * 46))
+        .overlay(alignment: .top) { Rectangle().fill(Stage.hairline).frame(height: 1) }
         .animation(.snappy, value: flow.candidates.count)
     }
 }
@@ -479,47 +407,38 @@ private struct CandidateRow: View {
                         .opacity(candidate.isSelected ? 0 : 1)
                     Circle().fill(Stage.mint).opacity(candidate.isSelected ? 1 : 0)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .heavy))
+                        .font(.system(size: 9, weight: .heavy))
                         .foregroundStyle(Stage.ink)
                         .opacity(candidate.isSelected ? 1 : 0)
                 }
-                .frame(width: 20, height: 20)
+                .frame(width: 18, height: 18)
                 .animation(.snappy(duration: 0.18), value: candidate.isSelected)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(abbreviated(candidate.url))
-                        .font(.system(size: 13.5, weight: .medium, design: .monospaced))
-                        .lineLimit(1).truncationMode(.middle)
-                    if !candidate.sampleNames.isEmpty {
-                        Text(candidate.sampleNames.joined(separator: " · "))
-                            .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.45)).lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 12)
+                Text(abbreviated(candidate.url))
+                    .font(.system(size: 13.5, weight: .medium, design: .monospaced))
+                    .lineLimit(1).truncationMode(.middle)
+                Spacer(minLength: 10)
                 if candidate.source == .found {
-                    Text("FOUND")
-                        .font(.system(size: 9.5, weight: .bold, design: .monospaced)).tracking(1.2)
-                        .padding(.horizontal, 7).padding(.vertical, 3)
-                        .foregroundStyle(Stage.mint)
-                        .background(Stage.mint.opacity(0.14), in: Capsule())
+                    Text("found")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(Stage.mint.opacity(0.9))
                 }
                 if let count = candidate.repoCount {
                     Text(count == 0 ? "empty" : "\(count)")
                         .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(count == 0 ? .white.opacity(0.35) : .white.opacity(0.85))
-                    Text(count == 1 ? "repo" : "repos")
-                        .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.4))
-                        .opacity(count == 0 ? 0 : 1)
+                        .foregroundStyle(.white.opacity(count == 0 ? 0.35 : 0.85))
+                        .frame(minWidth: 40, alignment: .trailing)
                 }
             }
-            .padding(.horizontal, 18)
-            .frame(height: 56)
+            .padding(.horizontal, 4)
+            .frame(height: 46)
             .background(Color.white.opacity(isHovering ? 0.05 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
         .pointerCursor()
+        .overlay(alignment: .bottom) { Rectangle().fill(Stage.hairline).frame(height: 1) }
         .accessibilityLabel("\(abbreviated(candidate.url))")
         .accessibilityAddTraits(candidate.isSelected ? .isSelected : [])
     }
@@ -535,53 +454,15 @@ private struct SkeletonRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Circle().fill(Color.white.opacity(0.12)).frame(width: 20, height: 20)
-            RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.12)).frame(width: 190, height: 12)
+            Circle().fill(Color.white.opacity(0.12)).frame(width: 18, height: 18)
+            RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.12)).frame(width: 190, height: 11)
             Spacer()
-            RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.08)).frame(width: 50, height: 10)
         }
-        .padding(.horizontal, 18)
-        .frame(height: 56)
+        .padding(.horizontal, 4)
+        .frame(height: 46)
         .opacity(dim ? 0.45 : 1)
         .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { dim = true } }
         .accessibilityHidden(true)
-    }
-}
-
-/// Under a list: look through the Mac, or choose a folder. While a search runs it shows what it has found.
-private struct ActionsBar: View {
-    let flow: OnboardingModel
-
-    var body: some View {
-        HStack(spacing: 10) {
-            switch flow.systemScan {
-            case .running(let folders, let repos):
-                ProgressView().controlSize(.small).tint(Stage.mint)
-                Text("\(Plural.count(repos, "repository", "repositories")) · \(folders) folders checked")
-                    .font(.system(size: 12.5, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .monospacedDigit()
-                Button("Stop") { flow.stopSystemScan() }.buttonStyle(.stageGhost)
-            case .finished(let found):
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(Stage.mint)
-                Text(found == 0 ? "Nothing new found" : "Added \(Plural.count(found, "folder"))")
-                    .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.7))
-                Button("Search again") { flow.startSystemScan() }.buttonStyle(.stageGhost)
-            case .idle, .stopped:
-                Button { flow.startSystemScan() } label: {
-                    Label("Search this Mac", systemImage: "sparkle.magnifyingglass")
-                }
-                .buttonStyle(.stageSecondary)
-                .help("macOS may ask for access to Documents, Desktop or Downloads. Lopper only reads.")
-            }
-            Spacer()
-            Button { FolderPicker.choose { flow.add($0) } } label: {
-                Label("Choose folder…", systemImage: "folder.badge.plus")
-            }
-            .buttonStyle(.stageSecondary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
     }
 }
 
