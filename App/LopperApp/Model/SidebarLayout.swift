@@ -1,4 +1,5 @@
 import Foundation
+import Lopper
 
 /// How the repository list in the sidebar is organised. A person's choice, remembered between launches.
 enum SidebarGrouping: String, CaseIterable, Identifiable {

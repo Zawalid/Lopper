@@ -1,41 +1,7 @@
 import Foundation
 import Lopper
 
-/// One row of the Agents page: the ordinary cleanup row plus the engine's assessment of it.
-struct AgentRow: Identifiable, Equatable, Sendable {
-    let row: CleanupRow
-    let assessment: AgentAssessment
-
-    var id: String { row.id }
-    var title: String { row.title }
-    var activitySort: Date { assessment.lastActivity ?? .distantPast }
-    var ageSort: Date { assessment.createdAt ?? .distantPast }
-    var sizeSort: Int64 { row.sizeSort }
-    var stateSort: Int { assessment.state.displayRank }
-}
-
 extension AgentState {
-    /// Loudest first: work that is not merged, then what can be reclaimed, then what is in use.
-    var displayRank: Int {
-        switch self {
-        case .unmerged: 0
-        case .abandoned: 1
-        case .finished: 2
-        case .active: 3
-        case .protected: 4
-        }
-    }
-
-    var label: String {
-        switch self {
-        case .finished: "Finished"
-        case .active: "Active"
-        case .unmerged: "Not merged"
-        case .abandoned: "Abandoned"
-        case .protected: "Protected"
-        }
-    }
-
     var symbol: String {
         switch self {
         case .finished: "checkmark.circle"
@@ -83,23 +49,6 @@ struct AgentsSummary: Equatable {
     var protected = 0
     /// Rows still waiting for their folder to be measured.
     var measuring = 0
-}
-
-/// What one tool's worktrees add up to, for the totals row on the Agents page.
-struct AgentToolTotal: Identifiable, Equatable {
-    let tool: AgentTool
-    let count: Int
-    let bytes: Int64
-
-    var id: AgentTool { tool }
-
-    static func totals(of rows: [AgentRow]) -> [AgentToolTotal] {
-        Dictionary(grouping: rows.map { ($0.assessment.detection.tool, $0) }, by: \.0)
-            .map { tool, pairs in
-                AgentToolTotal(tool: tool, count: pairs.count, bytes: pairs.reduce(0) { $0 + ($1.1.row.size ?? 0) })
-            }
-            .sorted { ($0.bytes, $0.count) > ($1.bytes, $1.count) }
-    }
 }
 
 enum AgentsPageState: Equatable {

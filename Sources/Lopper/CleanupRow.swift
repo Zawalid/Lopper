@@ -1,65 +1,105 @@
 import Foundation
-import Lopper
 
 /// What the engine knows about a row beyond its verdict, kept for the details panel.
-struct RowFacts: Equatable, Sendable {
-    var evidence: MergeEvidence = .none
-    var tip: String?
-    var upstream: String?
-    var ahead: Int?
-    var behind: Int?
-    var isDirty = false
-    var defaultBranch: String?
-    var prDetectionAvailable = true
+public struct RowFacts: Equatable, Sendable {
+    public var evidence: MergeEvidence
+    public var tip: String?
+    public var upstream: String?
+    public var ahead: Int?
+    public var behind: Int?
+    public var isDirty: Bool
+    public var defaultBranch: String?
+    public var prDetectionAvailable: Bool
+
+    public init(
+        evidence: MergeEvidence = .none, tip: String? = nil, upstream: String? = nil, ahead: Int? = nil,
+        behind: Int? = nil, isDirty: Bool = false, defaultBranch: String? = nil, prDetectionAvailable: Bool = true
+    ) {
+        self.evidence = evidence
+        self.tip = tip
+        self.upstream = upstream
+        self.ahead = ahead
+        self.behind = behind
+        self.isDirty = isDirty
+        self.defaultBranch = defaultBranch
+        self.prDetectionAvailable = prDetectionAvailable
+    }
 }
 
-/// One line in the workbench: a branch, or a worktree (which carries its branch with it).
-struct CleanupRow: Identifiable, Equatable, Sendable {
-    enum Kind: Equatable, Sendable { case branch, worktree }
+/// One line in the workbench or the CLI list: a branch, or a worktree (which carries its branch with it).
+public struct CleanupRow: Identifiable, Equatable, Sendable {
+    public enum Kind: Equatable, Sendable { case branch, worktree }
 
-    let id: String
-    let kind: Kind
-    let repoRoot: URL
-    let repoName: String
-    let title: String
+    public let id: String
+    public let kind: Kind
+    public let repoRoot: URL
+    public let repoName: String
+    public let title: String
     /// Folder for worktrees, "Local branch" for branches.
-    let location: String
-    let path: URL?
-    let verdict: VerdictKind
-    let reasons: [String]
-    let evidence: String
-    let prNumber: Int?
-    let prURL: URL?
-    let lastCommit: Date?
-    let size: Int64?
-    let agentHint: String?
-    let extraFiles: [String]
+    public let location: String
+    public let path: URL?
+    public let verdict: VerdictKind
+    public let reasons: [String]
+    public let evidence: String
+    public let prNumber: Int?
+    public let prURL: URL?
+    public let lastCommit: Date?
+    public let size: Int64?
+    public let agentHint: String?
+    public let extraFiles: [String]
     /// The branch removed together with a Safe worktree.
-    let bundledBranch: String?
-    var facts = RowFacts()
+    public let bundledBranch: String?
+    public var facts: RowFacts
     /// The Agents page's reading of this worktree; nil unless a known tool made it.
-    var agent: AgentAssessment? = nil
+    public var agent: AgentAssessment?
 
-    var isSelectable: Bool { verdict != .protected }
+    public init(
+        id: String, kind: Kind, repoRoot: URL, repoName: String, title: String, location: String, path: URL?,
+        verdict: VerdictKind, reasons: [String], evidence: String, prNumber: Int?, prURL: URL?, lastCommit: Date?,
+        size: Int64?, agentHint: String?, extraFiles: [String], bundledBranch: String?,
+        facts: RowFacts = RowFacts(), agent: AgentAssessment? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.repoRoot = repoRoot
+        self.repoName = repoName
+        self.title = title
+        self.location = location
+        self.path = path
+        self.verdict = verdict
+        self.reasons = reasons
+        self.evidence = evidence
+        self.prNumber = prNumber
+        self.prURL = prURL
+        self.lastCommit = lastCommit
+        self.size = size
+        self.agentHint = agentHint
+        self.extraFiles = extraFiles
+        self.bundledBranch = bundledBranch
+        self.facts = facts
+        self.agent = agent
+    }
+
+    public var isSelectable: Bool { verdict != .protected }
 
     /// Safe, and for an agent worktree also finished, merged, clean, idle and measured. Every "clean all safe"
     /// shortcut and the safe counts use this, so a worktree an agent may still be using is never swept up.
-    var isBulkEligible: Bool { verdict == .safe && (agent?.isReclaimable ?? true) }
+    public var isBulkEligible: Bool { verdict == .safe && (agent?.isReclaimable ?? true) }
 
     /// Why an agent worktree cannot go to the review sheet from the inspector (still in use, or work that
     /// exists only in its folder), so no button opens a sheet the Agents page would not offer. Nil for rows
     /// no agent made and for rows that can be reviewed.
-    var agentHeldBackReason: String? {
+    public var agentHeldBackReason: String? {
         guard let agent, !(agent.isReclaimable || agent.canReview) else { return nil }
         if agent.state == .active { return "Still in use, or measuring. Lopper leaves it alone for now." }
         return agent.sheetNote.isEmpty ? "Lopper will not remove this from here." : agent.sheetNote
     }
 
-    var lastCommitSort: Date { lastCommit ?? .distantPast }
-    var sizeSort: Int64 { size ?? -1 }
+    public var lastCommitSort: Date { lastCommit ?? .distantPast }
+    public var sizeSort: Int64 { size ?? -1 }
 
     /// What the engine should do for this row, or nil for Protected rows.
-    var cleanupItem: CleanupItem? {
+    public var cleanupItem: CleanupItem? {
         guard isSelectable else { return nil }
         switch kind {
         case .branch:
@@ -71,10 +111,10 @@ struct CleanupRow: Identifiable, Equatable, Sendable {
     }
 }
 
-enum RowMapper {
+public enum RowMapper {
     /// Branches checked out in a linked worktree are represented by that worktree's row; the main
     /// working directory is the repository itself and gets no row.
-    static func rows(
+    public static func rows(
         for snapshot: RepoSnapshot, sizes: [String: DiskUsage],
         policy: AgentPolicy = AgentPolicy(), now: Date = Date(), measuredPaths: Set<String>? = nil
     ) -> [CleanupRow] {
@@ -152,46 +192,22 @@ enum RowMapper {
     }
 
     /// Safe first, then Review, then Protected; oldest work first inside each group.
-    static func defaultOrder(_ lhs: CleanupRow, _ rhs: CleanupRow) -> Bool {
+    public static func defaultOrder(_ lhs: CleanupRow, _ rhs: CleanupRow) -> Bool {
         if lhs.verdict != rhs.verdict { return lhs.verdict < rhs.verdict }
         if lhs.lastCommitSort != rhs.lastCommitSort { return lhs.lastCommitSort < rhs.lastCommitSort }
         return lhs.title < rhs.title
     }
 
-    static func prNumber(_ evidence: MergeEvidence) -> Int? {
+    public static func prNumber(_ evidence: MergeEvidence) -> Int? {
         switch evidence {
         case .prMerged(let number), .prMergedWithNewerCommits(let number): number
         default: nil
         }
     }
 
-    static func abbreviated(_ url: URL) -> String {
+    public static func abbreviated(_ url: URL) -> String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let path = url.path
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
-}
-
-struct RepoSummary: Identifiable, Equatable, Sendable {
-    let id: String
-    let name: String
-    let root: URL
-    let safeBranches: Int
-    let safeWorktrees: Int
-    let review: Int
-    let protected: Int
-    let reclaimableBytes: Int64
-    let defaultBranch: String?
-    /// Set when the scan of this repository failed.
-    let failure: String?
-
-    var safe: Int { safeBranches + safeWorktrees }
-    var total: Int { safe + review + protected }
-    var hasSafeItems: Bool { safe > 0 }
-
-    /// What a screen reader says after the name.
-    var countsDescription: String {
-        if failure != nil { return "Could not be read" }
-        return "\(safe) safe, \(review) to review, \(protected) protected"
     }
 }
