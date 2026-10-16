@@ -95,7 +95,7 @@ struct ReclaimHero: View {
                 Text(value)
                     .font(.system(size: 76, weight: .bold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(LinearGradient(colors: [.white, Theme.mint], startPoint: .top, endPoint: .bottom))
+                    .foregroundStyle(Color(white: 0.97))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
                     .contentTransition(.numericText())
@@ -190,6 +190,90 @@ private struct HeroBars: View {
         .onAppear { grown = true }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Repositories with the most to reclaim: " + bars.map { "\($0.name), \($0.label)" }.joined(separator: "; "))
+    }
+}
+
+/// One repository as a line: its name, the split of what is safe, to review and protected, and a quick clean.
+/// Lines between hairlines read faster than a grid of identical boxes, and there are no cards inside a page.
+struct RepoRow: View {
+    let summary: RepoSummary
+    var onClean: (() -> Void)?
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Button(action: action) {
+                HStack(spacing: Theme.Spacing.lg) {
+                    Text(summary.name)
+                        .font(.data(.callout, weight: .semibold))
+                        .lineLimit(1).truncationMode(.middle)
+                        .frame(width: 168, alignment: .leading)
+                    if summary.failure != nil {
+                        Image(systemName: "exclamationmark.triangle").foregroundStyle(Theme.cautionText)
+                    }
+                    HealthBar(safe: summary.safe, review: summary.review, protected: summary.protected)
+                        .frame(minWidth: 80)
+                    Text(detail)
+                        .font(.data(.caption))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .frame(width: 200, alignment: .trailing)
+                }
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .pointerCursor()
+            Group {
+                if let onClean, let title = quickCleanTitle {
+                    Button(title, action: onClean)
+                        .buttonStyle(.lopperSecondary)
+                        .controlSize(.small)
+                        .help("Review these \(summary.safe) safe items, then remove them")
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: 76, alignment: .trailing)
+        }
+        .padding(.horizontal, Theme.Spacing.sm)
+        .background(Color.primary.opacity(isHovering ? 0.04 : 0))
+        .onHover { isHovering = $0 }
+        .overlay(alignment: .bottom) { Rectangle().fill(Color(nsColor: .separatorColor).opacity(0.6)).frame(height: 1) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(summary.name), \(summary.safe) safe, \(summary.review) to review")
+    }
+
+    private var quickCleanTitle: String? {
+        summary.failure == nil && summary.safe > 0 ? "Clean \(summary.safe)" : nil
+    }
+
+    private var detail: String {
+        if let failure = summary.failure { return failure }
+        var text = "\(summary.safe) safe · \(summary.review) review"
+        if summary.reclaimableBytes > 0 { text += " · " + SizeFormat.string(summary.reclaimableBytes) }
+        return text
+    }
+}
+
+/// A line of placeholder shapes while a repository is still being read.
+struct RepoSkeletonRow: View {
+    @State private var dim = false
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.lg) {
+            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.10)).frame(width: 130, height: 11)
+            RoundedRectangle(cornerRadius: 3).fill(Color.primary.opacity(0.07)).frame(height: 6)
+            RoundedRectangle(cornerRadius: 4).fill(Color.primary.opacity(0.07)).frame(width: 120, height: 9)
+        }
+        .padding(.horizontal, Theme.Spacing.sm)
+        .frame(height: 44)
+        .opacity(dim ? 0.5 : 1)
+        .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)
+        .onAppear { dim = true }
+        .accessibilityHidden(true)
     }
 }
 
@@ -479,7 +563,7 @@ struct SkeletonCard: View {
         .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 79)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+        .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
         .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
         .opacity(dim ? 0.55 : 1)
         .animation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: dim)

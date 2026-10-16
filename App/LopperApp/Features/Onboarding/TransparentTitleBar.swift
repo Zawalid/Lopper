@@ -42,7 +42,7 @@ struct TransparentTitleBar: NSViewRepresentable {
 
     /// The colour behind the picture. The title bar area shows the window's own background, so it is painted the
     /// same, and a gap can never show a different grey.
-    private static let stageColor = NSColor(srgbRed: 0.045, green: 0.055, blue: 0.09, alpha: 1)
+    private static let stageColor = NSColor(srgbRed: 0.043, green: 0.063, blue: 0.057, alpha: 1)
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 

@@ -16,7 +16,7 @@ struct OnboardingView: View {
 }
 
 private enum Stage {
-    static let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
+    static let ink = Theme.ink
     static let mint = Color(red: 0.55, green: 0.95, blue: 0.80)
     static let hairline = Color.white.opacity(0.09)
 }
@@ -572,7 +572,7 @@ private struct ScanStep: View {
                 .font(.system(size: 92, weight: .bold, design: .rounded))
                 .contentTransition(.numericText())
                 .monospacedDigit()
-                .foregroundStyle(LinearGradient(colors: [.white, Stage.mint], startPoint: .top, endPoint: .bottom))
+                .foregroundStyle(Color(white: 0.97))
                 .minimumScaleFactor(0.6)
                 .lineLimit(1)
             Text("\(Plural.count(totals.repositories, "repository", "repositories")) read. "

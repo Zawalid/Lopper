@@ -360,7 +360,7 @@ private struct RepositoryPanel: View {
                         line("Need a look", "\(summary.review)", VerdictKind.review.tint)
                         line("Protected", "\(summary.protected)", VerdictKind.protected.tint)
                         if summary.reclaimableBytes > 0 {
-                            line("Can be reclaimed", SizeFormat.string(summary.reclaimableBytes), .blue)
+                            line("Can be reclaimed", SizeFormat.string(summary.reclaimableBytes), Color.accentColor)
                         }
                         if let main = summary.defaultBranch {
                             line("Default branch", main, .secondary)

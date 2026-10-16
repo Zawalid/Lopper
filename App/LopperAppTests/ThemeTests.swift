@@ -19,16 +19,16 @@ final class ThemeTests: XCTestCase {
         }
     }
 
-    func testPageBackgroundInDarkModeIsAFixedDarkGrayAndNotTheSystemTint() {
+    func testPageBackgroundInDarkModeIsAFixedTintedDarkAndNotTheSystemTint() {
         let color = resolved(Theme.pageBackgroundNS, in: .darkAqua)
-        XCTAssertEqual(color.redComponent, 0.15, accuracy: 0.01)
-        XCTAssertEqual(color.greenComponent, 0.15, accuracy: 0.01)
-        XCTAssertEqual(color.blueComponent, 0.15, accuracy: 0.01)
+        XCTAssertEqual(color.redComponent, 0.118, accuracy: 0.01)
+        XCTAssertEqual(color.greenComponent, 0.131, accuracy: 0.01)
+        XCTAssertEqual(color.blueComponent, 0.126, accuracy: 0.01)
     }
 
     func testCardsStayDistinctFromThePageInDarkMode() {
         let page = resolved(Theme.pageBackgroundNS, in: .darkAqua)
-        let card = resolved(.controlBackgroundColor, in: .darkAqua)
-        XCTAssertGreaterThan(page.redComponent - card.redComponent, 0.02, "cards must read darker than the page")
+        let card = resolved(Theme.cardBackgroundNS, in: .darkAqua)
+        XCTAssertGreaterThan(card.redComponent - page.redComponent, 0.02, "cards must read lighter than the page")
     }
 }

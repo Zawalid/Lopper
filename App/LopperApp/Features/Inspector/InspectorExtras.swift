@@ -40,7 +40,7 @@ struct PullRequestCard: View {
 
     var body: some View {
         let summary = InspectorInsights.pullRequestSummary(pullRequest)
-        let tint: Color = summary.tone == .caution ? .blue : .secondary
+        let tint: Color = summary.tone == .caution ? VerdictKind.review.tint : .secondary
         HStack(alignment: .top, spacing: Theme.Spacing.sm) {
             GitHubMarkView(size: 15).foregroundStyle(tint).padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
@@ -368,7 +368,7 @@ struct UniqueWorkSection: View {
                     }
                 }
                 .background(
-                    Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                    Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
             }
         } else {

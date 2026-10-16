@@ -140,8 +140,8 @@ final class WindowSizeSweepTests: XCTestCase {
         guard let topRight = pixel(in: window, atFractionX: 0.75, y: 0.12),
               let bottomRight = pixel(in: window, atFractionX: 0.9, y: 0.85) else { return XCTFail("no pixel") }
         for (name, color) in [("top right", topRight), ("bottom right", bottomRight)] {
-            XCTAssertEqual(color.0, color.1, accuracy: 0.01, "\(name) is not a neutral gray")
-            XCTAssertEqual(color.1, color.2, accuracy: 0.01, "\(name) is not a neutral gray")
+            XCTAssertEqual(color.0, color.1, accuracy: 0.03, "\(name) is not a near-neutral gray")
+            XCTAssertEqual(color.1, color.2, accuracy: 0.03, "\(name) is not a near-neutral gray")
             XCTAssertGreaterThan(color.0, 0.1, "\(name) is too dark to be the page: \(color.0)")
             XCTAssertLessThan(color.0, 0.3, "\(name) is too light to be the dark page: \(color.0)")
         }

@@ -92,7 +92,7 @@ struct LopperLinkButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .foregroundStyle(isEnabled ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isEnabled ? Theme.accentText : Color.secondary)
                 .underline(isHovering && isEnabled)
                 .opacity(configuration.isPressed ? 0.7 : 1)
                 .onHover { isHovering = $0 }

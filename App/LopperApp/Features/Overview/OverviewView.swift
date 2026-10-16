@@ -162,16 +162,9 @@ struct OverviewContent: View {
                 StatTile(
                     title: "Protected", value: "\(totals.protected)", symbol: "lock",
                     tint: VerdictKind.protected.tint)
-                if totals.reclaimableBytes > 0 {
-                    StatTile(
-                        title: "Can be reclaimed", value: SizeFormat.string(totals.reclaimableBytes),
-                        symbol: "internaldrive", tint: .blue)
-                } else {
-                    // Sizes arrive after the scan; until then a dash would only look broken.
-                    StatTile(
-                        title: "Repositories", value: "\(totals.repositories)",
-                        symbol: "shippingbox", tint: .blue)
-                }
+                StatTile(
+                    title: "Repositories", value: "\(totals.repositories)",
+                    symbol: "shippingbox", tint: Color.accentColor)
             }
             .statStrip()
         }
@@ -215,7 +208,7 @@ struct OverviewContent: View {
                         .padding(Theme.Spacing.md)
                     }
                 }
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
             }
         }
@@ -239,7 +232,7 @@ struct OverviewContent: View {
                         }
                     }
                 }
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
 
                 let removed = OverviewInsights.lifetimeRemoved(history: model.history)
@@ -264,17 +257,18 @@ struct OverviewContent: View {
         }()
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             if !attention.isEmpty || pending > 0 {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)],
-                    spacing: Theme.Spacing.lg
-                ) {
-                    ForEach(attention) { summary in
-                        RepoCard(
-                            summary: summary,
-                            onClean: { model.beginCleanSafe(inRepo: summary.id) },
-                            action: { model.route = .repo(summary.id) })
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    Text("Repositories").font(.headline)
+                    VStack(spacing: 0) {
+                        ForEach(attention) { summary in
+                            RepoRow(
+                                summary: summary,
+                                onClean: { model.beginCleanSafe(inRepo: summary.id) },
+                                action: { model.route = .repo(summary.id) })
+                        }
+                        ForEach(0..<pending, id: \.self) { _ in RepoSkeletonRow() }
                     }
-                    ForEach(0..<pending, id: \.self) { _ in SkeletonCard() }
+                    .overlay(alignment: .top) { Rectangle().fill(Color(nsColor: .separatorColor).opacity(0.6)).frame(height: 1) }
                 }
             }
             if !tidy.isEmpty {
@@ -356,7 +350,7 @@ struct OverviewContent: View {
                         }
                     }
                 }
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .background(Theme.cardBackground, in: RoundedRectangle(cornerRadius: Theme.cardRadius))
                 .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
             }
         }

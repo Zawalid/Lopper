@@ -16,10 +16,20 @@ enum Theme {
     /// without any change in the app.
     static let pageBackgroundNS = NSColor(name: nil) { appearance in
         let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return isDark ? NSColor(srgbRed: 0.15, green: 0.15, blue: 0.15, alpha: 1) : .windowBackgroundColor
+        // A hair of green in the grey, the same hue as the accent, so the page and the banner belong together.
+        return isDark ? NSColor(srgbRed: 0.118, green: 0.131, blue: 0.126, alpha: 1) : .windowBackgroundColor
     }
 
     static var pageBackground: Color { Color(nsColor: pageBackgroundNS) }
+
+    /// Cards sit one step above the page: lighter in dark mode (so they read as raised) and the system's own
+    /// control background in light mode.
+    static let cardBackgroundNS = NSColor(name: nil) { appearance in
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark ? NSColor(srgbRed: 0.165, green: 0.180, blue: 0.174, alpha: 1) : .controlBackgroundColor
+    }
+
+    static var cardBackground: Color { Color(nsColor: cardBackgroundNS) }
 
     private static func adaptive(light: NSColor, dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
@@ -41,7 +51,12 @@ enum Theme {
     /// The brand's bright mint, for fills that carry dark text (primary buttons, ticks, the hero).
     static let mint = Color(red: 0.55, green: 0.95, blue: 0.80)
     /// The deep blue-black the welcome stage and the Overview banner sit on.
-    static let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
+    static let ink = Color(red: 0.043, green: 0.063, blue: 0.057)
+
+    /// The accent as text or an icon: deep emerald on light pages, mint on dark ones, so links always read.
+    static let accentText = adaptive(
+        light: NSColor(srgbRed: 0.04, green: 0.42, blue: 0.31, alpha: 1),
+        dark: NSColor(srgbRed: 0.50, green: 0.90, blue: 0.74, alpha: 1))
 
     static let cardRadius: CGFloat = 12
     static let controlRadius: CGFloat = 8

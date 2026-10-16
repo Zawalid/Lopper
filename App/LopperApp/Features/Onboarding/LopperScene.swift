@@ -72,8 +72,7 @@ private struct FreedCounter: View {
                 .tracking(2)
                 .foregroundStyle(.white.opacity(0.55))
         }
-        .foregroundStyle(
-            LinearGradient(colors: [.white, Color(red: 0.55, green: 0.95, blue: 0.8)], startPoint: .top, endPoint: .bottom))
+        .foregroundStyle(Color(white: 0.97))
         .opacity(freed > 0.01 ? min(1, freed * 2) : 0)
         .shadow(color: Color(red: 0.3, green: 0.9, blue: 0.7).opacity(0.35), radius: 14)
         .accessibilityHidden(true)
@@ -90,11 +89,11 @@ private struct SceneRenderer {
     let compact: Bool
     let intensity: Double
 
-    private let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
+    private let ink = Color(red: 0.043, green: 0.063, blue: 0.057)
     private let keptColor = Color(red: 0.42, green: 0.95, blue: 0.78)
-    private let activeColor = Color(red: 0.45, green: 0.72, blue: 1.0)
+    private let activeColor = Color(red: 0.78, green: 0.96, blue: 0.90)
     private let staleColor = Color(red: 0.78, green: 0.70, blue: 0.60)
-    private let trunkColor = Color(red: 0.82, green: 0.90, blue: 1.0)
+    private let trunkColor = Color(red: 0.88, green: 0.97, blue: 0.93)
     private let ember = Color(red: 1.0, green: 0.72, blue: 0.30)
 
     private var width: CGFloat { size.width }
@@ -235,9 +234,9 @@ private struct SceneRenderer {
     private func drawBackground(_ context: inout GraphicsContext) {
         let shift = CGSize(width: parallax.width * 0.4, height: parallax.height * 0.4)
         let blobs: [(Color, Double, Double, Double, Double)] = [
-            (Color(red: 0.20, green: 0.45, blue: 1.00), 0.72, 0.30, 0.55, 0.26),
-            (Color(red: 0.10, green: 0.80, blue: 0.70), 0.60, 0.90, 0.50, 0.17),
-            (Color(red: 0.50, green: 0.30, blue: 0.95), 0.90, 0.80, 0.48, 0.19),
+            (Color(red: 0.30, green: 0.85, blue: 0.62), 0.74, 0.28, 0.52, 0.18),
+            (Color(red: 0.10, green: 0.62, blue: 0.58), 0.60, 0.92, 0.50, 0.15),
+            (Color(red: 0.16, green: 0.50, blue: 0.34), 0.92, 0.80, 0.46, 0.15),
         ]
         for (offset, blob) in blobs.enumerated() {
             let drift = time * (0.12 + Double(offset) * 0.05)

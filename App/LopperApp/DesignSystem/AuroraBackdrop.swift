@@ -19,9 +19,9 @@ struct AuroraBackdrop: View {
 
     private func draw(_ context: inout GraphicsContext, size: CGSize, time: Double) {
         let lights: [(Color, Double, Double, Double, Double)] = [
-            (Color(red: 0.20, green: 0.45, blue: 1.00), 0.78, 0.25, 0.55, 0.24),
-            (Color(red: 0.10, green: 0.80, blue: 0.70), 0.60, 0.95, 0.50, 0.15),
-            (Color(red: 0.50, green: 0.30, blue: 0.95), 0.95, 0.75, 0.48, 0.17),
+            (Color(red: 0.30, green: 0.85, blue: 0.62), 0.80, 0.22, 0.52, 0.17),
+            (Color(red: 0.10, green: 0.62, blue: 0.58), 0.58, 0.98, 0.50, 0.15),
+            (Color(red: 0.16, green: 0.50, blue: 0.34), 0.96, 0.78, 0.46, 0.14),
         ]
         for (offset, light) in lights.enumerated() {
             let drift = time * (0.07 + Double(offset) * 0.03)

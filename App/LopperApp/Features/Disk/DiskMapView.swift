@@ -6,8 +6,8 @@ enum DiskPalette {
         switch kind {
         case .packages: .orange
         case .frameworkCache: .yellow
-        case .buildOutput: .blue
-        case .languageBuild: .purple
+        case .buildOutput: Color.accentColor
+        case .languageBuild: Color(red: 0.86, green: 0.45, blue: 0.40)
         case .pythonEnvironment: .green
         case .cache: .teal
         case .other: .gray

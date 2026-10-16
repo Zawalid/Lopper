@@ -136,9 +136,9 @@ private struct VolumeBar: View {
                 let reclaimWidth = min(usedWidth, proxy.size.width * Double(reclaimable) / total)
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.secondary.opacity(0.18))
-                    Capsule().fill(Color.blue.opacity(0.65)).frame(width: max(4, usedWidth))
+                    Capsule().fill(Color.secondary.opacity(0.5)).frame(width: max(4, usedWidth))
                     if reclaimWidth > 1 {
-                        Capsule().fill(Color.green)
+                        Capsule().fill(Color.accentColor)
                             .frame(width: max(4, reclaimWidth))
                             .offset(x: max(0, usedWidth - reclaimWidth))
                     }
@@ -257,7 +257,7 @@ private struct DiskTotalsStrip: View {
             HStack(spacing: Theme.Spacing.lg) {
                 StatTile(
                     title: "On disk", value: SizeFormat.string(totals.footprint), symbol: "internaldrive",
-                    tint: .blue)
+                    tint: .secondary)
                 StatTile(
                     title: "Generated folders", value: SizeFormat.string(totals.buildBytes),
                     symbol: "shippingbox", tint: .orange)
