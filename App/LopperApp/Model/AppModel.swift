@@ -521,6 +521,21 @@ final class AppModel {
     /// False until the first look finished, so an empty list is not read as "everything is backed up" too early.
     private(set) var localOnlyLoaded = false
 
+    #if DEBUG
+    @ObservationIgnored private var hiddenLocalOnly: [LocalOnlyItem]?
+
+    /// Screenshot mode only: takes the list away for one shot and puts it back for the next.
+    func debugHideLocalOnly(_ hide: Bool) {
+        if hide, hiddenLocalOnly == nil {
+            hiddenLocalOnly = localOnly
+            localOnly = []
+        } else if !hide, let items = hiddenLocalOnly {
+            localOnly = items
+            hiddenLocalOnly = nil
+        }
+    }
+    #endif
+
     func scanLocalOnly() async {
         let found = await client.localOnlyWork(for: snapshots)
         guard !Task.isCancelled else { return }

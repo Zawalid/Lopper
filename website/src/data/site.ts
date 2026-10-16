@@ -24,6 +24,8 @@ export const links = {
   license: `${repo}/blob/main/LICENSE`,
   issues: `${repo}/issues`,
   install: `${repo}/blob/main/docs/install.md`,
+  safety: `${repo}/blob/main/docs/safety.md`,
+  cli: `${repo}/blob/main/docs/cli.md`,
   author: 'https://zawalid.com',
   github: 'https://github.com/Zawalid',
   x: 'https://x.com/Zawaalid',

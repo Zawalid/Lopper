@@ -15,7 +15,11 @@ enum ScreenshotMode {
     }
 
     private static let shots: [Shot] = [
-        Shot(name: "overview") { $0.route = .overview },
+        // The hero shot is about what can be reclaimed; the "only on this Mac" banner has its own page below.
+        Shot(name: "overview") { model in
+            model.route = .overview
+            model.debugHideLocalOnly(true)
+        },
         Shot(name: "repository") { model in
             guard let repo = model.snapshots.first(where: { $0.repo.name == "web" }) ?? model.snapshots.first else { return }
             model.route = .repo(repo.repo.id)
@@ -33,6 +37,7 @@ enum ScreenshotMode {
             model.route = .disk
             model.diskGrouping = .map
         },
+        Shot(name: "only-here") { $0.route = .onlyHere },
         Shot(name: "history") { $0.route = .history },
     ]
 
@@ -43,7 +48,8 @@ enum ScreenshotMode {
 
         // Wait for the scan and the size measurements so the numbers on the pages are the real ones.
         for _ in 0..<180 {
-            if model.overviewState == .ready, case .ready = model.artifactPhase { break }
+            // Every worktree must be measured, or the sidebar's agent count would change from one shot to the next.
+            if model.overviewState == .ready, case .ready = model.artifactPhase, model.agentsSummary.measuring == 0 { break }
             try? await Task.sleep(for: .milliseconds(500))
         }
         try? await Task.sleep(for: .seconds(3))
@@ -62,6 +68,7 @@ enum ScreenshotMode {
             NSApp.appearance = NSAppearance(named: appearanceName)
             for shot in shots {
                 model.focusedRowID = nil
+                model.debugHideLocalOnly(false)
                 shot.prepare(model)
                 try? await Task.sleep(for: .seconds(2.5))
                 if let data = capture(window) {

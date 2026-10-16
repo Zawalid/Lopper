@@ -1,4 +1,5 @@
 ---
+import { links } from '../data/site';
 const rules = [
   ['offer a branch as safe', 'git confirms its commits are already in the default branch, or a pull request merged them.'],
   ['offer a worktree as safe', 'it has no uncommitted changes and no commits that exist nowhere else.'],
@@ -27,6 +28,11 @@ const rules = [
         </div>
       ))}
     </dl>
+
+    <p class="safety-foot">
+      Two independent reviewers audited every destructive path and a stress run measured 200 repositories.
+      <a class="link" href={links.safety}>How it is checked, and what the audit found</a>
+    </p>
   </div>
 </section>
 
@@ -38,6 +44,8 @@ const rules = [
   .safety-head .lead { max-width: 40rem; }
 
   .ledger { margin: clamp(64px, 9vw, 120px) 0 0; }
+  .safety-foot { margin: 36px 0 0; max-width: 40rem; font-size: 1.05rem; line-height: 1.55; color: var(--muted); }
+  .safety-foot a { margin-left: 4px; }
   .row { position: relative; display: grid; gap: 10px; padding: 28px 0 30px; }
   .rule-line { position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--line-strong); transform-origin: 0 50%; }
   .row:last-child { border-bottom: 1px solid var(--line-strong); }

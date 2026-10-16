@@ -19,7 +19,7 @@ leave worktrees behind (Claude Code, Cursor, Codex).
 
 ## 2. Information architecture
 
-Sidebar: **Overview**, **Agents**, **Disk**, **History**, then **Repositories**. Footer: Add folder, Settings.
+Sidebar: **Overview**, **Agents**, **Disk**, **Only on this Mac**, **History**, then **Repositories**. Footer: Add folder, Settings.
 
 | Page | Purpose | Status |
 |---|---|---|
@@ -31,21 +31,24 @@ Sidebar: **Overview**, **Agents**, **Disk**, **History**, then **Repositories**.
 | Settings | See section 4 | partial |
 | Agents | Worktrees made by AI tools: age, unmerged work, size, finished or abandoned, reclaim all finished | done |
 | Disk | Where space goes: generated folders by project, kind and as a map, developer caches, free space, clear to the Trash with undo, optional reinstall | done |
+| Only on this Mac | Unpushed commits, uncommitted changes in worktrees, stashes and half-done operations, with a copyable push command. Never removes anything | done |
 | Rules and schedule | "Delete branches merged more than 14 days ago", run weekly, digest notification | planned |
 | What's new, About, Updates | Release notes, version, check for updates | planned |
 
 ## 3. Feature backlog
 
 ### Trust and safety (core, free)
-- Remote branch cleanup, opt-in, with the same evidence rules and an undo (`planned`)
+- Remote branch cleanup, opt-in, with the same evidence rules and an undo (`built, parked on a branch until its own audit`)
 - Stash awareness and cleanup (`planned`)
 - Per-repository protected patterns and default branch override in the UI (`planned`)
 - "Explain this verdict" with the exact git evidence, copyable (`idea`)
 - Bare repositories and submodules shown correctly (`planned`)
-- Git missing and denied-folder setup screens (`planned`)
+- Git missing and denied-folder setup screens (`done`)
+- Diagnostics report and local event log, nothing sent (`done`)
+- Safety audit with a written record, see docs/safety.md (`done`)
 
 ### Insight
-- Work that exists only on this Mac: unpushed commits, unmerged worktrees, one list (`planned`)
+- Work that exists only on this Mac: unpushed commits, unmerged worktrees, one list (`done`)
 - Branch age, ahead and behind, stale threshold used in the UI (`planned`)
 - Reclaimed over time, small and honest (`idea`)
 
@@ -53,7 +56,7 @@ Sidebar: **Overview**, **Agents**, **Disk**, **History**, then **Repositories**.
 - Rules engine and schedule, with a dry-run preview before the first automatic run (`planned`)
 - Notifications: weekly digest, "an agent worktree finished" (`planned`)
 - Reacting to merges (file-system events) instead of polling (`idea`)
-- `lop` command line tool, designed as a first-class product, sharing the engine (`planned`)
+- `lop` command line tool, designed as a first-class product, sharing the engine (`done`)
 - Shortcuts and App Intents (`idea`)
 
 ### Integrations
@@ -106,7 +109,7 @@ These are cheap now and expensive later.
 | 1 | Foundations | Settings architecture, localization, entitlements seam, diagnostics, icon and naming check |
 | 2 | Differentiators | Agents page, Disk page with in-place artifact cleanup, richer History |
 | 3 | Automation | Rules and schedule, notifications, the `lop` CLI |
-| 4 | Ship | Signing, notarization, updates, website, licensing, pricing, private beta |
+| 4 | Ship | Updates, website, licensing, pricing. Releases stay unsigned, with a documented first launch |
 | 5+ | Reach | Remote branches, GitLab, stash, more tools, teams (only if asked for) |
 
 ## 7. Open decisions

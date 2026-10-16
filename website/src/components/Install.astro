@@ -1,6 +1,7 @@
 ---
 import { links, version } from '../data/site';
 const brew = 'brew install --cask zawalid/lopper/lopper';
+const cli = 'brew install zawalid/lopper/lop';
 const xattr = 'xattr -dr com.apple.quarantine /Applications/Lopper.app';
 const build = 'git clone https://github.com/Zawalid/Lopper.git\ncd Lopper && scripts/build-app.sh';
 ---
@@ -23,6 +24,10 @@ const build = 'git clone https://github.com/Zawalid/Lopper.git\ncd Lopper && scr
         <div class="step">
           <h3>With Homebrew</h3>
           <div class="cmd"><pre><code>{brew}</code></pre><button class="cmd-copy" type="button" data-copy={brew}>Copy</button></div>
+        </div>
+        <div class="step">
+          <h3>The command line tool</h3>
+          <div class="cmd"><pre><code>{cli}</code></pre><button class="cmd-copy" type="button" data-copy={cli}>Copy</button></div>
         </div>
         <div class="step">
           <h3>The first launch</h3>

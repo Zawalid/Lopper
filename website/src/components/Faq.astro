@@ -2,9 +2,12 @@
 const faq = [
   ['Can it delete my unmerged work?', 'No. A branch or worktree holding commits that exist nowhere else is never offered as safe. If Lopper cannot prove something is merged it shows "needs a look" and leaves the decision to you. Even then, removed branches come back from History at their exact commit.'],
   ['Does it send anything anywhere?', 'No. There is no account, no analytics and no crash reporting, and this site has none either. Lopper runs git, and the GitHub CLI if you have it, on your Mac and reads only the folders you chose.'],
+  ['What about work I have not pushed?', 'Lopper has a page for exactly that, called Only on this Mac. It lists unpushed commits, uncommitted changes in worktrees, stashes and half-done rebases, so you can back them up. It reads them and never removes or pushes anything for you.'],
   ['Which AI tools does it understand?', 'Worktrees from Claude Code, Cursor, Codex and Conductor are recognised by their layout and labelled with the tool. Worktrees from anything else are handled as ordinary git worktrees.'],
+  ['Is there a command line?', 'Yes. lop runs the same engine in the terminal, with --json for scripts and AI agents, and shares your folders and undo history with the app. Install it with brew install zawalid/lopper/lop.'],
+  ['What if something goes wrong?', 'Everything Lopper removes can be undone for 30 days. If you hit a bug, Settings, About, Diagnostics shows exactly what a bug report would contain, with repository and branch names left out unless you add them. You copy or save it yourself; Lopper sends nothing.'],
   ['Will it ever clean up on its own?', 'No. Rules and the weekly digest only offer a cleanup. Nothing is removed until you have reviewed the list and confirmed it, and everything goes to the Trash first.'],
-  ['Why does macOS warn me the first time?', 'The app is not yet signed with an Apple Developer ID, so Gatekeeper asks you to confirm it once. The steps are in the install section above. The source is open, so you can read it or build it yourself.'],
+  ['Why does macOS warn me the first time?', 'The app is not signed with an Apple Developer ID, so Gatekeeper asks you to confirm it once. The steps are in the install section above. The source is open, so you can read it or build it yourself.'],
 ];
 ---
 <section class="faq" id="faq" aria-labelledby="faq-title">

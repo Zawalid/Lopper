@@ -74,9 +74,25 @@ back at their exact commit.
 <tr>
 <td width="50%" valign="top">
 
+**Only on this Mac**<br>
+Unpushed commits, uncommitted changes in worktrees, stashes and half-done rebases: the work that has no copy anywhere
+else, listed so you can back it up. It never removes or pushes anything.
+
+</td>
+<td width="50%" valign="top">
+
 **Rules, offer only**<br>
 "Branches merged more than 14 days ago", "projects untouched for 60 days". Rules suggest, a weekly digest reminds you,
 and nothing is ever removed without you confirming a list.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**Command line**<br>
+`lop` runs the same engine in the terminal, with `--json` for scripts and AI agents, and shares your folders and undo
+history with the app.
 
 </td>
 <td width="50%" valign="top">
@@ -111,6 +127,19 @@ dark appearance. No account, no analytics, no network calls of its own.
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/history-dark.png">
   <img alt="History: every removal, why it was safe, and how long it can be restored" src="docs/images/history-light.png">
 </picture></td>
+</tr>
+<tr>
+<td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/only-here-dark.png">
+  <img alt="Only on this Mac: unpushed commits, uncommitted changes and stashes, by repository" src="docs/images/only-here-light.png">
+</picture></td>
+<td width="50%" valign="middle">
+
+**Nothing here is ever removed.**<br>
+This page lists the work that exists only on your Mac, with a copyable `git push` for each branch. Lopper reads it and
+never pushes for you.
+
+</td>
 </tr>
 </table>
 
@@ -156,6 +185,8 @@ lop scan                 # what can be removed, repository by repository
 lop why feature/old-2    # the git evidence for one branch
 lop clean                # review the plan, confirm, remove; undo with `lop undo --last`
 lop agents               # worktrees left by Claude Code, Cursor, Codex and Conductor
+lop risk                 # work that exists only on this Mac: unpushed commits, stashes, uncommitted changes
+lop diagnostics          # a report to paste into a bug report; nothing is sent
 ```
 
 Every command has `--json` for scripts and AI agents. See the [command line guide](docs/cli.md).
@@ -243,8 +274,8 @@ In `~/Library/Application Support/Lopper`: your settings as a readable JSON file
 
 ## Roadmap
 
-Remote branch cleanup, stash handling, GitLab and Bitbucket merge detection, a `lop` command line tool and in-app updates
-are next. The full list is in the [roadmap](docs/roadmap.md).
+Remote branch cleanup, stash cleanup, GitLab and Bitbucket merge detection and in-app updates are next. The full list is
+in the [roadmap](docs/roadmap.md).
 
 ## Contributing
 
