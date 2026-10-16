@@ -154,7 +154,7 @@ private struct NameCell: View {
                 if row.kind == .worktree {
                     Text(row.location)
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Theme.metaText)
                         .lineLimit(1)
                         .truncationMode(.head)
                 }
@@ -176,7 +176,7 @@ private struct SizeCell: View {
 
     var body: some View {
         if row.kind == .branch {
-            Text("-").foregroundStyle(.tertiary)
+            Text("-").foregroundStyle(Theme.metaText)
         } else if let size = row.size {
             Text(SizeFormat.string(size)).monospacedDigit().foregroundStyle(.secondary)
         } else {

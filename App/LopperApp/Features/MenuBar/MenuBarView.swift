@@ -72,7 +72,7 @@ struct MenuBarView: View {
             }
             Divider()
             HStack {
-                Text(lastScanText).font(.caption).foregroundStyle(.tertiary)
+                Text(lastScanText).font(.caption).foregroundStyle(Theme.metaText)
                 Spacer()
                 Button { model.startScan() } label: { Image(systemName: "arrow.clockwise") }
                     .buttonStyle(.lopperIcon)

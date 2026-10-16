@@ -150,7 +150,7 @@ private struct VolumeBar: View {
                 Spacer()
                 if reclaimable > 0 {
                     Label("\(SizeFormat.string(reclaimable)) can be given back", systemImage: "circle.fill")
-                        .foregroundStyle(.green)
+                        .foregroundStyle(Theme.positiveText)
                 }
             }
             .font(.caption)
@@ -191,7 +191,7 @@ private struct DeveloperCachesCard: View {
                     HStack(spacing: Theme.Spacing.sm) {
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Theme.metaText)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                             .frame(width: 12)
                         Image(systemName: "externaldrive.badge.icloud").foregroundStyle(.secondary)
@@ -351,7 +351,7 @@ private struct ProjectCard: View {
                     HStack(spacing: Theme.Spacing.sm) {
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Theme.metaText)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                             .frame(width: 12)
                         Image(systemName: project.isWorktree ? "rectangle.stack" : "folder")
@@ -414,7 +414,7 @@ private struct SplitBar: View {
             .frame(height: 6)
             if let source {
                 Text("\(SizeFormat.string(build)) generated · \(SizeFormat.string(source)) your files")
-                    .font(.caption2).foregroundStyle(.tertiary)
+                    .font(.caption2).foregroundStyle(Theme.metaText)
             }
         }
         .accessibilityHidden(true)
@@ -494,7 +494,7 @@ private struct KindCard: View {
                     HStack(spacing: Theme.Spacing.sm) {
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(Theme.metaText)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                             .frame(width: 12)
                         Image(systemName: FolderRow.symbol(group.kind)).foregroundStyle(.secondary)

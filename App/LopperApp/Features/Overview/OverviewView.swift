@@ -183,7 +183,7 @@ struct OverviewContent: View {
                 if removed > 0 {
                     Text("\(Plural.count(removed, "item")) removed with Lopper so far")
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Theme.metaText)
                 }
             }
         }
@@ -224,7 +224,7 @@ struct OverviewContent: View {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 11, weight: .semibold))
                                 .rotationEffect(.degrees(tidyExpanded ? 90 : 0))
-                                .foregroundStyle(.tertiary)
+                                .foregroundStyle(Theme.metaText)
                                 .frame(width: 14)
                             Text("\(Plural.count(tidy.count, "repository", "repositories")) already tidy")
                                 .foregroundStyle(.secondary)
@@ -276,7 +276,7 @@ struct OverviewContent: View {
                     Text("Worth a look").font(.headline)
                     Text("Not merged anywhere Lopper can see. Nothing here is removed without you.")
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Theme.metaText)
                         .lineLimit(1)
                     Spacer()
                     if totals.review > highlights.count, let repo = model.repositoryWithMostToReview {
@@ -312,7 +312,7 @@ struct OverviewContent: View {
     private var foldersFooter: some View {
         HStack(spacing: Theme.Spacing.md) {
             Image(systemName: "folder")
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Theme.metaText)
             Text(model.foldersSummary)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -355,7 +355,7 @@ private struct ActivityRow: View {
                     .buttonStyle(.lopperSecondary)
                     .controlSize(.small)
             } else {
-                Text("Restored").font(.caption).foregroundStyle(.tertiary)
+                Text("Restored").font(.caption).foregroundStyle(Theme.metaText)
             }
         }
         .padding(.horizontal, Theme.Spacing.md)
@@ -397,11 +397,11 @@ private struct HighlightRow: View {
                 if let date = highlight.lastCommit {
                     Text(AgeFormat.short(from: date))
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Theme.metaText)
                 }
                 Image(systemName: "chevron.right")
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Theme.metaText)
             }
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.vertical, Theme.Spacing.sm)

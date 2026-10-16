@@ -123,7 +123,7 @@ private struct FilterField: View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Theme.metaText)
 
             TextField("Filter", text: $query)
                 .textFieldStyle(.plain)
@@ -138,13 +138,13 @@ private struct FilterField: View {
             if !query.isEmpty {
                 Text("\(matchCount) of \(totalCount)")
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Theme.metaText)
                 Button {
                     query = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Theme.metaText)
                 }
                 .buttonStyle(.plain)
                 .help("Clear filter")
@@ -183,14 +183,14 @@ private struct GroupHeader: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .bold))
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Theme.metaText)
                     .frame(width: 12)
                 Text(title)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text("\(count)")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Theme.metaText)
                 Spacer(minLength: 0)
             }
             .padding(.vertical, 3)
@@ -277,7 +277,7 @@ private struct CountBadge: View {
     var body: some View {
         Text("\(count)")
             .font(.caption2.weight(.semibold).monospacedDigit())
-            .foregroundStyle(kind.tint)
+            .foregroundStyle(kind.textTint)
             .padding(.horizontal, 6)
             .padding(.vertical, 1)
             .background(kind.tint.opacity(0.16), in: Capsule())
@@ -305,7 +305,7 @@ private struct SidebarRepoRow: View {
                 if showsDetails {
                     Text(summary.detailLine(includingFolder: includesFolder))
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(Theme.metaText)
                         .lineLimit(1)
                         .truncationMode(.tail)
                 }
@@ -421,7 +421,7 @@ private struct ScanStatus: View {
                     Image(systemName: "sparkles").foregroundStyle(VerdictKind.safe.tint)
                     Text("\(SizeFormat.string(model.totals.reclaimableBytes)) can be reclaimed")
                     Spacer(minLength: 0)
-                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(Theme.metaText)
                 }
                 .font(.caption)
                 .padding(.horizontal, Theme.Spacing.sm)

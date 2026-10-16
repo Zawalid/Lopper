@@ -21,11 +21,37 @@ enum Theme {
 
     static var pageBackground: Color { Color(nsColor: pageBackgroundNS) }
 
+    private static func adaptive(light: NSColor, dark: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
+        })
+    }
+
+    /// Small supporting text (subtitles, ages, hints). The system's tertiary label is about 2:1 on white, so in
+    /// light mode it uses the secondary label, which reads.
+    static let metaText = adaptive(light: .secondaryLabelColor, dark: .tertiaryLabelColor)
+
+    /// Green and orange for text and icons that carry meaning. The system colors are made for fills: as text
+    /// on white they fall near 2:1, so light mode gets darker shades of the same hues.
+    static let positiveText = adaptive(
+        light: NSColor(srgbRed: 0.10, green: 0.45, blue: 0.20, alpha: 1), dark: .systemGreen)
+    static let cautionText = adaptive(
+        light: NSColor(srgbRed: 0.63, green: 0.29, blue: 0.03, alpha: 1), dark: .systemOrange)
+
     static let cardRadius: CGFloat = 12
     static let controlRadius: CGFloat = 8
 }
 
 extension VerdictKind {
+    /// The tint for text sitting on its own faint fill (chips, badges).
+    var textTint: Color {
+        switch self {
+        case .safe: Theme.positiveText
+        case .review: Theme.cautionText
+        case .protected: .secondary
+        }
+    }
+
     var tint: Color {
         switch self {
         case .safe: .green

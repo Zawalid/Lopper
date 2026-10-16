@@ -9,7 +9,7 @@ struct VerdictChip: View {
             .font(.caption.weight(.medium))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .foregroundStyle(kind.tint)
+            .foregroundStyle(kind.textTint)
             .background(kind.tint.opacity(0.15), in: Capsule())
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Verdict: \(kind.label)")
@@ -99,7 +99,7 @@ struct ReclaimHero: View {
                 }
             }
             .font(.caption)
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(Theme.metaText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.xl)

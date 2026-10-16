@@ -21,6 +21,7 @@ struct DiskMapView: View {
     let projects: [DiskProject]
     let caches: [DiskArtifact]
     @Environment(AppModel.self) private var model
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedID: String?
 
     private struct Group: Identifiable {
@@ -30,19 +31,39 @@ struct DiskMapView: View {
         var bytes: Int64 { artifacts.reduce(0) { $0 + $1.bytes } }
     }
 
-    private var groups: [Group] {
-        var result = projects.map { Group(id: $0.id, title: $0.name, artifacts: $0.artifacts) }
-        if !caches.isEmpty { result.append(Group(id: "developer-caches", title: "Developer caches", artifacts: caches)) }
-        return result
+    private var projectGroups: [Group] {
+        projects.map { Group(id: $0.id, title: $0.name, artifacts: $0.artifacts) }
     }
 
-    private var allArtifacts: [DiskArtifact] { groups.flatMap(\.artifacts) }
+    private var cacheGroup: Group? {
+        caches.isEmpty ? nil : Group(id: "developer-caches", title: "Developer caches", artifacts: caches)
+    }
+
+    private var allArtifacts: [DiskArtifact] { projects.flatMap(\.artifacts) + caches }
     private var selected: DiskArtifact? { allArtifacts.first { $0.id == selectedID } }
 
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { proxy in
-                map(in: CGRect(origin: .zero, size: proxy.size))
+                let size = proxy.size
+                // Tool caches are not part of any project and are often bigger than all of them together, so
+                // they get their own strip instead of shrinking every project to a sliver.
+                let stripHeight = cacheGroup == nil ? 0 : min(150, size.height * 0.28)
+                let gap: CGFloat = cacheGroup == nil ? 0 : Theme.Spacing.md
+                VStack(alignment: .leading, spacing: gap) {
+                    if projectGroups.isEmpty {
+                        Text("No project folders match.")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        map(
+                            groups: projectGroups,
+                            in: CGRect(x: 0, y: 0, width: size.width, height: size.height - stripHeight - gap))
+                    }
+                    if let cacheGroup {
+                        map(groups: [cacheGroup], in: CGRect(x: 0, y: 0, width: size.width, height: stripHeight))
+                    }
+                }
             }
             .padding(Theme.Spacing.lg)
             Divider()
@@ -50,8 +71,7 @@ struct DiskMapView: View {
         }
     }
 
-    private func map(in bounds: CGRect) -> some View {
-        let groups = self.groups
+    private func map(groups: [Group], in bounds: CGRect) -> some View {
         let cells = Treemap.layout(groups.map { ($0.id, Double($0.bytes)) }, in: bounds)
         return ZStack(alignment: .topLeading) {
             ForEach(cells, id: \.id) { cell in
@@ -65,7 +85,7 @@ struct DiskMapView: View {
 
     private func groupView(_ group: Group, rect: CGRect) -> some View {
         let outer = rect.insetBy(dx: 2, dy: 2)
-        let showsTitle = outer.height > 54 && outer.width > 90
+        let showsTitle = outer.height > 54 && outer.width > 80
         let headerHeight: CGFloat = showsTitle ? 20 : 0
         let inner = CGRect(
             x: 4, y: headerHeight + 2, width: max(0, outer.width - 8), height: max(0, outer.height - headerHeight - 6))
@@ -75,8 +95,16 @@ struct DiskMapView: View {
             RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.10))
             if showsTitle {
                 HStack(spacing: 6) {
-                    Text(group.title).font(.caption.weight(.semibold)).lineLimit(1)
-                    Text(SizeFormat.string(group.bytes)).font(.caption).foregroundStyle(.secondary)
+                    Text(group.title)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    if outer.width > 170 {
+                        Text(SizeFormat.string(group.bytes))
+                            .font(.caption).foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
                 }
                 .padding(.horizontal, 8)
                 .padding(.top, 4)
@@ -97,18 +125,19 @@ struct DiskMapView: View {
         let color = artifact.removal.isOffered ? DiskPalette.color(for: artifact.kind) : Color.gray
         let isSelected = selectedID == artifact.id
         return RoundedRectangle(cornerRadius: 5)
-            .fill(color.opacity(artifact.removal.isOffered ? 0.75 : 0.35))
+            .fill(color.opacity(artifact.removal.isOffered ? (colorScheme == .dark ? 0.75 : 0.62) : 0.35))
             .overlay(alignment: .topLeading) {
                 if tile.width > 54 && tile.height > 30 {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(artifact.name).font(.caption2.weight(.semibold)).lineLimit(1)
                         Text(SizeFormat.string(artifact.bytes)).font(.caption2).opacity(0.85).lineLimit(1)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(colorScheme == .dark ? Color.white : Color.black.opacity(0.82))
                     .padding(4)
                 }
             }
-            .overlay(RoundedRectangle(cornerRadius: 5).stroke(isSelected ? Color.white : .clear, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 5)
+                .stroke(isSelected ? (colorScheme == .dark ? Color.white : Color.black) : .clear, lineWidth: 2))
             .frame(width: max(0, tile.width), height: max(0, tile.height))
             .offset(x: tile.minX, y: tile.minY)
             .contentShape(Rectangle())
@@ -168,7 +197,7 @@ struct DiskMapView: View {
             }
             Spacer(minLength: 0)
             Text("Click a block for details. Grey blocks are not offered.")
-                .font(.caption).foregroundStyle(.tertiary)
+                .font(.caption).foregroundStyle(Theme.metaText)
         }
     }
 }

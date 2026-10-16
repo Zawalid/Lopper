@@ -155,7 +155,7 @@ private struct HeaderStrip: View {
                     if summary.notMerged > 0 {
                         Label("\(summary.notMerged) not merged", systemImage: "exclamationmark.triangle.fill")
                             .font(.callout.weight(.semibold))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.cautionText)
                             .help("These hold work that is not in the default branch. They are never part of Reclaim finished.")
                     }
                     Spacer(minLength: 0)
@@ -177,7 +177,7 @@ private struct HeaderStrip: View {
                             AgentToolIcon(tool: total.tool, size: 14)
                             Text("\(total.tool.label) \(total.count)")
                             if total.bytes > 0 {
-                                Text(SizeFormat.string(total.bytes)).foregroundStyle(.tertiary)
+                                Text(SizeFormat.string(total.bytes)).foregroundStyle(Theme.metaText)
                             }
                         }
                         .font(.caption)
@@ -240,8 +240,8 @@ struct StateChip: View {
 
     private var tint: Color {
         switch state {
-        case .finished: .green
-        case .unmerged, .abandoned: .orange
+        case .finished: Theme.positiveText
+        case .unmerged, .abandoned: Theme.cautionText
         case .active, .protected: .secondary
         }
     }
@@ -270,7 +270,7 @@ private struct AgentCheckCell: View {
                 .accessibilityLabel("Include \(item.title)")
         } else {
             Image(systemName: "lock")
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Theme.metaText)
                 .help(item.assessment.isKept
                     ? "You asked Lopper to keep this worktree."
                     : item.assessment.sheetNote.isEmpty ? item.assessment.state.label : item.assessment.sheetNote)
@@ -288,7 +288,7 @@ private struct WorktreeCell: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.title).lineLimit(1)
                 Text("\(item.row.repoName) · \(item.assessment.detection.label)")
-                    .font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                    .font(.caption).foregroundStyle(Theme.metaText).lineLimit(1)
             }
         }
     }
@@ -301,7 +301,7 @@ private struct OnlyHereCell: View {
         if work.existsOnlyInFolder {
             Label(work.summary, systemImage: "exclamationmark.triangle.fill")
                 .font(.callout.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Theme.cautionText)
                 .lineLimit(2)
                 .help("Only in this folder: it exists nowhere else.")
         } else {

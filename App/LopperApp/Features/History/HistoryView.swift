@@ -296,7 +296,7 @@ private struct ItemCell: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.title).lineLimit(1).truncationMode(.middle)
                 Text("\(entry.repoName) · \(entry.kindLabel)")
-                    .font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                    .font(.caption).foregroundStyle(Theme.metaText).lineLimit(1)
             }
         }
     }
@@ -312,7 +312,7 @@ private struct StatusCell: View {
         case .removed:
             Label(detail, systemImage: "arrow.uturn.backward.circle")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.positiveText)
                 .lineLimit(1)
                 .help("Can be restored")
         case .restored:
@@ -320,7 +320,7 @@ private struct StatusCell: View {
                 .font(.caption).foregroundStyle(.secondary)
         case .expired:
             Label("Gone for good", systemImage: "clock.badge.xmark")
-                .font(.caption).foregroundStyle(.tertiary)
+                .font(.caption).foregroundStyle(Theme.metaText)
         }
     }
 
@@ -368,7 +368,7 @@ struct HistoryInspector: View {
         } else {
             VStack(spacing: Theme.Spacing.sm) {
                 Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 28)).foregroundStyle(.tertiary)
+                    .font(.system(size: 28)).foregroundStyle(Theme.metaText)
                 Text("Select a removal").font(.headline)
                 Text("See what was removed, why it was safe, and bring it back.")
                     .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
