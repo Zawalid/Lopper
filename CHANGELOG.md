@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-16
+
 ### Added
 - `lop`, a command line tool with the same engine and rules as the app: `scan`, `list`, `why`, `clean`, `agents`, `disk`,
   `history`, `undo`, `folders` and `doctor`, with `--json` output and shell completions. It shares the app's settings
