@@ -6,21 +6,22 @@ cask "lopper" do
 
   url "https://github.com/Zawalid/Lopper/releases/download/v#{version}/Lopper-#{version}.dmg"
   name "Lopper"
-  desc "Finds the branches, worktrees and generated folders you no longer need, and removes them safely"
+  desc "Removes branches, worktrees and generated folders you no longer need"
   homepage "https://github.com/Zawalid/Lopper"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Lopper.app"
 
-  # Until the app is notarized, macOS quarantines it on first launch. Remove the flag so it opens normally.
-  postflight do
-    system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{appdir}/Lopper.app"], must_succeed: false
-  end
-
   zap trash: [
     "~/Library/Application Support/Lopper",
-    "~/Library/Preferences/com.zawalid.lopper.plist",
     "~/Library/Caches/com.zawalid.lopper",
+    "~/Library/Preferences/com.zawalid.lopper.plist",
   ]
+
+  caveats <<~EOS
+    Lopper is not notarized yet, so macOS asks you to confirm it the first time you open it.
+    Right-click Lopper in Applications and choose Open, or run:
+      xattr -dr com.apple.quarantine #{appdir}/Lopper.app
+  EOS
 end
