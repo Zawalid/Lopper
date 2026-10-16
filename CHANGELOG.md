@@ -7,6 +7,7 @@ work lands; `scripts/release.sh` moves them under the new version.
 ## [Unreleased]
 
 ### Added
+- A styled installer: the DMG opens with a dark window, a drag arrow to Applications and a first launch hint.
 - An "Only on this Mac" page, and `lop risk`: work that exists nowhere else, meaning unpushed commits, uncommitted
   changes in worktrees, stashes, commits on a detached head and half done rebases or merges. It lists and explains;
   it never removes or pushes anything.
@@ -18,7 +19,12 @@ work lands; `scripts/release.sh` moves them under the new version.
   you include them; home folders, credentials and email addresses are always removed. Nothing is sent. Events are kept
   in a small local log, capped at 500 entries and 30 days.
 
+### Changed
+- First launch instructions say Open Anyway in System Settings, Privacy & Security, which is what macOS 15 and later
+  require (right-click, Open only works on macOS 14). Updated in the README, install guide, website and Homebrew note.
+
 ### Fixed
+- The window's toolbar takes the page color, so the title bar no longer shows as a separate lighter band.
 - Safety audit (see docs/safety.md): edits hidden with `skip-worktree` or `assume-unchanged` no longer make a worktree
   look clean; work that lives only in a merge commit is no longer called merged; a branch being rebased in another
   worktree is never deleted; removing one missing worktree no longer drops the others; undo records survive two writers
