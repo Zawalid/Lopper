@@ -117,10 +117,27 @@ struct OverviewContent: View {
                 },
                 freshness: model.lastScan,
                 onRescan: { model.startScan() },
+                bars: heroBars,
                 action: { model.beginCleanAllSafe() })
             // Cleaning a partial list would leave out whatever has not been read yet.
             .disabled(model.isScanning)
         }
+    }
+
+    /// The repositories holding the most to reclaim: by size once it is measured, otherwise by how much is safe.
+    private var heroBars: [HeroBar] {
+        let withSize = model.summaries.filter { $0.reclaimableBytes > 0 }
+        if !withSize.isEmpty {
+            return withSize.sorted { $0.reclaimableBytes > $1.reclaimableBytes }.prefix(5).map {
+                HeroBar(id: $0.id, name: $0.name, weight: Double($0.reclaimableBytes), label: SizeFormat.string($0.reclaimableBytes))
+            }
+        }
+        return model.summaries
+            .map { ($0, $0.safeBranches + $0.safeWorktrees) }
+            .filter { $0.1 > 0 }
+            .sorted { $0.1 > $1.1 }
+            .prefix(5)
+            .map { HeroBar(id: $0.0.id, name: $0.0.name, weight: Double($0.1), label: "\($0.1) safe") }
     }
 
     private func summary(_ totals: Totals) -> String {

@@ -53,7 +53,14 @@ final class OnboardingSnapshotTests: XCTestCase {
         ]
         for appearance in [("dark", NSAppearance.Name.darkAqua), ("light", .aqua)] {
             for (name, step, hasRoots) in steps {
+                // Enough repositories for the first-scan picture to look like something.
+                let many = (0..<28).map { index in
+                    Fixtures.snapshot(
+                        name: "repo-\(index)", root: URL(fileURLWithPath: "/code/repo-\(index)"),
+                        branches: (0..<(index % 5)).map { Fixtures.branch("feat/b\($0)", .safe) } + [Fixtures.branch("main", .protected)])
+                }
                 let model = AppModel.preview(
+                    snapshots: hasRoots ? many : [Fixtures.sample],
                     roots: hasRoots ? [URL(fileURLWithPath: "/code")] : [],
                     phase: name == "onboarding-scanning" ? .scanning(done: 29, total: 61) : nil,
                     suggestions: name == "onboarding-choose-empty" ? [] : Fixtures.folderSuggestions,

@@ -7,7 +7,8 @@ import AppKit
 
 /// Filled and quiet buttons. Size follows `controlSize`, so existing `.controlSize(.large)` calls keep working.
 struct LopperButtonStyle: ButtonStyle {
-    enum Kind { case primary, secondary }
+    /// `stage` is the primary button on the dark banner: mint with dark text.
+    enum Kind { case primary, secondary, stage }
     var kind: Kind
 
     @Environment(\.controlSize) private var controlSize
@@ -54,13 +55,20 @@ struct LopperButtonStyle: ButtonStyle {
 
         private var foreground: Color {
             guard isEnabled else { return .secondary.opacity(0.7) }
-            return kind == .primary ? Theme.ink : .primary
+            switch kind {
+            case .primary: return .white
+            case .stage: return Theme.ink
+            case .secondary: return .primary
+            }
         }
 
         private var fill: Color {
             guard isEnabled else { return Color.primary.opacity(0.08) }
             switch kind {
             case .primary:
+                if configuration.isPressed { return Color.accentColor.opacity(0.78) }
+                return isHovering ? Color.accentColor.opacity(0.88) : Color.accentColor
+            case .stage:
                 if configuration.isPressed { return Theme.mint.opacity(0.78) }
                 return isHovering ? Theme.mint.opacity(0.92) : Theme.mint
             case .secondary:
@@ -154,6 +162,7 @@ struct LopperIconButtonStyle: ButtonStyle {
 extension ButtonStyle where Self == LopperButtonStyle {
     static var lopperPrimary: LopperButtonStyle { LopperButtonStyle(kind: .primary) }
     static var lopperSecondary: LopperButtonStyle { LopperButtonStyle(kind: .secondary) }
+    static var lopperStage: LopperButtonStyle { LopperButtonStyle(kind: .stage) }
 }
 
 extension ButtonStyle where Self == LopperLinkButtonStyle {

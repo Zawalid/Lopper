@@ -57,21 +57,36 @@ struct ReclaimHero: View {
     var secondaryAction: (() -> Void)?
     var freshness: Date?
     var onRescan: (() -> Void)?
+    /// Where the space is, biggest first. Drawn on the right of the banner when there is anything to show.
+    var bars: [HeroBar] = []
     let action: () -> Void
 
     var body: some View {
         ZStack(alignment: .leading) {
             Theme.ink
-            LopperScene(compact: true, intensity: 0.9)
-            LinearGradient(
-                stops: [
-                    .init(color: Theme.ink.opacity(0.96), location: 0),
-                    .init(color: Theme.ink.opacity(0.85), location: 0.42),
-                    .init(color: Theme.ink.opacity(0), location: 0.72),
-                ],
-                startPoint: .leading, endPoint: .trailing)
-                .allowsHitTesting(false)
+            AuroraBackdrop(intensity: 0.9)
 
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 0) {
+                    copy
+                    Spacer(minLength: Theme.Spacing.md)
+                    if !bars.isEmpty {
+                        HeroBars(bars: bars)
+                            .frame(width: 240)
+                            .padding(.trailing, 28)
+                    }
+                }
+                copy.frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 300)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.white.opacity(0.08)))
+        .environment(\.colorScheme, .dark)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var copy: some View {
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text(headline.uppercased())
                     .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -92,7 +107,7 @@ struct ReclaimHero: View {
                 if let actionTitle {
                     HStack(spacing: Theme.Spacing.md) {
                         Button(actionTitle, action: action)
-                            .buttonStyle(.lopperPrimary)
+                            .buttonStyle(.lopperStage)
                             .controlSize(.large)
                         if let secondaryTitle, let secondaryAction {
                             Button(secondaryTitle, action: secondaryAction)
@@ -110,7 +125,10 @@ struct ReclaimHero: View {
                             Text(OverviewInsights.freshness(of: freshness, now: context.date))
                         }
                         if let onRescan {
-                            Button("Rescan", action: onRescan).buttonStyle(.lopperLink)
+                            Button("Rescan", action: onRescan)
+                                .buttonStyle(.plain)
+                                .foregroundStyle(Theme.mint)
+                                .pointerCursor()
                         }
                     }
                 }
@@ -118,15 +136,60 @@ struct ReclaimHero: View {
                 .foregroundStyle(.white.opacity(0.45))
                 .padding(.top, 2)
             }
-            .frame(maxWidth: 470, alignment: .leading)
+            .frame(width: 410, alignment: .leading)
             .padding(.leading, 40)
             .padding(.vertical, 34)
+    }
+}
+
+struct HeroBar: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let weight: Double
+    let label: String
+}
+
+/// The banner's right side: the repositories that hold the most to reclaim, as plain bars. It is the data itself,
+/// not a picture, and the bars grow in when the page opens.
+private struct HeroBars: View {
+    let bars: [HeroBar]
+    @State private var grown = false
+
+    var body: some View {
+        let largest = max(bars.map(\.weight).max() ?? 1, 1)
+        VStack(alignment: .leading, spacing: 11) {
+            Text("WHERE IT IS")
+                .font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                .tracking(2)
+                .foregroundStyle(.white.opacity(0.4))
+            ForEach(Array(bars.enumerated()), id: \.element.id) { index, bar in
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text(bar.name).font(.system(size: 12, design: .monospaced)).lineLimit(1).truncationMode(.middle)
+                        Spacer(minLength: 8)
+                        Text(bar.label)
+                            .font(.system(size: 11.5, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .monospacedDigit()
+                    }
+                    Capsule()
+                        .fill(Color.white.opacity(0.08))
+                        .frame(height: 5)
+                        .overlay(alignment: .leading) {
+                            GeometryReader { proxy in
+                                Capsule()
+                                    .fill(LinearGradient(colors: [Theme.mint.opacity(0.55), Theme.mint], startPoint: .leading, endPoint: .trailing))
+                                    .frame(width: grown ? max(5, proxy.size.width * bar.weight / largest) : 5, height: 5)
+                                    .animation(.smooth(duration: 0.9).delay(0.06 * Double(index)), value: grown)
+                            }
+                        }
+                }
+            }
         }
-        .frame(maxWidth: .infinity, minHeight: 300)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(Color.white.opacity(0.08)))
-        .environment(\.colorScheme, .dark)
-        .accessibilityElement(children: .contain)
+        .foregroundStyle(.white.opacity(0.88))
+        .onAppear { grown = true }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Repositories with the most to reclaim: " + bars.map { "\($0.name), \($0.label)" }.joined(separator: "; "))
     }
 }
 

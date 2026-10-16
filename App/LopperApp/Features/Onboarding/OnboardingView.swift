@@ -37,9 +37,20 @@ private struct OnboardingHost: View {
     var body: some View {
         ZStack {
             Stage.ink.ignoresSafeArea()
-            // One scene for the whole flow: it keeps running as the steps change, only quieter behind a panel.
-            LopperScene(compact: flow.step != .welcome, intensity: flow.step == .welcome ? 1 : 0.85, fixedTime: sceneTime)
+            // The graph is the welcome screen's alone. The other steps get a quiet wash of colour, and the first
+            // scan draws the person's own repositories as stars.
+            if flow.step == .welcome {
+                LopperScene(fixedTime: sceneTime).ignoresSafeArea()
+            } else {
+                AuroraBackdrop().ignoresSafeArea()
+            }
+            if flow.step == .scan {
+                RepoConstellation(items: app.summaries.map {
+                    .init(id: $0.id, weight: Double($0.reclaimableBytes > 0 ? $0.reclaimableBytes : Int64($0.safeBranches + $0.safeWorktrees)))
+                })
+                .padding(.leading, 440)
                 .ignoresSafeArea()
+            }
             Scrim().ignoresSafeArea()
 
             Group {
