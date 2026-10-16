@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Lopper installer background</title>
+<style>
+  @font-face { font-family: "Barlow"; font-weight: 800; src: url("../../website/public/fonts/Barlow-800.woff2") format("woff2"); }
+  @font-face { font-family: "Barlow"; font-weight: 500; src: url("../../website/public/fonts/Barlow-500.woff2") format("woff2"); }
+  @font-face { font-family: "Plex Mono"; font-weight: 400; src: url("../../website/public/fonts/IBMPlexMono-400.woff2") format("woff2"); }
+  @font-face { font-family: "Plex Mono"; font-weight: 500; src: url("../../website/public/fonts/IBMPlexMono-500.woff2") format("woff2"); }
+
+  :root {
+    --ink: #0b100f;
+    --ink-2: #111816;
+    --text: #f1f4f2;
+    --muted: #a3aeaa;
+    --mint: #8cf2cc;
+    --plate: #2a8f69;
+  }
+  html, body { margin: 0; background: var(--ink); }
+  .stage {
+    position: relative; width: 660px; height: 420px; overflow: hidden;
+    background:
+      radial-gradient(ellipse 300px 150px at 50% 49%, rgba(140, 242, 204, 0.16), transparent 70%),
+      radial-gradient(circle at 50% 0%, #16211e 0%, transparent 60%),
+      var(--ink);
+  }
+  .dots {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(140, 242, 204, 0.13) 1px, transparent 1.2px);
+    background-size: 22px 22px; background-position: 11px 11px;
+    mask-image: radial-gradient(ellipse 340px 230px at 50% 50%, transparent 30%, #000 100%);
+    -webkit-mask-image: radial-gradient(ellipse 340px 230px at 50% 50%, transparent 30%, #000 100%);
+  }
+  svg { position: absolute; inset: 0; width: 660px; height: 420px; }
+
+  .title {
+    position: absolute; left: 0; right: 0; top: 30px; text-align: center;
+    font: 800 25px/1 "Barlow", sans-serif; letter-spacing: -0.01em; color: var(--text);
+  }
+  .title b { color: var(--mint); font-weight: 800; }
+  .sub {
+    position: absolute; left: 0; right: 0; top: 66px; text-align: center;
+    font: 400 11px/1 "Plex Mono", monospace; letter-spacing: 0.04em; color: var(--muted);
+  }
+
+  /* Plates sit under the icon names. Finder draws those names itself in black (light mode) or white (dark mode),
+     so the plate is a mid-tone green that stays readable with both. */
+  .plate {
+    position: absolute; top: 275px; width: 124px; height: 26px; margin-left: -62px;
+    border-radius: 13px; background: var(--plate);
+    box-shadow: 0 0 0 1px rgba(140, 242, 204, 0.35), 0 6px 18px rgba(42, 143, 105, 0.35);
+  }
+
+  .hint {
+    position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; white-space: nowrap;
+    padding: 9px 16px 9px 12px; border-radius: 12px;
+    background: rgba(17, 24, 22, 0.9); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    font: 400 11px/1 "Plex Mono", monospace; color: var(--muted);
+  }
+  .hint em { font-style: normal; color: var(--text); font-weight: 500; }
+  .hint .pill {
+    font: 500 10px/1 "Plex Mono", monospace; color: var(--mint);
+    padding: 4px 7px; border-radius: 6px; background: rgba(140, 242, 204, 0.1); box-shadow: 0 0 0 1px rgba(140, 242, 204, 0.3);
+  }
+</style>
+
+<div class="stage">
+  <div class="dots"></div>
+
+  <svg viewBox="0 0 660 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="246" x2="400" y1="0" y2="0">
+        <stop offset="0" stop-color="#8cf2cc" stop-opacity="0.0"/>
+        <stop offset="0.5" stop-color="#8cf2cc" stop-opacity="1"/>
+        <stop offset="1" stop-color="#8cf2cc" stop-opacity="1"/>
+      </linearGradient>
+      <linearGradient id="remnant" gradientUnits="userSpaceOnUse" x1="378" x2="414" y1="0" y2="0">
+        <stop offset="0" stop-color="#8cf2cc" stop-opacity="0.55"/>
+        <stop offset="1" stop-color="#8cf2cc" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+
+    <!-- ambient branch lanes, a few already cut -->
+    <g stroke="#8cf2cc" stroke-width="1.5" stroke-linecap="round" opacity="0.11">
+      <path d="M-10 112 H150 C170 112 170 126 190 126 H300"/>
+      <path d="M338 126 H470 C490 126 490 104 510 104 H670"/>
+      <path d="M-10 322 H96 C118 322 118 338 140 338 H250"/>
+      <path d="M290 338 H560 C580 338 580 318 600 318 H670"/>
+    </g>
+    <g fill="#0b100f" stroke="#8cf2cc" stroke-width="1.5" opacity="0.2">
+      <circle cx="60" cy="112" r="3.2"/><circle cx="118" cy="112" r="3.2"/><circle cx="238" cy="126" r="3.2"/>
+      <circle cx="398" cy="126" r="3.2"/><circle cx="548" cy="104" r="3.2"/><circle cx="610" cy="104" r="3.2"/>
+      <circle cx="40" cy="322" r="3.2"/><circle cx="168" cy="338" r="3.2"/><circle cx="360" cy="338" r="3.2"/>
+      <circle cx="470" cy="338" r="3.2"/><circle cx="624" cy="318" r="3.2"/>
+    </g>
+    <!-- the cuts -->
+    <g stroke="#8cf2cc" stroke-width="1.4" stroke-linecap="round" opacity="0.28">
+      <path d="M309 120 L329 132 M309 132 L329 120"/>
+      <path d="M259 332 L279 344 M259 344 L279 332"/>
+    </g>
+
+    <!-- the way home: main line to Applications -->
+    <g filter="url(#glow)">
+      <path d="M246 205 H398" stroke="url(#fade)" stroke-width="3.2" stroke-linecap="round"/>
+      <path d="M392 193 L408 205 L392 217" stroke="#8cf2cc" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g fill="#0b100f" stroke="#8cf2cc" stroke-width="2.4">
+      <circle cx="270" cy="205" r="4.6"/>
+      <circle cx="372" cy="205" r="4.6"/>
+    </g>
+    <circle cx="318" cy="205" r="5.2" fill="#8cf2cc"/>
+
+    <!-- a stray branch peels off and is lopped -->
+    <path d="M318 205 C 326 205 328 176 346 170 H 358" stroke="#8cf2cc" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M378 170 H414" stroke="url(#remnant)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="2 7"/>
+    <circle cx="346" cy="170" r="3.6" fill="#0b100f" stroke="#8cf2cc" stroke-width="2.2"/>
+
+    <!-- scissors at the cut -->
+    <g transform="translate(368 170) rotate(-18)" stroke="#f1f4f2" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="-5.5" cy="-4.2" r="2.7" fill="#0b100f"/>
+      <circle cx="-5.5" cy="4.2" r="2.7" fill="#0b100f"/>
+      <path d="M-3.4 -2.6 L7 4.6"/>
+      <path d="M-3.4 2.6 L7 -4.6"/>
+    </g>
+  </svg>
+
+  <div class="title">Drag <b>Lopper</b> to Applications</div>
+  <div class="sub">then open it from your Applications folder</div>
+
+  <div class="plate" style="left: 170px"></div>
+  <div class="plate" style="left: 490px"></div>
+
+  <div class="hint">
+    <span class="pill">first launch</span>
+    <span>right-click <em>Lopper</em>, choose <em>Open</em>, once</span>
+  </div>
+</div>
