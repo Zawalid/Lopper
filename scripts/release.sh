@@ -66,12 +66,15 @@ text = open("CHANGELOG.md").read()
 today = datetime.date.today().isoformat()
 text = re.sub(r"## \[Unreleased\]\n.*?(?=\n## \[|\Z)", f"## [Unreleased]\n\n## [{version}] - {today}\n\n{notes}\n", text, count=1, flags=re.S)
 open("CHANGELOG.md", "w").write(text)
+cli = open("Sources/LopperCLI/Lop.swift").read()
+cli = re.sub(r'(public static let current = ")[^"]*(")', rf'\g<1>{version}\g<2>', cli, count=1)
+open("Sources/LopperCLI/Lop.swift", "w").write(cli)
 y = open("App/project.yml").read()
 y = re.sub(r"(MARKETING_VERSION: )\S+", rf"\g<1>{version}", y, count=1)
 open("App/project.yml", "w").write(y)
 PY
 
-git add CHANGELOG.md App/project.yml
+git add CHANGELOG.md App/project.yml Sources/LopperCLI/Lop.swift
 git commit -q -m "chore: release $TAG"
 git tag -a "$TAG" -m "Lopper $VERSION"
 echo "tagged $TAG. Review with: git show $TAG --stat"

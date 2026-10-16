@@ -67,6 +67,22 @@ jobs:
           scripts/make-dmg.sh
           mv build/Lopper.dmg "build/Lopper-$VERSION.dmg"
 
+      - name: Build the command line tool
+        run: |
+          swift build -c release --arch arm64 --arch x86_64 --product lop
+          BIN="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/lop"
+          DIR="build/lop-$VERSION"
+          mkdir -p "$DIR/completions"
+          cp "$BIN" "$DIR/lop"
+          strip -x "$DIR/lop"
+          codesign --force --sign "${SIGN_IDENTITY:--}" "$DIR/lop"
+          "$DIR/lop" --generate-completion-script zsh > "$DIR/completions/_lop"
+          "$DIR/lop" --generate-completion-script bash > "$DIR/completions/lop.bash"
+          "$DIR/lop" --generate-completion-script fish > "$DIR/completions/lop.fish"
+          cp LICENSE "$DIR/"
+          [ "$("$DIR/lop" --version)" = "$VERSION" ] || { echo "lop reports a different version than the tag" >&2; exit 1; }
+          tar -czf "build/lop-$VERSION-macos.tar.gz" -C build "lop-$VERSION"
+
       - name: Notarize and staple
         if: env.HAS_SIGNING == 'true'
         env:
@@ -84,12 +100,14 @@ jobs:
           # A copy under a fixed name, so the permanent link releases/latest/download/Lopper.dmg always works.
           cp "build/Lopper-$VERSION.dmg" build/Lopper.dmg
           (cd build && shasum -a 256 "Lopper-$VERSION.dmg" > "Lopper-$VERSION.dmg.sha256")
+          (cd build && shasum -a 256 "lop-$VERSION-macos.tar.gz" > "lop-$VERSION-macos.tar.gz.sha256")
           awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > build/notes.md
           [ -s build/notes.md ] || echo "Release $VERSION" > build/notes.md
           {
             echo
             echo "### Install"
             echo "Download the DMG, drag Lopper to Applications. See docs/install.md for the first-launch steps."
+            echo "The command line tool is \`lop-$VERSION-macos.tar.gz\` (or \`brew install zawalid/lopper/lop\`). See docs/cli.md."
             echo "SHA-256: \`$(cut -d' ' -f1 "build/Lopper-$VERSION.dmg.sha256")\`"
           } >> build/notes.md
 
@@ -101,4 +119,5 @@ jobs:
           case "$VERSION" in *-*) PRERELEASE="--prerelease";; esac
           gh release create "$GITHUB_REF_NAME" \
             "build/Lopper-$VERSION.dmg" build/Lopper.dmg "build/Lopper-$VERSION.dmg.sha256" \
+            "build/lop-$VERSION-macos.tar.gz" "build/lop-$VERSION-macos.tar.gz.sha256" \
             --title "Lopper $VERSION" --notes-file build/notes.md $PRERELEASE
