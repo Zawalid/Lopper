@@ -48,12 +48,16 @@ final class OnboardingSnapshotTests: XCTestCase {
 
         let steps: [(String, OnboardingModel.Step, Bool)] = [
             ("onboarding-welcome", .welcome, false), ("onboarding-choose", .choose, false),
+            ("onboarding-choose-empty", .choose, false), ("onboarding-scanning", .scan, true),
             ("onboarding-scan", .scan, true),
         ]
         for appearance in [("dark", NSAppearance.Name.darkAqua), ("light", .aqua)] {
             for (name, step, hasRoots) in steps {
                 let model = AppModel.preview(
-                    roots: hasRoots ? [URL(fileURLWithPath: "/code")] : [], clock: { Fixtures.now })
+                    roots: hasRoots ? [URL(fileURLWithPath: "/code")] : [],
+                    phase: name == "onboarding-scanning" ? .scanning(done: 29, total: 61) : nil,
+                    suggestions: name == "onboarding-choose-empty" ? [] : Fixtures.folderSuggestions,
+                    clock: { Fixtures.now })
                 model.restartOnboarding()
                 let controller = NSHostingController(
                     rootView: OnboardingView(startingAt: step).environment(model))

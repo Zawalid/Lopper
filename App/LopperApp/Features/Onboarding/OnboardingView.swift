@@ -2,16 +2,23 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Lopper
 
-/// First launch, and "Run setup again" from Settings: welcome, choose where to look, first scan.
+/// First launch, and "Run setup again" from Settings: welcome, choose where to look, first scan. All three steps
+/// share one dark stage with the living graph behind it, so the flow reads as one piece.
 struct OnboardingView: View {
     @Environment(AppModel.self) private var app
     var startingAt: OnboardingModel.Step = .welcome
-    /// A fixed moment of the welcome animation, for snapshots.
+    /// A fixed moment of the animation, for snapshots.
     var sceneTime: Double?
 
     var body: some View {
         OnboardingHost(app: app, startingAt: startingAt, sceneTime: sceneTime)
     }
+}
+
+private enum Stage {
+    static let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
+    static let mint = Color(red: 0.55, green: 0.95, blue: 0.80)
+    static let hairline = Color.white.opacity(0.09)
 }
 
 private struct OnboardingHost: View {
@@ -29,11 +36,15 @@ private struct OnboardingHost: View {
 
     var body: some View {
         ZStack {
-            if flow.step != .welcome { Backdrop() }
+            Stage.ink
+            // One scene for the whole flow: it keeps running as the steps change, only quieter behind a panel.
+            LopperScene(compact: flow.step != .welcome, intensity: flow.step == .welcome ? 1 : 0.7, fixedTime: sceneTime)
+            Scrim(step: flow.step)
+
             Group {
                 switch flow.step {
                 case .welcome:
-                    WelcomeStep(flow: flow, sceneTime: sceneTime)
+                    WelcomeStep(flow: flow)
                 case .choose:
                     ChooseStep(flow: flow, app: app)
                 case .scan:
@@ -42,10 +53,21 @@ private struct OnboardingHost: View {
             }
             .id(flow.step)
             .transition(.asymmetric(
-                insertion: .opacity.combined(with: .offset(x: 28)), removal: .opacity.combined(with: .offset(x: -28))))
+                insertion: .opacity.combined(with: .offset(x: 24)), removal: .opacity.combined(with: .offset(x: -24))))
+
+            if flow.step != .welcome {
+                StepMarker(step: flow.step)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 26)
+            }
         }
-        .animation(.smooth(duration: 0.35), value: flow.step)
+        .animation(.smooth(duration: 0.4), value: flow.step)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .foregroundStyle(.white)
+        .environment(\.colorScheme, .dark)
+        // The picture runs up under the title bar instead of stopping at a strip of window grey.
+        .ignoresSafeArea()
+        .background(TransparentTitleBar())
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted) { providers in
             guard flow.step == .choose else { return false }
             nonisolated(unsafe) let dropped = providers
@@ -57,17 +79,44 @@ private struct OnboardingHost: View {
     }
 }
 
-/// A soft wash of colour behind the flow, so it does not read as an ordinary window.
-private struct Backdrop: View {
+/// Keeps the words readable over the picture: a left-to-right fade on the welcome, a soft vignette behind panels.
+private struct Scrim: View {
+    let step: OnboardingModel.Step
+
     var body: some View {
-        ZStack {
-            Theme.pageBackground
-            RadialGradient(
-                colors: [Color.accentColor.opacity(0.14), .clear], center: .topTrailing, startRadius: 20, endRadius: 520)
-            RadialGradient(
-                colors: [Color.green.opacity(0.08), .clear], center: .bottomLeading, startRadius: 20, endRadius: 460)
+        Group {
+            if step == .welcome {
+                LinearGradient(
+                    stops: [
+                        .init(color: Stage.ink.opacity(0.96), location: 0),
+                        .init(color: Stage.ink.opacity(0.88), location: 0.38),
+                        .init(color: Stage.ink.opacity(0), location: 0.66),
+                    ],
+                    startPoint: .leading, endPoint: .trailing)
+            } else {
+                RadialGradient(
+                    colors: [Stage.ink.opacity(0.78), Stage.ink.opacity(0.35)],
+                    center: .center, startRadius: 60, endRadius: 720)
+            }
         }
-        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+}
+
+private struct StepMarker: View {
+    let step: OnboardingModel.Step
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach([OnboardingModel.Step.welcome, .choose, .scan], id: \.self) { item in
+                Capsule()
+                    .fill(item == step ? Stage.mint : Color.white.opacity(0.18))
+                    .frame(width: item == step ? 26 : 8, height: 6)
+            }
+        }
+        .animation(.smooth, value: step)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Step \(step == .choose ? 2 : 3) of 3")
     }
 }
 
@@ -89,17 +138,95 @@ private enum DropReader {
 
 private struct DropHint: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 20)
-            .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 3, dash: [10, 8]))
-            .background(Color.accentColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
+        RoundedRectangle(cornerRadius: 22)
+            .strokeBorder(Stage.mint, style: StrokeStyle(lineWidth: 2.5, dash: [10, 8]))
+            .background(Stage.mint.opacity(0.08), in: RoundedRectangle(cornerRadius: 22))
             .overlay {
                 Label("Drop folders to add them", systemImage: "square.and.arrow.down")
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Stage.mint)
             }
-            .padding(Theme.Spacing.lg)
+            .padding(Theme.Spacing.xl)
             .allowsHitTesting(false)
             .transition(.opacity)
+    }
+}
+
+// MARK: Shared pieces
+
+private struct GlassPanel<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22))
+            .background(
+                LinearGradient(colors: [Color.white.opacity(0.07), Color.white.opacity(0.015)], startPoint: .top, endPoint: .bottom),
+                in: RoundedRectangle(cornerRadius: 22))
+            .overlay(
+                RoundedRectangle(cornerRadius: 22).strokeBorder(
+                    LinearGradient(colors: [Color.white.opacity(0.20), Color.white.opacity(0.05)], startPoint: .top, endPoint: .bottom)))
+            .shadow(color: .black.opacity(0.35), radius: 34, y: 14)
+    }
+}
+
+private struct StageButtonStyle: ButtonStyle {
+    enum Kind { case primary, secondary, ghost }
+
+    let kind: Kind
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .semibold))
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .foregroundStyle(foreground)
+            .background {
+                // The border is a slightly larger capsule behind the fill, not a stroke: strokes shimmer at the ends.
+                Capsule()
+                    .fill(kind == .secondary ? Color.white.opacity(0.22) : .clear)
+                    .overlay { Capsule().fill(Stage.ink).padding(kind == .secondary ? 1 : 0).opacity(kind == .secondary ? 1 : 0) }
+                    .overlay { Capsule().fill(background(pressed: configuration.isPressed)).padding(kind == .secondary ? 1 : 0) }
+            }
+            .opacity(isEnabled ? 1 : 0.4)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.snappy(duration: 0.15), value: isHovering)
+            .onHover { isHovering = $0 }
+            .pointerCursor(isEnabled)
+    }
+
+    private var foreground: Color {
+        switch kind {
+        case .primary: Stage.ink
+        case .secondary, .ghost: .white.opacity(0.92)
+        }
+    }
+
+    private func background(pressed: Bool) -> Color {
+        switch kind {
+        case .primary: Stage.mint.opacity(pressed ? 0.8 : (isHovering ? 1 : 0.92))
+        case .secondary: Color.white.opacity(pressed ? 0.14 : (isHovering ? 0.12 : 0.06))
+        case .ghost: Color.white.opacity(isHovering ? 0.08 : 0)
+        }
+    }
+}
+
+private extension ButtonStyle where Self == StageButtonStyle {
+    static var stagePrimary: StageButtonStyle { StageButtonStyle(kind: .primary) }
+    static var stageSecondary: StageButtonStyle { StageButtonStyle(kind: .secondary) }
+    static var stageGhost: StageButtonStyle { StageButtonStyle(kind: .ghost) }
+}
+
+private struct Eyebrow: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            .tracking(2.2)
+            .foregroundStyle(Stage.mint.opacity(0.9))
     }
 }
 
@@ -107,59 +234,40 @@ private struct DropHint: View {
 
 private struct WelcomeStep: View {
     let flow: OnboardingModel
-    let sceneTime: Double?
-
-    private let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
 
     var body: some View {
-        ZStack(alignment: .leading) {
-            ink
-            LopperScene(fixedTime: sceneTime)
-            // Keeps the words readable over the picture.
-            LinearGradient(
-                stops: [
-                    .init(color: ink.opacity(0.96), location: 0),
-                    .init(color: ink.opacity(0.88), location: 0.38),
-                    .init(color: ink.opacity(0), location: 0.66),
-                ],
-                startPoint: .leading, endPoint: .trailing)
-                .allowsHitTesting(false)
-
-            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                HStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "scissors").foregroundStyle(Color(red: 0.55, green: 0.95, blue: 0.8))
-                    Text("Lopper").font(.headline)
-                }
-                Text("Keep your repositories light.")
-                    .font(.system(size: 42, weight: .bold))
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Lopper finds the branches, worktrees and build folders you no longer need, shows why each one is safe to remove, and lets you undo anything.")
-                    .font(.title3)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .fixedSize(horizontal: false, vertical: true)
-
-                VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                    TrustLine(symbol: "hand.raised", title: "You review everything", detail: "Nothing is removed until you confirm a list.")
-                    TrustLine(symbol: "arrow.uturn.backward.circle", title: "Undo for 30 days", detail: "Branches, worktrees and folders all come back.")
-                    TrustLine(symbol: "lock.shield", title: "Stays on your Mac", detail: "No account, no upload. Lopper only reads.")
-                }
-                .padding(.top, Theme.Spacing.xs)
-
-                Button {
-                    flow.next()
-                } label: {
-                    Text("Get started").frame(minWidth: 140)
-                }
-                .buttonStyle(.lopperPrimary)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
-                .padding(.top, Theme.Spacing.sm)
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            HStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "scissors").foregroundStyle(Stage.mint)
+                Text("Lopper").font(.headline)
             }
-            .frame(maxWidth: 470, alignment: .leading)
-            .padding(.leading, 64)
+            Text("Keep your repositories light.")
+                .font(.system(size: 42, weight: .bold))
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Lopper finds the branches, worktrees and build folders you no longer need, shows why each one is safe to remove, and lets you undo anything.")
+                .font(.title3)
+                .foregroundStyle(.white.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                TrustLine(symbol: "hand.raised", title: "You review everything", detail: "Nothing is removed until you confirm a list.")
+                TrustLine(symbol: "arrow.uturn.backward.circle", title: "Undo for 30 days", detail: "Branches, worktrees and folders all come back.")
+                TrustLine(symbol: "lock.shield", title: "Stays on your Mac", detail: "No account, no upload. Lopper only reads.")
+            }
+            .padding(.top, Theme.Spacing.xs)
+
+            Button {
+                flow.next()
+            } label: {
+                Text("Get started").frame(minWidth: 120)
+            }
+            .buttonStyle(.stagePrimary)
+            .keyboardShortcut(.defaultAction)
+            .padding(.top, Theme.Spacing.sm)
         }
-        .foregroundStyle(.white)
-        .environment(\.colorScheme, .dark)
+        .frame(maxWidth: 470, alignment: .leading)
+        .padding(.leading, 64)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -172,7 +280,7 @@ private struct TrustLine: View {
         HStack(alignment: .top, spacing: Theme.Spacing.md) {
             Image(systemName: symbol)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(Color(red: 0.55, green: 0.95, blue: 0.8))
+                .foregroundStyle(Stage.mint)
                 .frame(width: 30, height: 30)
                 .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             VStack(alignment: .leading, spacing: 1) {
@@ -190,11 +298,15 @@ private struct ChooseStep: View {
     let app: AppModel
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            VStack(spacing: Theme.Spacing.xs) {
-                Text("Where do your projects live?").font(.system(size: 28, weight: .bold))
+        VStack(spacing: 22) {
+            VStack(spacing: 8) {
+                Eyebrow(text: "STEP 2 OF 3")
+                Text("Where do your projects live?")
+                    .font(.system(size: 32, weight: .bold))
+                    .tracking(-0.4)
                 Text("Pick the folders Lopper should look in. It only reads them, and you can change this any time.")
-                    .font(.title3).foregroundStyle(.secondary)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.white.opacity(0.62))
                     .multilineTextAlignment(.center)
             }
 
@@ -205,42 +317,133 @@ private struct ChooseStep: View {
                     .frame(maxWidth: 640)
             }
 
-            FolderList(flow: flow)
-                .frame(maxWidth: 640)
-
-            HStack(spacing: Theme.Spacing.md) {
-                SystemScanCard(flow: flow)
-                ActionCard(
-                    symbol: "folder.badge.plus", title: "Choose folders…",
-                    detail: "Or drop folders anywhere in this window.",
-                    action: { FolderPicker.choose { flow.add($0) } })
+            GlassPanel {
+                VStack(spacing: 0) {
+                    if flow.candidates.isEmpty && flow.suggestionsLoaded {
+                        EmptyHero(flow: flow)
+                    } else if flow.candidates.isEmpty {
+                        VStack(spacing: 0) {
+                            ForEach(0..<3, id: \.self) { index in
+                                if index > 0 { Divider().overlay(Stage.hairline) }
+                                SkeletonRow()
+                            }
+                        }
+                    } else {
+                        FolderList(flow: flow)
+                        Divider().overlay(Stage.hairline)
+                        ActionsBar(flow: flow)
+                    }
+                }
             }
-            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: 640)
 
             HStack {
                 Button("Back") { flow.back() }
-                    .buttonStyle(.lopperSecondary)
-                    .controlSize(.large)
+                    .buttonStyle(.stageGhost)
                 Spacer()
                 Button {
                     flow.begin(app: app)
                 } label: {
-                    Text(flow.canContinue
-                        ? "Scan \(Plural.count(flow.selectedURLs.count, "folder"))"
-                        : "Choose at least one folder")
-                        .frame(minWidth: 160)
+                    Text(flow.canContinue ? "Scan \(Plural.count(flow.selectedURLs.count, "folder"))" : "Choose a folder to continue")
+                        .frame(minWidth: 150)
                 }
-                .buttonStyle(.lopperPrimary)
-                .controlSize(.large)
+                .buttonStyle(.stagePrimary)
                 .keyboardShortcut(.defaultAction)
                 .disabled(!flow.canContinue)
             }
             .frame(maxWidth: 640)
         }
         .padding(.horizontal, 40)
-        .padding(.vertical, 28)
+        .padding(.top, 36)
+        .padding(.bottom, 28)
         .task { await app.refreshToolStatus() }
+    }
+}
+
+/// Shown when none of the usual folders exist: searching the Mac is the obvious next move, so it is the headline.
+private struct EmptyHero: View {
+    let flow: OnboardingModel
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ZStack {
+                PulseRings(running: flow.isScanningSystem)
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 26, weight: .medium))
+                    .foregroundStyle(Stage.mint)
+            }
+            .frame(width: 120, height: 120)
+
+            switch flow.systemScan {
+            case .running(let folders, let repos):
+                VStack(spacing: 4) {
+                    Text("Looking through your Mac…").font(.system(size: 18, weight: .semibold))
+                    Text("\(Plural.count(repos, "repository", "repositories")) found · \(folders) folders checked")
+                        .font(.system(size: 13, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.62))
+                        .monospacedDigit()
+                }
+                Button("Stop") { flow.stopSystemScan() }.buttonStyle(.stageSecondary)
+            case .finished(0), .stopped:
+                VStack(spacing: 4) {
+                    Text("No repositories found").font(.system(size: 18, weight: .semibold))
+                    Text("Nothing turned up in the places Lopper looked. Choose a folder yourself.")
+                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.62))
+                }
+                HStack(spacing: 10) {
+                    Button("Search again") { flow.startSystemScan() }.buttonStyle(.stageSecondary)
+                    Button("Choose a folder…") { FolderPicker.choose { flow.add($0) } }.buttonStyle(.stagePrimary)
+                }
+            default:
+                VStack(spacing: 4) {
+                    Text("Nothing in the usual places").font(.system(size: 18, weight: .semibold))
+                    Text("Let Lopper look through your Mac for git repositories, or point it at a folder.")
+                        .font(.system(size: 13)).foregroundStyle(.white.opacity(0.62))
+                        .multilineTextAlignment(.center)
+                }
+                HStack(spacing: 10) {
+                    Button { flow.startSystemScan() } label: {
+                        Label("Search this Mac", systemImage: "sparkle.magnifyingglass")
+                    }
+                    .buttonStyle(.stagePrimary)
+                    Button("Choose a folder…") { FolderPicker.choose { flow.add($0) } }
+                        .buttonStyle(.stageSecondary)
+                }
+                Text("macOS may ask for access to Documents, Desktop or Downloads. Allow it, or skip those. Lopper only reads.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.white.opacity(0.42))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 26)
+        .padding(.horizontal, 24)
+    }
+}
+
+/// Rings that spread out from the middle, like a sonar. They speed up while a search is running.
+private struct PulseRings: View {
+    let running: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { timeline in
+            let time = timeline.date.timeIntervalSinceReferenceDate
+            Canvas { context, size in
+                let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                let speed = running ? 0.55 : 0.22
+                for ring in 0..<3 {
+                    let phase = (time * speed + Double(ring) / 3).truncatingRemainder(dividingBy: 1)
+                    let radius = 18 + phase * (size.width / 2 - 18)
+                    let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+                    context.stroke(
+                        Path(ellipseIn: rect), with: .color(Stage.mint.opacity((1 - phase) * (running ? 0.55 : 0.32))),
+                        lineWidth: 1.5)
+                }
+            }
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -248,36 +451,16 @@ private struct FolderList: View {
     let flow: OnboardingModel
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !flow.suggestionsLoaded && flow.candidates.isEmpty {
-                ForEach(0..<3, id: \.self) { index in
-                    if index > 0 { Divider() }
-                    SkeletonRow()
+        ScrollView {
+            VStack(spacing: 0) {
+                ForEach(Array(flow.candidates.enumerated()), id: \.element.id) { index, candidate in
+                    if index > 0 { Divider().overlay(Stage.hairline) }
+                    CandidateRow(candidate: candidate) { flow.toggle(candidate.id) }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
-            } else if flow.candidates.isEmpty {
-                VStack(spacing: Theme.Spacing.xs) {
-                    Image(systemName: "folder.badge.questionmark").font(.title).foregroundStyle(.secondary)
-                    Text("No usual project folders found").font(.headline)
-                    Text("Find repositories on this Mac, or choose a folder yourself.")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(Theme.Spacing.xl)
-            } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(Array(flow.candidates.enumerated()), id: \.element.id) { index, candidate in
-                            if index > 0 { Divider() }
-                            CandidateRow(candidate: candidate) { flow.toggle(candidate.id) }
-                        }
-                    }
-                }
-                // As tall as its rows, up to a limit, so a short list does not sit in an empty box.
-                .frame(height: min(260, CGFloat(flow.candidates.count) * 41))
             }
         }
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-        .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
+        .frame(height: min(268, CGFloat(flow.candidates.count) * 56))
         .animation(.snappy, value: flow.candidates.count)
     }
 }
@@ -289,45 +472,55 @@ private struct CandidateRow: View {
 
     var body: some View {
         Button(action: toggle) {
-            HStack(spacing: Theme.Spacing.md) {
-                Image(systemName: candidate.isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18))
-                    .foregroundStyle(candidate.isSelected ? Color.accentColor : Theme.metaText)
-                Image(systemName: "folder.fill").foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(abbreviated(candidate.url)).font(.callout.weight(.medium)).lineLimit(1).truncationMode(.middle)
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().stroke(Color.white.opacity(0.28), lineWidth: 1.5)
+                        .opacity(candidate.isSelected ? 0 : 1)
+                    Circle().fill(Stage.mint).opacity(candidate.isSelected ? 1 : 0)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundStyle(Stage.ink)
+                        .opacity(candidate.isSelected ? 1 : 0)
+                }
+                .frame(width: 20, height: 20)
+                .animation(.snappy(duration: 0.18), value: candidate.isSelected)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(abbreviated(candidate.url))
+                        .font(.system(size: 13.5, weight: .medium, design: .monospaced))
+                        .lineLimit(1).truncationMode(.middle)
                     if !candidate.sampleNames.isEmpty {
-                        Text(candidate.sampleNames.joined(separator: ", "))
-                            .font(.caption).foregroundStyle(Theme.metaText).lineLimit(1)
+                        Text(candidate.sampleNames.joined(separator: " · "))
+                            .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.45)).lineLimit(1)
                     }
                 }
-                Spacer(minLength: Theme.Spacing.md)
+                Spacer(minLength: 12)
                 if candidate.source == .found {
-                    Text("Found")
-                        .font(.caption2.weight(.semibold))
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .foregroundStyle(Color.accentColor)
-                        .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    Text("FOUND")
+                        .font(.system(size: 9.5, weight: .bold, design: .monospaced)).tracking(1.2)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .foregroundStyle(Stage.mint)
+                        .background(Stage.mint.opacity(0.14), in: Capsule())
                 }
-                Text(countText)
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(candidate.repoCount == 0 ? Theme.metaText : .secondary)
+                if let count = candidate.repoCount {
+                    Text(count == 0 ? "empty" : "\(count)")
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(count == 0 ? .white.opacity(0.35) : .white.opacity(0.85))
+                    Text(count == 1 ? "repo" : "repos")
+                        .font(.system(size: 11.5)).foregroundStyle(.white.opacity(0.4))
+                        .opacity(count == 0 ? 0 : 1)
+                }
             }
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.vertical, 10)
-            .background(isHovering ? Color.primary.opacity(0.05) : .clear)
+            .padding(.horizontal, 18)
+            .frame(height: 56)
+            .background(Color.white.opacity(isHovering ? 0.05 : 0))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
         .pointerCursor()
-        .accessibilityLabel("\(abbreviated(candidate.url)), \(countText)")
+        .accessibilityLabel("\(abbreviated(candidate.url))")
         .accessibilityAddTraits(candidate.isSelected ? .isSelected : [])
-    }
-
-    private var countText: String {
-        guard let count = candidate.repoCount else { return "" }
-        return count == 0 ? "no repositories yet" : Plural.count(count, "repository", "repositories")
     }
 
     private func abbreviated(_ url: URL) -> String {
@@ -340,91 +533,54 @@ private struct SkeletonRow: View {
     @State private var dim = false
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
-            Circle().fill(Color.secondary.opacity(0.2)).frame(width: 18, height: 18)
-            RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.2)).frame(width: 180, height: 12)
+        HStack(spacing: 14) {
+            Circle().fill(Color.white.opacity(0.12)).frame(width: 20, height: 20)
+            RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.12)).frame(width: 190, height: 12)
             Spacer()
-            RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.15)).frame(width: 80, height: 10)
+            RoundedRectangle(cornerRadius: 4).fill(Color.white.opacity(0.08)).frame(width: 50, height: 10)
         }
-        .padding(Theme.Spacing.md)
-        .opacity(dim ? 0.5 : 1)
+        .padding(.horizontal, 18)
+        .frame(height: 56)
+        .opacity(dim ? 0.45 : 1)
         .onAppear { withAnimation(.easeInOut(duration: 0.9).repeatForever()) { dim = true } }
         .accessibilityHidden(true)
     }
 }
 
-private struct ActionCard: View {
-    let symbol: String
-    let title: String
-    let detail: String
-    let action: () -> Void
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Theme.Spacing.md) {
-                Image(systemName: symbol)
-                    .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 34, height: 34)
-                    .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(.callout.weight(.semibold))
-                    Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(Theme.Spacing.md)
-            .frame(maxWidth: .infinity, minHeight: 64, maxHeight: .infinity, alignment: .leading)
-            .background(
-                isHovering ? Color.primary.opacity(0.06) : Color(nsColor: .controlBackgroundColor),
-                in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { isHovering = $0 }
-        .pointerCursor()
-    }
-}
-
-private struct SystemScanCard: View {
+/// Under a list: look through the Mac, or choose a folder. While a search runs it shows what it has found.
+private struct ActionsBar: View {
     let flow: OnboardingModel
 
     var body: some View {
-        switch flow.systemScan {
-        case .idle, .stopped:
-            ActionCard(
-                symbol: "magnifyingglass", title: "Find repositories on this Mac",
-                detail: idleDetail, action: { flow.startSystemScan() })
-        case .finished(let found):
-            ActionCard(
-                symbol: "checkmark.circle", title: found == 0 ? "Nothing new found" : "Found \(Plural.count(found, "more folder"))",
-                detail: "Search again", action: { flow.startSystemScan() })
-        case .running(let folders, let repos):
-            HStack(spacing: Theme.Spacing.md) {
-                ProgressView().controlSize(.small)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Looking… \(Plural.count(repos, "repository", "repositories"))")
-                        .font(.callout.weight(.semibold)).monospacedDigit()
-                    Text("\(folders) folders checked. Nothing is changed.")
-                        .font(.caption).foregroundStyle(.secondary).monospacedDigit()
+        HStack(spacing: 10) {
+            switch flow.systemScan {
+            case .running(let folders, let repos):
+                ProgressView().controlSize(.small).tint(Stage.mint)
+                Text("\(Plural.count(repos, "repository", "repositories")) · \(folders) folders checked")
+                    .font(.system(size: 12.5, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .monospacedDigit()
+                Button("Stop") { flow.stopSystemScan() }.buttonStyle(.stageGhost)
+            case .finished(let found):
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(Stage.mint)
+                Text(found == 0 ? "Nothing new found" : "Added \(Plural.count(found, "folder"))")
+                    .font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.7))
+                Button("Search again") { flow.startSystemScan() }.buttonStyle(.stageGhost)
+            case .idle, .stopped:
+                Button { flow.startSystemScan() } label: {
+                    Label("Search this Mac", systemImage: "sparkle.magnifyingglass")
                 }
-                Spacer(minLength: 0)
-                Button("Stop") { flow.stopSystemScan() }
-                    .buttonStyle(.lopperSecondary)
-                    .controlSize(.small)
+                .buttonStyle(.stageSecondary)
+                .help("macOS may ask for access to Documents, Desktop or Downloads. Lopper only reads.")
             }
-            .padding(Theme.Spacing.md)
-            .frame(maxWidth: .infinity, minHeight: 64, maxHeight: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color.accentColor.opacity(0.5)))
+            Spacer()
+            Button { FolderPicker.choose { flow.add($0) } } label: {
+                Label("Choose folder…", systemImage: "folder.badge.plus")
+            }
+            .buttonStyle(.stageSecondary)
         }
-    }
-
-    private var idleDetail: String {
-        if case .stopped = flow.systemScan { return "Stopped. Search again" }
-        return "macOS may ask for access to Documents, Desktop or Downloads. Allow it, or skip those."
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 }
 
@@ -435,87 +591,175 @@ private struct ScanStep: View {
     let app: AppModel
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            if app.isScanning || app.phase == .idle {
-                scanning
-            } else if app.snapshots.isEmpty {
-                empty
-            } else {
-                payoff
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+                if app.isScanning || app.phase == .idle {
+                    scanning
+                } else if app.snapshots.isEmpty {
+                    empty
+                } else {
+                    payoff
+                }
             }
+            .frame(maxWidth: 480, alignment: .leading)
+            .padding(.leading, 64)
+            Spacer(minLength: 0)
         }
-        .padding(40)
-        .frame(maxWidth: 760)
         .animation(.smooth, value: app.isScanning)
     }
 
+    // MARK: Reading
+
     private var scanning: some View {
-        VStack(spacing: Theme.Spacing.lg) {
-            LopperScene(compact: true)
-                .frame(width: 320, height: 230)
-                .background(Color(red: 0.045, green: 0.055, blue: 0.09))
-                .clipShape(RoundedRectangle(cornerRadius: 18))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.white.opacity(0.08)))
-                .shadow(color: .black.opacity(0.25), radius: 18, y: 8)
-            if case .scanning(let done, let total) = app.phase, total > 0 {
-                Text("Reading repository \(done) of \(total)…").font(.title3.weight(.medium)).monospacedDigit()
-                ProgressView(value: Double(done), total: Double(total)).frame(maxWidth: 320)
-            } else {
-                Text("Looking for repositories…").font(.title3.weight(.medium))
-                ProgressView().controlSize(.regular)
+        let read = app.results.count
+        var total = 0
+        if case .scanning(_, let count) = app.phase { total = count }
+        let names = app.results.suffix(6).map { $0.repoRoot.lastPathComponent }
+
+        return VStack(alignment: .leading, spacing: 18) {
+            Eyebrow(text: "STEP 3 OF 3")
+            Text("Reading your repositories")
+                .font(.system(size: 34, weight: .bold)).tracking(-0.5)
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(read)")
+                    .font(.system(size: 72, weight: .bold, design: .rounded))
+                    .contentTransition(.numericText(value: Double(read)))
+                    .monospacedDigit()
+                if total > 0 {
+                    Text("of \(total)")
+                        .font(.system(size: 22, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.45))
+                }
             }
-            Text("Lopper only reads. Nothing is changed.").font(.callout).foregroundStyle(.secondary)
+            .animation(.snappy, value: read)
+
+            ProgressLine(fraction: total > 0 ? Double(read) / Double(total) : nil)
+                .frame(height: 5)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(names.enumerated()), id: \.element) { index, name in
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundStyle(Stage.mint)
+                        Text(name).font(.system(size: 13, design: .monospaced))
+                    }
+                    .opacity(0.3 + 0.7 * Double(index + 1) / Double(max(names.count, 1)))
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .frame(height: 6 * 22, alignment: .bottom)
+            .animation(.snappy, value: names)
+            .clipped()
+
+            Text("Lopper only reads. Nothing is changed.")
+                .font(.system(size: 13)).foregroundStyle(.white.opacity(0.5))
         }
     }
 
     private var empty: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            Image(systemName: "magnifyingglass").font(.system(size: 40)).foregroundStyle(.secondary)
-            Text("No repositories in those folders").font(.title2.weight(.semibold))
+        VStack(alignment: .leading, spacing: 14) {
+            Eyebrow(text: "STEP 3 OF 3")
+            Text("No repositories in those folders")
+                .font(.system(size: 32, weight: .bold)).tracking(-0.4)
             Text("Try a folder higher up, or add another one.")
-                .font(.callout).foregroundStyle(.secondary)
+                .font(.system(size: 15)).foregroundStyle(.white.opacity(0.62))
             Button("Choose different folders") { flow.back() }
-                .buttonStyle(.lopperPrimary)
-                .controlSize(.large)
+                .buttonStyle(.stagePrimary)
+                .padding(.top, 6)
         }
     }
 
+    // MARK: Ready
+
     private var payoff: some View {
         let totals = app.totals
-        return VStack(spacing: Theme.Spacing.lg) {
-            Text(app.heroHeadline).font(.title3).foregroundStyle(.secondary)
+        return VStack(alignment: .leading, spacing: 20) {
+            Eyebrow(text: totals.reclaimableBytes > 0 ? "READY TO RECLAIM" : "READY TO CLEAN")
             Text(app.heroValue)
-                .font(.system(size: 76, weight: .bold))
+                .font(.system(size: 92, weight: .bold, design: .rounded))
                 .contentTransition(.numericText())
                 .monospacedDigit()
+                .foregroundStyle(LinearGradient(colors: [.white, Stage.mint], startPoint: .top, endPoint: .bottom))
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
             Text("\(Plural.count(totals.repositories, "repository", "repositories")) read. "
                 + "\(Plural.count(totals.safe, "branch or worktree", "branches and worktrees")) are safe to remove.")
-                .font(.title3).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .font(.system(size: 16)).foregroundStyle(.white.opacity(0.7))
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: Theme.Spacing.md) {
-                StatTile(title: "Safe to remove", value: "\(totals.safe)", symbol: "checkmark.circle", tint: VerdictKind.safe.tint)
-                StatTile(title: "Need a look", value: "\(totals.review)", symbol: "eye", tint: VerdictKind.review.tint)
-                StatTile(title: "Protected", value: "\(totals.protected)", symbol: "lock", tint: VerdictKind.protected.tint)
+            HStack(spacing: 10) {
+                CountChip(value: totals.safe, label: "safe", tint: Color(red: 0.42, green: 0.95, blue: 0.62))
+                CountChip(value: totals.review, label: "need a look", tint: Color(red: 1.0, green: 0.72, blue: 0.35))
+                CountChip(value: totals.protected, label: "protected", tint: .white.opacity(0.55))
             }
-            .frame(maxWidth: 560)
 
             Label("Nothing has been changed. You review every removal first.", systemImage: "hand.raised")
-                .font(.callout).foregroundStyle(.secondary)
+                .font(.system(size: 13)).foregroundStyle(.white.opacity(0.55))
 
-            HStack(spacing: Theme.Spacing.md) {
-                Button("Change folders") { flow.back() }
-                    .buttonStyle(.lopperSecondary)
-                    .controlSize(.large)
+            HStack(spacing: 10) {
                 Button {
                     app.completeOnboarding()
                 } label: {
-                    Text("Open Lopper").frame(minWidth: 140)
+                    Text("Open Lopper").frame(minWidth: 120)
                 }
-                .buttonStyle(.lopperPrimary)
-                .controlSize(.large)
+                .buttonStyle(.stagePrimary)
                 .keyboardShortcut(.defaultAction)
+                Button("Change folders") { flow.back() }.buttonStyle(.stageGhost)
             }
+            .padding(.top, 4)
         }
+    }
+}
+
+private struct CountChip: View {
+    let value: Int
+    let label: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle().fill(tint).frame(width: 8, height: 8)
+            Text("\(value)").font(.system(size: 14, weight: .bold, design: .monospaced)).monospacedDigit()
+            Text(label).font(.system(size: 13)).foregroundStyle(.white.opacity(0.62))
+        }
+        .padding(.horizontal, 14).padding(.vertical, 8)
+        .background {
+            Capsule().fill(Stage.hairline)
+                .overlay { Capsule().fill(Stage.ink).padding(1) }
+                .overlay { Capsule().fill(Color.white.opacity(0.06)).padding(1) }
+        }
+    }
+}
+
+/// A thin glowing line. With no total yet it shimmers instead of filling.
+private struct ProgressLine: View {
+    let fraction: Double?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.10))
+                if let fraction {
+                    Capsule()
+                        .fill(LinearGradient(colors: [Stage.mint.opacity(0.6), Stage.mint], startPoint: .leading, endPoint: .trailing))
+                        .frame(width: max(8, proxy.size.width * fraction))
+                        .shadow(color: Stage.mint.opacity(0.6), radius: 8)
+                        .animation(.snappy, value: fraction)
+                } else {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { timeline in
+                        let phase = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.4) / 1.4
+                        Capsule()
+                            .fill(Stage.mint)
+                            .frame(width: proxy.size.width * 0.28)
+                            .offset(x: (proxy.size.width * 1.28) * phase - proxy.size.width * 0.28)
+                            .shadow(color: Stage.mint.opacity(0.6), radius: 8)
+                    }
+                }
+            }
+            .clipShape(Capsule())
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Scan progress")
     }
 }

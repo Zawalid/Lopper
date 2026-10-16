@@ -1056,6 +1056,7 @@ extension AppModel {
         artifacts: [DiskArtifact] = Fixtures.diskArtifacts,
         developerCaches: [DiskArtifact] = Fixtures.developerCaches,
         volume: VolumeSpace? = VolumeSpace(total: 994_000_000_000, available: 142_000_000_000),
+        suggestions: [FolderSuggestion] = Fixtures.folderSuggestions,
         clock: @escaping @Sendable () -> Date = { Date() }
     ) -> AppModel {
         let store = SettingsStore(url: FileManager.default.temporaryDirectory
@@ -1065,7 +1066,7 @@ extension AppModel {
         // A rescan (the window starts one) must find the same folders the preview was given.
         client.artifactsByRoot = Dictionary(grouping: artifacts, by: { $0.checkoutRoot.path })
         client.caches = developerCaches
-        client.suggestions = Fixtures.folderSuggestions
+        client.suggestions = suggestions
         client.volume = volume
         let model = AppModel(
             client: client,

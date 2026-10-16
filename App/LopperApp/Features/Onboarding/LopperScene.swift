@@ -5,8 +5,10 @@ import Lopper
 /// of scissors one by one and dissolve into embers, and what is left glows brighter. It follows the pointer
 /// a little, and holds a finished frame when motion is reduced.
 struct LopperScene: View {
-    /// A smaller, quieter version without labels or the counter, for behind other screens.
+    /// Quieter: no labels and no counter, for behind other screens.
     var compact = false
+    /// How strongly the picture is drawn, 0...1. Behind a panel it is turned down so the words win.
+    var intensity: Double = 1
     /// A fixed moment in the loop, for tests and snapshots.
     var fixedTime: Double?
 
@@ -22,7 +24,8 @@ struct LopperScene: View {
                     Canvas { context, size in
                         var context = context
                         SceneRenderer(
-                            graph: graph, size: size, time: time, pointer: pointer, compact: compact
+                            graph: graph, size: size, time: time, pointer: pointer, compact: compact,
+                            intensity: intensity
                         ).draw(&context)
                     }
                     if !compact { FreedCounter(time: time).padding(28) }
@@ -84,6 +87,7 @@ private struct SceneRenderer {
     let time: Double
     let pointer: CGPoint?
     let compact: Bool
+    let intensity: Double
 
     private let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
     private let keptColor = Color(red: 0.42, green: 0.95, blue: 0.78)
@@ -177,7 +181,7 @@ private struct SceneRenderer {
 
     func draw(_ context: inout GraphicsContext) {
         let curves = self.curves()
-        context.opacity = master
+        context.opacity = master * intensity
         drawBackground(&context)
 
         context.translateBy(x: parallax.width, y: parallax.height)
