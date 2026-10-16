@@ -33,12 +33,8 @@ struct DoctorCommand: AsyncParsableCommand {
             checks.append(Check(name: "folders", ok: false, detail: "none configured. Add one: lop folders add ~/Code"))
         }
         for folder in folders {
-            var isDirectory: ObjCBool = false
-            let exists = FileManager.default.fileExists(atPath: folder.path.path, isDirectory: &isDirectory) && isDirectory.boolValue
-            let readable = exists && FileManager.default.isReadableFile(atPath: folder.path.path)
-            checks.append(Check(
-                name: "folder", ok: readable,
-                detail: readable ? folder.path.path : "\(folder.path.path) is missing or not readable"))
+            let access = FolderProbe.check(folder.path)
+            checks.append(Check(name: "folder", ok: access.isReadable, detail: Self.describe(access, folder.path.path)))
         }
 
         let history = await session.workspace.history()
@@ -55,6 +51,15 @@ struct DoctorCommand: AsyncParsableCommand {
         if checks.contains(where: { !$0.ok && $0.name != "GitHub CLI" }) { throw ExitCode(1) }
     }
 
+    static func describe(_ access: FolderAccess, _ path: String) -> String {
+        switch access {
+        case .ok: path
+        case .denied: "\(path) cannot be opened. Allow your terminal in System Settings, Privacy & Security, Files & Folders."
+        case .missing: "\(path) was not found. Reconnect the drive, or remove it: lop folders remove \(path)"
+        case .notAFolder: "\(path) is a file, not a folder."
+        }
+    }
+
     private static func describe(_ outcome: SettingsLoadOutcome) -> String {
         switch outcome {
         case .created: "no file yet, defaults in use"
@@ -66,6 +71,8 @@ struct DoctorCommand: AsyncParsableCommand {
     }
 
     static func gitVersion() async -> String? {
+        // /usr/bin/git is a stub without the command line tools, and running it opens Apple's installer.
+        guard GitAvailability.isInstalled() else { return nil }
         let runner = GitRunner()
         guard let output = try? await runner.run(["--version"], in: FileManager.default.temporaryDirectory),
               output.succeeded else { return nil }

@@ -20,7 +20,7 @@ struct FoldersCommand: AsyncParsableCommand {
             let session = try Session.open(options, requireFolders: false)
             if options.json {
                 session.console.line(try JSONOutput.string(
-                    ["folders": session.settings.folders.map { ["path": $0.path.path, "enabled": $0.isEnabled ? "true" : "false"] }],
+                    ["folders": session.settings.folders.map { ["path": $0.path.path, "enabled": $0.isEnabled ? "true" : "false", "access": Self.label(FolderProbe.check($0.path))] }],
                     now: session.now))
                 return
             }
@@ -29,7 +29,18 @@ struct FoldersCommand: AsyncParsableCommand {
                 return
             }
             for folder in session.settings.folders {
-                session.console.line("\(folder.isEnabled ? " " : "-") \(folder.path.path)")
+                let access = FolderProbe.check(folder.path)
+                let note = access.isReadable ? "" : "  (\(session.style.red(Self.label(access))))"
+                session.console.line("\(folder.isEnabled ? " " : "-") \(folder.path.path)\(note)")
+            }
+        }
+
+        static func label(_ access: FolderAccess) -> String {
+            switch access {
+            case .ok: "ok"
+            case .denied: "no access"
+            case .missing: "not found"
+            case .notAFolder: "not a folder"
             }
         }
     }

@@ -950,4 +950,85 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.toolStatus.gitVersion, "2.54.0 (Apple Git-157)")
         XCTAssertEqual(model.toolStatus.gitHubCLI, .installed(version: "2.98.0", path: "/opt/homebrew/bin/gh"))
     }
+    // MARK: Setup problems
+
+    func testMissingGitIsASetupIssueOnlyOnceTheCheckFinished() async {
+        let (model, client) = makeModel([])
+        client.tools = ToolStatus(gitVersion: nil, gitHubCLI: .notInstalled)
+        XCTAssertNil(model.setupIssue, "a slow check must not look like missing git")
+
+        await model.refreshToolStatus()
+
+        XCTAssertEqual(model.setupIssue, .gitMissing)
+    }
+
+    func testRecheckClearsTheGitIssueOnceToolsAreInstalled() async {
+        let (model, client) = makeModel([])
+        client.tools = ToolStatus(gitVersion: nil, gitHubCLI: .notInstalled)
+        await model.refreshToolStatus()
+        XCTAssertEqual(model.setupIssue, .gitMissing)
+
+        client.tools = ToolStatus(gitVersion: "2.54.0", gitHubCLI: .notInstalled)
+        await model.recheckSetup()
+        await settle(model)
+
+        XCTAssertNil(model.setupIssue)
+    }
+
+    func testAScanSkipsBlockedFoldersAndKeepsTheOthers() async {
+        let good = URL(fileURLWithPath: "/code")
+        let blocked = URL(fileURLWithPath: "/Users/someone/Documents")
+        let client = FakeEngineClient(snapshots: [Fixtures.sample])
+        client.folderAccessOverrides[blocked.canonicalized.path] = .denied
+        let store = SettingsStore(url: FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-test-settings-\(UUID().uuidString).json"))
+        let model = AppModel(client: client, store: store, settings: Settings(roots: [good, blocked]))
+
+        model.startScan()
+        await settle(model)
+
+        XCTAssertEqual(model.summaries.count, 1)
+        XCTAssertEqual(model.unreadableFolders.map(\.path), [blocked])
+        XCTAssertNil(model.setupIssue, "one blocked folder is a notice, not a blocked app")
+    }
+
+    func testEveryFolderBlockedBecomesASetupIssueAndShowsNoStaleResults() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        model.startScan()
+        await settle(model)
+        XCTAssertEqual(model.summaries.count, 1)
+
+        client.folderAccessOverrides[URL(fileURLWithPath: "/code").canonicalized.path] = .denied
+        model.startScan()
+        await waitUntil { model.setupIssue == .foldersUnreadable }
+
+        XCTAssertEqual(model.setupIssue, .foldersUnreadable)
+        XCTAssertTrue(model.summaries.isEmpty)
+    }
+
+    func testRecheckScansAgainAfterAccessIsGranted() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        client.folderAccessOverrides[URL(fileURLWithPath: "/code").canonicalized.path] = .denied
+        model.startScan()
+        await waitUntil { model.setupIssue == .foldersUnreadable }
+
+        client.folderAccessOverrides = [:]
+        await model.recheckSetup()
+        await settle(model)
+
+        XCTAssertNil(model.setupIssue)
+        XCTAssertEqual(model.summaries.count, 1)
+    }
+
+    func testSetupWordsNameTheProblemAndTheFix() {
+        let folder = FolderSetting(path: URL(fileURLWithPath: "/Users/a/Documents"))
+        XCTAssertEqual(SetupGuide.title(for: .gitMissing, folders: []), "Lopper needs git")
+        XCTAssertEqual(SetupGuide.title(for: .foldersUnreadable, folders: [(folder, .denied)]), "Lopper cannot open your folders")
+        XCTAssertEqual(SetupGuide.title(for: .foldersUnreadable, folders: [(folder, .missing)]), "Your folders are gone")
+        XCTAssertEqual(SetupGuide.reason(for: .denied), "No access")
+        XCTAssertEqual(SetupGuide.reason(for: .missing), "Not found")
+        XCTAssertEqual(SetupGuide.partialNotice([folder]), "Lopper cannot read Documents, so it was skipped.")
+        let many = ["A", "B", "C"].map { FolderSetting(path: URL(fileURLWithPath: "/x/\($0)")) }
+        XCTAssertEqual(SetupGuide.partialNotice(many), "Lopper cannot read A and B and 1 more, so they were skipped.")
+    }
 }

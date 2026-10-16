@@ -34,7 +34,10 @@ struct RootView: View {
             }
         }
         .frame(minWidth: 1040, minHeight: 520)
-        .task { model.startScan() }
+        .task {
+            await model.refreshToolStatus()
+            model.startScan()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.scanIfStale()
         }
@@ -101,6 +104,14 @@ private struct DetailView: View {
     }
 
     @ViewBuilder private var content: some View {
+        if let issue = model.setupIssue {
+            SetupIssueView(issue: issue)
+        } else {
+            routeContent
+        }
+    }
+
+    @ViewBuilder private var routeContent: some View {
         switch model.route {
         case .overview: OverviewView()
         case .agents: AgentsView()

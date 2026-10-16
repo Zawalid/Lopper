@@ -100,6 +100,12 @@ struct UndoToast: Equatable, Identifiable {
     var folders = false
 }
 
+/// What blocks the whole app, as opposed to a notice about one folder.
+enum SetupIssue: Equatable {
+    case gitMissing
+    case foldersUnreadable
+}
+
 enum OverviewState: Equatable {
     case needsFolders
     case scanning(done: Int, total: Int)
@@ -436,6 +442,49 @@ final class AppModel {
         toolStatusLoaded = true
     }
 
+    // MARK: Setup problems
+
+    /// Whether each folder could be opened at the last check, keyed by canonical path.
+    private(set) var folderAccess: [String: FolderAccess] = [:]
+    private var folderAccessChecked = false
+
+    func access(of folder: URL) -> FolderAccess { folderAccess[folder.canonicalized.path] ?? .ok }
+
+    func refreshFolderAccess() async {
+        folderAccess = await client.folderAccess(of: settings.folders.map(\.path))
+        folderAccessChecked = true
+    }
+
+    /// Enabled folders Lopper cannot open right now.
+    var unreadableFolders: [FolderSetting] {
+        settings.folders.filter { $0.isEnabled && !access(of: $0.path).isReadable }
+    }
+
+    /// The copy of `settings` a scan should use: folders that cannot be opened are paused in the copy only.
+    private func readableSettings(_ settings: Settings) -> Settings {
+        var copy = settings
+        for index in copy.folders.indices where !access(of: copy.folders[index].path).isReadable {
+            copy.folders[index].isEnabled = false
+        }
+        return copy
+    }
+
+    /// A problem that stops Lopper from doing anything useful until the user fixes it outside the app.
+    var setupIssue: SetupIssue? {
+        if toolStatusLoaded && toolStatus.gitVersion == nil { return .gitMissing }
+        let enabled = settings.folders.filter(\.isEnabled)
+        if folderAccessChecked, !enabled.isEmpty, unreadableFolders.count == enabled.count { return .foldersUnreadable }
+        return nil
+    }
+
+    /// Looks again after the user installed the tools or changed a permission, and scans if that fixed it.
+    func recheckSetup() async {
+        let hadIssue = setupIssue != nil
+        await refreshToolStatus()
+        await refreshFolderAccess()
+        if hadIssue || !unreadableFolders.isEmpty { startScan() }
+    }
+
     /// How many scanned repositories sit inside `folder`, nested ones included.
     func repositoryCount(inFolder folder: URL) -> Int {
         let prefix = folder.canonicalized.path
@@ -650,8 +699,17 @@ final class AppModel {
         scanTask?.cancel()
         let progressive = results.isEmpty
         phase = .scanning(done: 0, total: 0)
-        let settings = self.settings
         scanTask = Task {
+            await refreshFolderAccess()
+            guard !Task.isCancelled else { return }
+            // A folder macOS refuses to open is left out, so one blocked folder never hides the others.
+            let settings = readableSettings(self.settings)
+            if settings.roots.isEmpty {
+                results = []
+                measuredPaths = []
+                phase = .ready(Date())
+                return
+            }
             var collected: [RepoScanResult] = []
             var total = 0
             for await event in client.scan(settings: settings) {

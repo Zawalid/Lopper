@@ -211,6 +211,15 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
 
     func toolStatus() async -> ToolStatus { tools }
 
+    /// Folders listed here are reported with this access; every other folder reads fine.
+    var folderAccessOverrides: [String: FolderAccess] = [:]
+
+    func folderAccess(of folders: [URL]) async -> [String: FolderAccess] {
+        Dictionary(
+            folders.map { ($0.canonicalized.path, folderAccessOverrides[$0.canonicalized.path] ?? .ok) },
+            uniquingKeysWith: { first, _ in first })
+    }
+
     func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory {
         historyRequests += 1
         return histories[ref] ?? .empty

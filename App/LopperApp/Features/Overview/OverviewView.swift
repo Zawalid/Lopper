@@ -13,6 +13,7 @@ struct OverviewView: View {
 /// The scrollable body of the Overview, separate from the scroll view so it can be rendered offscreen.
 struct OverviewContent: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
     @State private var dismissedGitHubBanner = false
     @State private var tidyExpanded = false
 
@@ -54,6 +55,16 @@ struct OverviewContent: View {
                     if let id = OverviewInsights.recentActivity(history: model.history, limit: 1).first?.batchID {
                         model.restoreBatch(id)
                     }
+                })
+        }
+        if model.setupIssue == nil, !model.unreadableFolders.isEmpty {
+            Banner(
+                symbol: "lock.shield",
+                message: SetupGuide.partialNotice(model.unreadableFolders),
+                actionTitle: "Manage folders",
+                action: {
+                    model.requestSettingsPane(.folders)
+                    openSettings()
                 })
         }
         if !model.githubCLIAvailable && !dismissedGitHubBanner && !model.snapshots.isEmpty {

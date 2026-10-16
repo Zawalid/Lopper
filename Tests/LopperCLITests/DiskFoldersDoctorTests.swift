@@ -110,4 +110,29 @@ final class DiskFoldersDoctorTests: XCTestCase {
             XCTAssertEqual(code.rawValue, 1)
         }
     }
+    func testDoctorNamesAMissingFolderAndFails() async throws {
+        let harness = try Harness(foldersConfigured: false)
+        let gone = harness.repo.sandbox.appendingPathComponent("unplugged")
+        try FileManager.default.createDirectory(at: gone, withIntermediateDirectories: true)
+        _ = try await harness.run(["folders", "add", gone.path])
+        try FileManager.default.removeItem(at: gone)
+
+        do {
+            try await harness.run(["doctor"])
+            XCTFail("expected a failing exit")
+        } catch let code as ExitCode {
+            XCTAssertEqual(code.rawValue, 1)
+        }
+        let listed = try await harness.run(["folders", "list"])
+        XCTAssertTrue(listed.out.contains("not found"), listed.out)
+    }
+
+    func testFoldersJSONCarriesTheAccessOfEachFolder() async throws {
+        let harness = try Harness()
+        let result = try await harness.run(["folders", "list", "--json"])
+
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(result.out.utf8)) as? [String: Any])
+        let folders = try XCTUnwrap(object["folders"] as? [[String: String]])
+        XCTAssertEqual(folders.first?["access"], "ok")
+    }
 }

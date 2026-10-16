@@ -75,6 +75,8 @@ private struct FolderRow: View {
 
     private var detail: String {
         guard folder.isEnabled else { return "Paused" }
+        let access = model.access(of: folder.path)
+        if !access.isReadable { return SetupGuide.reason(for: access) }
         let count = model.repositoryCount(inFolder: folder.path)
         return Plural.count(count, "repository", "repositories")
     }

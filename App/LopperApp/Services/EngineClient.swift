@@ -35,6 +35,8 @@ protocol EngineClient: Sendable {
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
     func toolStatus() async -> ToolStatus
+    /// Whether each folder can be read, keyed by canonical path. Opens the folders, so it can wait on a slow drive.
+    func folderAccess(of folders: [URL]) async -> [String: FolderAccess]
     /// Commits unique to `ref` against `base`, and the size of the change. Read-only and loaded per item.
     func branchHistory(repoRoot: URL, ref: String, base: String?) async -> BranchHistory
     /// When the branch was last switched to or from, from the reflog of `directory`.
@@ -140,9 +142,14 @@ struct LiveEngineClient: EngineClient {
         return await provider.pullRequestStatus(forBranch: branch, in: repoRoot)
     }
 
+    func folderAccess(of folders: [URL]) async -> [String: FolderAccess] {
+        await Task.detached(priority: .utility) { FolderProbe.check(folders) }.value
+    }
+
     func toolStatus() async -> ToolStatus {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let gitOutput = try? await git.run(["--version"], in: home)
+        // Without the command line tools /usr/bin/git is a stub that opens Apple's installer, so never run it then.
+        let gitOutput = GitAvailability.isInstalled() ? try? await git.run(["--version"], in: home) : nil
         let gitVersion = gitOutput.flatMap { $0.succeeded ? ToolStatus.parseGitVersion($0.stdout) : nil }
 
         guard let gh = GhCliProvider.locate() else {
