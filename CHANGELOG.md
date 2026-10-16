@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-16
+
 ### Added
 - A styled installer: the DMG opens with a dark window, a drag arrow to Applications and a first launch hint.
 - An "Only on this Mac" page, and `lop risk`: work that exists nowhere else, meaning unpushed commits, uncommitted
