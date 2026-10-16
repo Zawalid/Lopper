@@ -7,7 +7,7 @@ struct RootView: View {
     var body: some View {
         @Bindable var model = model
         Group {
-            if model.settings.roots.isEmpty {
+            if model.settings.roots.isEmpty || model.isOnboarding {
                 OnboardingView()
             } else {
                 NavigationSplitView {

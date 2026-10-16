@@ -180,6 +180,9 @@ final class AppModel {
     var diskFocusedID: String?
     var diskClear: DiskClearState?
     var showsPalette = false
+    /// The setup flow is on screen. It stays up after the folders are saved so the first scan can be watched,
+    /// and ends only when the person opens the app.
+    private(set) var isOnboarding: Bool
     /// Tells the person what could be cleaned up. Replaced by a silent one in tests and previews.
     var digest: any DigestNotifying = SilentDigestNotifier()
 
@@ -204,6 +207,7 @@ final class AppModel {
         self.store = store
         self.preferences = preferences
         self.routeStorage = preferences.lastRoute
+        self.isOnboarding = false
         self.inspectorStorage = preferences.inspectorVisible
         if let settings {
             self.settings = settings
@@ -212,6 +216,7 @@ final class AppModel {
             self.settings = loaded.settings
             self.notice = Self.notice(for: loaded.outcome)
         }
+        isOnboarding = self.settings.roots.isEmpty
         // A pending debounced save must not be lost when the app quits.
         NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
@@ -384,6 +389,10 @@ final class AppModel {
         }
     }
 
+    func completeOnboarding() { isOnboarding = false }
+
+    func restartOnboarding() { isOnboarding = true }
+
     func setRoots(_ roots: [URL]) {
         updateSettings { $0.roots = roots }
     }
@@ -406,6 +415,8 @@ final class AppModel {
     // MARK: Settings window support
 
     private(set) var toolStatus: ToolStatus = .unknown
+    /// False until the first check finished, so a slow check is not mistaken for "git is missing".
+    private(set) var toolStatusLoaded = false
 
     /// A pane another screen wants the Settings window to show. The window takes it when it appears or while
     /// it is open, so "Manage folders" lands on Folders instead of wherever Settings was left.
@@ -422,6 +433,7 @@ final class AppModel {
 
     func refreshToolStatus() async {
         toolStatus = await client.toolStatus()
+        toolStatusLoaded = true
     }
 
     /// How many scanned repositories sit inside `folder`, nested ones included.
@@ -1053,6 +1065,7 @@ extension AppModel {
         // A rescan (the window starts one) must find the same folders the preview was given.
         client.artifactsByRoot = Dictionary(grouping: artifacts, by: { $0.checkoutRoot.path })
         client.caches = developerCaches
+        client.suggestions = Fixtures.folderSuggestions
         client.volume = volume
         let model = AppModel(
             client: client,

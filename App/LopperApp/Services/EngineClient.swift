@@ -11,6 +11,10 @@ protocol EngineClient: Sendable {
     func artifacts(in root: URL, repoRoot: URL, location: ArtifactLocation, names: Set<String>) async -> [DiskArtifact]
     /// Tool caches in the home folder (Xcode build data, npm cache, ...), as clearable folders.
     func developerCaches() async -> [DiskArtifact]
+    /// The usual project folders that exist on this Mac, with how many repositories each holds.
+    func folderSuggestions() async -> [FolderSuggestion]
+    /// Looks through the home folder for repositories. Read only; ends with the folders that hold them.
+    func systemScan() -> AsyncStream<SystemScanEvent>
     /// Runs the lockfile install that brings a cleared folder back.
     func reinstall(in directory: URL, how: String) async -> Reinstaller.Outcome
     /// Free and total space of the disk the home folder is on.
@@ -73,6 +77,14 @@ struct LiveEngineClient: EngineClient {
 
     func developerCaches() async -> [DiskArtifact] {
         await DeveloperCaches.scan()
+    }
+
+    func folderSuggestions() async -> [FolderSuggestion] {
+        await FolderSuggestions.find()
+    }
+
+    func systemScan() -> AsyncStream<SystemScanEvent> {
+        SystemScanner().scan(home: FileManager.default.homeDirectoryForCurrentUser)
     }
 
     func reinstall(in directory: URL, how: String) async -> Reinstaller.Outcome {

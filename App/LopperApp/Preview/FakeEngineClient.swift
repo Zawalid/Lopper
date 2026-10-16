@@ -67,6 +67,26 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         measureLock.withLock { measurementLog }
     }
 
+    var suggestions: [FolderSuggestion] = []
+    var systemScanEvents: [SystemScanEvent] = []
+    /// When true the scripted scan never finishes, so a test can stop it midway.
+    var systemScanHangs = false
+
+    func folderSuggestions() async -> [FolderSuggestion] { suggestions }
+
+    func systemScan() -> AsyncStream<SystemScanEvent> {
+        let events = systemScanEvents
+        let hangs = systemScanHangs
+        return AsyncStream { continuation in
+            let task = Task {
+                for event in events { continuation.yield(event) }
+                if hangs { try? await Task.sleep(for: .seconds(60)) }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     var reinstallOutcome: Reinstaller.Outcome = .done
     private(set) var reinstalls: [String] = []
 

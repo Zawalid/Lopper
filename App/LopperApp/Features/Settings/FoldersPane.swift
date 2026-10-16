@@ -15,6 +15,8 @@ struct FoldersPane: View {
                     FolderRow(folder: folder)
                 }
                 Button("Add folder…") { FolderPicker.choose { model.addRoots($0) } }
+                Button("Run setup again…") { model.restartOnboarding() }
+                    .help("Find folders on this Mac, or pick new ones, from the start")
             } header: {
                 Text("Folders Lopper looks in")
             }

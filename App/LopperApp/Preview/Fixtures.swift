@@ -146,6 +146,15 @@ enum Fixtures {
             worktrees: [worktree("feat/in-worktree", .safe, evidence: .contentIncluded)])
     }
 
+    static var folderSuggestions: [FolderSuggestion] {
+        [
+            FolderSuggestion(path: URL(fileURLWithPath: "/Users/me/Developer"), repoCount: 14),
+            FolderSuggestion(path: URL(fileURLWithPath: "/Users/me/Projects"), repoCount: 9),
+            FolderSuggestion(path: URL(fileURLWithPath: "/Users/me/Documents/GitHub"), repoCount: 3),
+            FolderSuggestion(path: URL(fileURLWithPath: "/Users/me/Code"), repoCount: 0),
+        ]
+    }
+
     /// Tool caches for previews, outside any repository.
     static var developerCaches: [DiskArtifact] {
         let home = URL(fileURLWithPath: "/Users/me")
