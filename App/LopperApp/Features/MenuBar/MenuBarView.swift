@@ -109,17 +109,14 @@ struct MenuBarView: View {
     }
 
     private var footer: some View {
-        HStack {
-            Button("Open Lopper") { openMain() }.buttonStyle(.lopperLink)
+        HStack(spacing: Theme.Spacing.sm) {
+            FooterButton(title: "Open Lopper", emphasized: true) { openMain() }
             Spacer()
-            Button("Quit") { NSApp.terminate(nil) }
-                .buttonStyle(.plain)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            FooterButton(title: "Quit", shortcut: "\u{2318}Q") { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
         }
-        .padding(.horizontal, Theme.Spacing.lg)
-        .padding(.vertical, Theme.Spacing.md)
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, Theme.Spacing.sm)
         .overlay(alignment: .top) { Divider() }
     }
 
@@ -229,5 +226,41 @@ private struct VolumeStrip: View {
                 .font(.caption2).foregroundStyle(Theme.metaText)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// A footer action with a visible hover and press state, a pointing-hand cursor and a keyboard focus ring.
+private struct FooterButton: View {
+    let title: String
+    var shortcut: String?
+    var emphasized = false
+    let action: () -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title)
+                if let shortcut {
+                    Text(shortcut).font(.caption).foregroundStyle(.tertiary)
+                }
+            }
+            .font(.callout.weight(emphasized ? .medium : .regular))
+            .foregroundStyle(emphasized ? Theme.accentText : (isHovering ? Color.primary : Color.secondary))
+            .padding(.horizontal, Theme.Spacing.md)
+            .frame(height: 28)
+            .background(Color.primary.opacity(isHovering ? 0.09 : 0), in: RoundedRectangle(cornerRadius: 7))
+            .contentShape(RoundedRectangle(cornerRadius: 7))
+        }
+        .buttonStyle(FooterPressStyle())
+        .onHover { isHovering = $0 }
+        .pointerCursor()
+    }
+}
+
+private struct FooterPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.6 : 1)
     }
 }
