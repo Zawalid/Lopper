@@ -1,0 +1,128 @@
+import Foundation
+
+/// Everything one scan produces, in the shape the app's pages and the command line both consume.
+public struct WorkspaceScan: Sendable {
+    public struct Failure: Sendable, Equatable {
+        public let root: URL
+        public let message: String
+    }
+
+    public let results: [RepoScanResult]
+    public let sizes: [String: DiskUsage]
+    /// Every branch and worktree row, safe first, oldest work first inside each group.
+    public let rows: [CleanupRow]
+    public let failures: [Failure]
+
+    public var snapshots: [RepoSnapshot] {
+        results.compactMap { if case .snapshot(let snapshot) = $0 { snapshot } else { nil } }
+    }
+}
+
+/// The engine's front door for scanning, removing and restoring: the same orchestration the app uses, so the
+/// command line behaves exactly like the app and they share one settings file and one undo log.
+public struct Workspace: Sendable {
+    public let settings: Settings
+    private let git: GitRunner
+    private let prProvider: PRProvider?
+    private let undoLog: UndoLog
+    private let gate = RepoGate()
+    private let now: @Sendable () -> Date
+
+    public init(
+        settings: Settings, prProvider: PRProvider? = GhCliProvider(), undoLog: UndoLog = UndoLog(url: UndoLog.defaultURL),
+        git: GitRunner = GitRunner(), now: @escaping @Sendable () -> Date = { Date() }
+    ) {
+        self.settings = settings
+        self.prProvider = prProvider
+        self.undoLog = undoLog
+        self.git = git
+        self.now = now
+    }
+
+    private var inspector: RepoInspector {
+        RepoInspector(git: git, settings: settings, prProvider: prProvider)
+    }
+
+    private var cleaner: Cleaner {
+        Cleaner(git: git, inspector: inspector, undoLog: undoLog, gate: gate)
+    }
+
+    /// Finds the repositories under the configured folders, classifies every branch and worktree, and (unless
+    /// told not to) measures the folders of worktrees so agent worktrees can be judged finished or in use.
+    public func scan(measureSizes: Bool = true) async -> WorkspaceScan {
+        let service = ScanService(
+            inspector: inspector, scanner: RepoScanner(excludePatterns: settings.excludePatterns), gate: gate)
+        let results = await service.scan(roots: settings.roots, maxDepth: settings.scanDepth)
+            .sorted { $0.repoRoot.path < $1.repoRoot.path }
+
+        let snapshots = results.compactMap { result -> RepoSnapshot? in
+            if case .snapshot(let snapshot) = result { snapshot } else { nil }
+        }
+        let sizes = measureSizes ? await measure(snapshots) : [:]
+        let policy = AgentPolicy(settings: settings)
+        let moment = now()
+        let rows = snapshots
+            .flatMap { RowMapper.rows(for: $0, sizes: sizes, policy: policy, now: moment) }
+            .sorted(by: RowMapper.defaultOrder)
+        let failures = results.compactMap { result -> WorkspaceScan.Failure? in
+            if case .failure(let root, let message) = result { .init(root: root, message: message) } else { nil }
+        }
+        return WorkspaceScan(results: results, sizes: sizes, rows: rows, failures: failures)
+    }
+
+    /// Every worktree, and every main folder without the worktrees nested inside it (those count under their own name).
+    private func measure(_ snapshots: [RepoSnapshot]) async -> [String: DiskUsage] {
+        let targets = snapshots.flatMap { snapshot -> [(path: URL, disposable: Set<String>, excluding: [URL])] in
+            let disposable = settings.disposableSet(for: snapshot.repo.root)
+            let live = snapshot.worktrees.filter { !$0.isPrunable }
+            return live.map { entry in
+                let nested = entry.isMain
+                    ? live.filter { !$0.isMain && $0.path.path.hasPrefix(entry.path.path + "/") }.map(\.path)
+                    : []
+                return (path: entry.path, disposable: disposable, excluding: nested)
+            }
+        }
+        var sizes: [String: DiskUsage] = [:]
+        await withTaskGroup(of: (String, DiskUsage).self) { group in
+            var iterator = targets.makeIterator()
+            func addNext() {
+                guard let target = iterator.next() else { return }
+                group.addTask {
+                    (target.path.path,
+                     await SizeCalculator.measure(target.path, disposableNames: target.disposable, excluding: target.excluding))
+                }
+            }
+            for _ in 0..<4 { addNext() }
+            while let (path, usage) = await group.next() {
+                sizes[path] = usage
+                addNext()
+            }
+        }
+        return sizes
+    }
+
+    /// Removes exactly these rows, worktrees before branches, re-verifying each against fresh state first.
+    /// Worktree rows are strict: if work that exists only in the folder appeared since the scan, they are refused.
+    public func clean(_ rows: [CleanupRow], control: BatchControl? = nil) -> AsyncStream<BatchEvent> {
+        let items = rows.compactMap(\.cleanupItem)
+        let strict = Set(items.filter { if case .worktree = $0 { true } else { false } }.map(\.id))
+        var hints: [String: Int64] = [:]
+        for row in rows {
+            if let item = row.cleanupItem, let size = row.size { hints[item.id] = size }
+        }
+        return BatchCleaner(cleaner: cleaner).run(
+            items: items, now: now(), control: control, strictItemIDs: strict, sizeHints: hints)
+    }
+
+    public func history() async -> [UndoRecord] {
+        await undoLog.all()
+    }
+
+    public func restore(_ record: UndoRecord) async -> RestoreOutcome {
+        await cleaner.restore(record, now: now())
+    }
+
+    public func restoreBatch(_ id: UUID) async -> [RestoreOutcome] {
+        await cleaner.restoreBatch(id, now: now())
+    }
+}
