@@ -7,6 +7,7 @@ enum Route: Hashable {
     case overview
     case agents
     case disk
+    case onlyHere
     case history
     case repo(String)
 
@@ -14,7 +15,7 @@ enum Route: Hashable {
     var hasInspector: Bool {
         switch self {
         case .repo, .agents, .history: true
-        case .overview, .disk: false
+        case .overview, .disk, .onlyHere: false
         }
     }
 }
@@ -442,6 +443,20 @@ final class AppModel {
         toolStatusLoaded = true
     }
 
+    // MARK: Work that exists only on this Mac
+
+    /// What the last scan found in the repositories: unpushed commits, uncommitted changes, stashes.
+    private(set) var localOnly: [LocalOnlyItem] = []
+    /// False until the first look finished, so an empty list is not read as "everything is backed up" too early.
+    private(set) var localOnlyLoaded = false
+
+    func scanLocalOnly() async {
+        let found = await client.localOnlyWork(for: snapshots)
+        guard !Task.isCancelled else { return }
+        localOnly = found
+        localOnlyLoaded = true
+    }
+
     // MARK: Setup problems
 
     /// Whether each folder could be opened at the last check, keyed by canonical path.
@@ -735,6 +750,7 @@ final class AppModel {
             phase = .ready(finished)
             await reloadHistory()
             await measureSizes()
+            await scanLocalOnly()
             await scanArtifacts()
             await sendDigestIfDue()
         }

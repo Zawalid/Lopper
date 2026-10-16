@@ -211,6 +211,14 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
 
     func toolStatus() async -> ToolStatus { tools }
 
+    var localOnly: [LocalOnlyItem] = []
+    private(set) var localOnlyRequests = 0
+
+    func localOnlyWork(for snapshots: [RepoSnapshot]) async -> [LocalOnlyItem] {
+        localOnlyRequests += 1
+        return localOnly
+    }
+
     /// Folders listed here are reported with this access; every other folder reads fine.
     var folderAccessOverrides: [String: FolderAccess] = [:]
 

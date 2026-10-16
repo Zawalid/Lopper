@@ -63,6 +63,12 @@ struct MenuBarView: View {
                         value: SizeFormat.string(folders), tint: Color.accentColor
                     ) { open(.disk) }
                 }
+                if model.localOnlySummary.items > 0 {
+                    MenuRow(
+                        symbol: "icloud.slash", title: "Only on this Mac",
+                        detail: "Not pushed or committed", value: "\(model.localOnlySummary.items)", tint: Color.secondary
+                    ) { open(.onlyHere) }
+                }
                 if totals.review > 0 {
                     MenuRow(
                         symbol: "eye", title: "Need a look", detail: "Not confirmed as merged",

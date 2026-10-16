@@ -6,6 +6,7 @@ enum PrimaryRoute: CaseIterable, Identifiable {
     case overview
     case agents
     case disk
+    case onlyHere
     case history
 
     var id: Self { self }
@@ -15,6 +16,7 @@ enum PrimaryRoute: CaseIterable, Identifiable {
         case .overview: .overview
         case .agents: .agents
         case .disk: .disk
+        case .onlyHere: .onlyHere
         case .history: .history
         }
     }
@@ -24,6 +26,7 @@ enum PrimaryRoute: CaseIterable, Identifiable {
         case .overview: "Overview"
         case .agents: "Agents"
         case .disk: "Disk"
+        case .onlyHere: "Only on this Mac"
         case .history: "History"
         }
     }
@@ -33,17 +36,19 @@ enum PrimaryRoute: CaseIterable, Identifiable {
         case .overview: "square.grid.2x2"
         case .agents: "sparkles"
         case .disk: "internaldrive"
+        case .onlyHere: "icloud.slash"
         case .history: "clock.arrow.circlepath"
         }
     }
 
-    /// Command-1 through Command-4 in sidebar order.
+    /// Command-1 through Command-5 in sidebar order.
     var shortcutDigit: Character {
         switch self {
         case .overview: "1"
         case .agents: "2"
         case .disk: "3"
-        case .history: "4"
+        case .onlyHere: "4"
+        case .history: "5"
         }
     }
 }

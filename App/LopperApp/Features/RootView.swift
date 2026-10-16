@@ -116,6 +116,7 @@ private struct DetailView: View {
         case .overview: OverviewView()
         case .agents: AgentsView()
         case .disk: DiskView()
+        case .onlyHere: LocalOnlyView()
         case .history: HistoryView()
         case .repo(let id): RepoWorkbenchView(repoID: id)
         }

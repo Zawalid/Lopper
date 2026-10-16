@@ -29,6 +29,13 @@ struct SidebarView: View {
                                 Spacer(minLength: Theme.Spacing.sm)
                                 CountBadge(count: model.agentsSummary.reclaimable, kind: .safe)
                             }
+                            if item == .onlyHere, model.localOnlySummary.items > 0 {
+                                Spacer(minLength: Theme.Spacing.sm)
+                                Text("\(model.localOnlySummary.items)")
+                                    .font(.caption2.weight(.semibold).monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                    .help("\(model.localOnlySummary.items) not backed up")
+                            }
                         }
                         .tag(item.route)
                     }

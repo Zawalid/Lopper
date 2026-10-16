@@ -9,6 +9,7 @@ public struct Lop: AsyncParsableCommand {
         subcommands: [
             ScanCommand.self, ListCommand.self, WhyCommand.self, CleanCommand.self, HistoryCommand.self,
             UndoCommand.self, AgentsCommand.self, DiskCommand.self, FoldersCommand.self, DoctorCommand.self,
+            RiskCommand.self,
         ])
 
     public init() {}

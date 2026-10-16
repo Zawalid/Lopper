@@ -87,4 +87,35 @@ final class ScanListWhyTests: XCTestCase {
             XCTAssertTrue(error.message.contains("lop folders add"), error.message)
         }
     }
+    func testRiskListsWorkThatExistsOnlyOnThisMac() async throws {
+        let harness = try Harness()
+        let result = try await harness.run(["risk"])
+
+        XCTAssertTrue(result.out.contains("exist only on this Mac"), result.out)
+        XCTAssertTrue(result.out.contains("wip"), result.out)
+        XCTAssertTrue(result.out.contains("1 commit not on any remote"), result.out)
+        XCTAssertTrue(result.out.contains("push -u origin wip"), result.out)
+        XCTAssertFalse(result.out.contains("done  "), "a merged branch holds nothing that is only here")
+    }
+
+    func testRiskJSONCarriesTheItems() async throws {
+        let harness = try Harness()
+        let result = try await harness.run(["risk", "--json"])
+
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(result.out.utf8)) as? [String: Any])
+        XCTAssertEqual(object["total"] as? Int, 1)
+        let items = try XCTUnwrap(object["items"] as? [[String: Any]])
+        XCTAssertEqual(items.first?["kind"] as? String, "unpushedCommits")
+        XCTAssertEqual(items.first?["title"] as? String, "wip")
+        XCTAssertEqual(items.first?["count"] as? Int, 1)
+    }
+
+    func testRiskSaysSoWhenEverythingIsBackedUp() async throws {
+        let harness = try Harness()
+        try harness.repo.git("push", "-u", "origin", "wip")
+
+        let result = try await harness.run(["risk"])
+
+        XCTAssertTrue(result.out.contains("backed up or merged"), result.out)
+    }
 }

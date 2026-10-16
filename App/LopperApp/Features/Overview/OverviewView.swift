@@ -15,6 +15,7 @@ struct OverviewContent: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openSettings) private var openSettings
     @State private var dismissedGitHubBanner = false
+    @State private var dismissedLocalOnlyBanner = false
     @State private var tidyExpanded = false
 
     var body: some View {
@@ -66,6 +67,14 @@ struct OverviewContent: View {
                     model.requestSettingsPane(.folders)
                     openSettings()
                 })
+        }
+        if model.localOnlySummary.items > 0, !dismissedLocalOnlyBanner, model.setupIssue == nil {
+            Banner(
+                symbol: "icloud.slash",
+                message: LocalOnlyKindStyle.headline(model.localOnlySummary) + ".",
+                actionTitle: "See what",
+                action: { model.route = .onlyHere },
+                onDismiss: { dismissedLocalOnlyBanner = true })
         }
         if !model.githubCLIAvailable && !dismissedGitHubBanner && !model.snapshots.isEmpty {
             Banner(

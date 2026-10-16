@@ -41,6 +41,7 @@ enum PreferencesRoute {
         case .overview: "overview"
         case .agents: "agents"
         case .disk: "disk"
+        case .onlyHere: "onlyHere"
         case .history: "history"
         case .repo(let path): "repo:\(path)"
         }
@@ -50,6 +51,7 @@ enum PreferencesRoute {
         guard let value else { return .overview }
         if value == "agents" { return .agents }
         if value == "disk" { return .disk }
+        if value == "onlyHere" { return .onlyHere }
         if value == "history" { return .history }
         if value.hasPrefix("repo:"), value.count > "repo:".count {
             return .repo(String(value.dropFirst("repo:".count)))

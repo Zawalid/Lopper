@@ -1031,4 +1031,75 @@ final class AppModelTests: XCTestCase {
         let many = ["A", "B", "C"].map { FolderSetting(path: URL(fileURLWithPath: "/x/\($0)")) }
         XCTAssertEqual(SetupGuide.partialNotice(many), "Lopper cannot read A and B and 1 more, so they were skipped.")
     }
+    // MARK: Only on this Mac
+
+    private func localItem(
+        _ kind: LocalOnlyItem.Kind = .unpushedCommits, title: String = "feat/old-2", branch: String? = "feat/old-2",
+        path: URL? = nil, root: URL = URL(fileURLWithPath: "/code"), push: String? = "git push"
+    ) -> LocalOnlyItem {
+        LocalOnlyItem(
+            id: "\(kind.rawValue):\(root.path)#\(title)", kind: kind, repoRoot: root, repoName: root.lastPathComponent,
+            title: title, detail: "2 commits not on any remote", count: 2, lastTouched: Date(), path: path, branch: branch,
+            pushCommand: push)
+    }
+
+    func testTheScanLoadsWhatExistsOnlyOnThisMac() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        client.localOnly = [localItem(), localItem(.stash, title: "stash@{0}", branch: nil, push: nil)]
+        XCTAssertEqual(model.localOnlyPageState, .scanning)
+
+        model.startScan()
+        await settle(model)
+        await waitUntil { model.localOnlyLoaded }
+
+        XCTAssertEqual(model.localOnlySummary, LocalOnlySummary(items: 2, repositories: 1, unpushedCommits: 2))
+        XCTAssertEqual(model.localOnlyGroups.count, 1)
+        XCTAssertEqual(model.localOnlyGroups.first?.items.count, 2)
+        XCTAssertEqual(model.localOnlyPageState, .ready)
+    }
+
+    func testAnEmptyListMeansEverythingIsBackedUpOnlyAfterTheLookFinished() async {
+        let (model, _) = makeModel([Fixtures.sample])
+        XCTAssertEqual(model.localOnlyPageState, .scanning, "not loaded yet is not the same as nothing at risk")
+
+        model.startScan()
+        await settle(model)
+        await waitUntil { model.localOnlyLoaded }
+
+        XCTAssertEqual(model.localOnlyPageState, .allBackedUp(repositories: 1))
+    }
+
+    func testTheInspectorFindsTheItemsThatBelongToABranchRow() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        let root = Fixtures.sample.repo.root
+        client.localOnly = [
+            localItem(title: "feat/old-2", branch: "feat/old-2", root: root),
+            localItem(title: "other", branch: "other", root: root),
+        ]
+        model.startScan()
+        await settle(model)
+        await waitUntil { model.localOnlyLoaded }
+
+        let row = model.allRows.first { $0.kind == .branch && $0.title == "feat/old-2" }
+        XCTAssertNotNil(row)
+        XCTAssertEqual(row.map { model.localOnlyItems(for: $0).map(\.title) }, ["feat/old-2"])
+    }
+
+    func testCopyingAPushCommandCopiesItAndConfirms() {
+        let (model, _) = makeModel([])
+        var copied: [String] = []
+        model.copyHandler = { copied.append($0) }
+
+        model.copyPushCommand(localItem(push: "git -C /code push -u origin feat/x"))
+        model.copyPushCommand(localItem(.stash, push: nil))
+
+        XCTAssertEqual(copied, ["git -C /code push -u origin feat/x"], "an item with nothing to push copies nothing")
+        XCTAssertEqual(model.confirmation, "Copied the push command")
+    }
+
+    func testTheHeadlineCountsItemsAndRepositories() {
+        XCTAssertEqual(
+            LocalOnlyKindStyle.headline(LocalOnlySummary(items: 1, repositories: 1, unpushedCommits: 1)),
+            "1 item in 1 repository exists only on this Mac")
+    }
 }

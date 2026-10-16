@@ -6,6 +6,17 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Added
+- An "Only on this Mac" page, and `lop risk`: work that exists nowhere else, meaning unpushed commits, uncommitted
+  changes in worktrees, stashes, commits on a detached head and half done rebases or merges. It lists and explains;
+  it never removes or pushes anything.
+- Setup screens when git is missing (Apple's command line tools) or macOS blocks the folders you chose, and
+  `lop doctor` and `lop folders` now report which folder cannot be read and why.
+
+### Fixed
+- A folder macOS refused to open used to look like "No repositories found". It is now named, and the other folders
+  are still scanned.
+
 ## [0.2.0] - 2026-10-16
 
 ### Added

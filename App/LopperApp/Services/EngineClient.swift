@@ -35,6 +35,8 @@ protocol EngineClient: Sendable {
     func restoreBatch(_ id: UUID) async -> [RestoreOutcome]
     func restore(_ record: UndoRecord) async -> RestoreOutcome
     func toolStatus() async -> ToolStatus
+    /// Work in these repositories that exists only on this Mac. Reads git; changes nothing.
+    func localOnlyWork(for snapshots: [RepoSnapshot]) async -> [LocalOnlyItem]
     /// Whether each folder can be read, keyed by canonical path. Opens the folders, so it can wait on a slow drive.
     func folderAccess(of folders: [URL]) async -> [String: FolderAccess]
     /// Commits unique to `ref` against `base`, and the size of the change. Read-only and loaded per item.
@@ -140,6 +142,10 @@ struct LiveEngineClient: EngineClient {
     func pullRequestStatus(branch: String, repoRoot: URL) async -> PullRequestStatus? {
         guard let provider = GhCliProvider() else { return nil }
         return await provider.pullRequestStatus(forBranch: branch, in: repoRoot)
+    }
+
+    func localOnlyWork(for snapshots: [RepoSnapshot]) async -> [LocalOnlyItem] {
+        await LocalWorkScanner(git: git).scan(snapshots)
     }
 
     func folderAccess(of folders: [URL]) async -> [String: FolderAccess] {

@@ -23,6 +23,7 @@ struct InspectorContent: View {
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
                 header(row)
                 banner(row)
+                LocalOnlyNote(row: row)
                 if let pr = model.pullRequest(for: row) { PullRequestCard(pullRequest: pr) }
                 evidence(row)
                 UniqueWorkSection(row: row)
@@ -389,5 +390,30 @@ private struct RepositoryPanel: View {
             Text(value).monospacedDigit()
         }
         .font(.callout)
+    }
+}
+
+/// Says so when this branch or worktree holds work that no remote has, whatever its verdict.
+private struct LocalOnlyNote: View {
+    let row: CleanupRow
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let items = model.localOnlyItems(for: row)
+        if !items.isEmpty {
+            HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+                Image(systemName: "icloud.slash").foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Only on this Mac").font(.callout.weight(.medium))
+                    ForEach(items) { item in
+                        Text(item.detail).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(Theme.Spacing.md)
+            .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+            .accessibilityElement(children: .combine)
+        }
     }
 }

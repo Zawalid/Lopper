@@ -72,6 +72,11 @@ public struct Workspace: Sendable {
         return WorkspaceScan(results: results, sizes: sizes, rows: rows, failures: failures)
     }
 
+    /// Work in the scanned repositories that exists only on this Mac: unpushed commits, uncommitted changes, stashes.
+    public func localOnlyWork(in scan: WorkspaceScan) async -> [LocalOnlyItem] {
+        await LocalWorkScanner(git: git).scan(scan.snapshots)
+    }
+
     /// Every worktree, and every main folder without the worktrees nested inside it (those count under their own name).
     private func measure(_ snapshots: [RepoSnapshot]) async -> [String: DiskUsage] {
         let targets = snapshots.flatMap { snapshot -> [(path: URL, disposable: Set<String>, excluding: [URL])] in

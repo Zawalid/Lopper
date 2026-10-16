@@ -200,7 +200,7 @@ final class AppPreferencesTests: XCTestCase {
     }
 
     func testRouteEncodingRoundTripsAndFallsBackToOverview() {
-        for route in [Route.overview, .history, .agents, .repo("/Users/me/My Projects/api")] {
+        for route in [Route.overview, .history, .agents, .onlyHere, .repo("/Users/me/My Projects/api")] {
             XCTAssertEqual(PreferencesRoute.decode(PreferencesRoute.encode(route)), route)
         }
         XCTAssertEqual(PreferencesRoute.decode("nonsense"), .overview)
