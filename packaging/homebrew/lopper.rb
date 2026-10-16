@@ -20,8 +20,8 @@ cask "lopper" do
   ]
 
   caveats <<~EOS
-    Lopper is not notarized yet, so macOS asks you to confirm it the first time you open it.
-    Right-click Lopper in Applications and choose Open, or run:
+    Lopper is not signed with an Apple Developer ID, so macOS blocks it the first time you open it.
+    Choose Open Anyway in System Settings, Privacy & Security, or run:
       xattr -dr com.apple.quarantine #{appdir}/Lopper.app
   EOS
 end

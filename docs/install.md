@@ -8,7 +8,7 @@ a pull request.
 
 1. Open the [latest release](https://github.com/Zawalid/Lopper/releases/latest) and download `Lopper-<version>.dmg`.
 2. Open the DMG and drag **Lopper** onto **Applications**.
-3. Open Lopper from Applications. The first launch needs one extra step, see below.
+3. Open Lopper from Applications. The first launch needs one extra step, see [the first launch](#the-first-launch).
 
 You can check the download against the `Lopper-<version>.dmg.sha256` file on the same page:
 
@@ -16,20 +16,25 @@ You can check the download against the `Lopper-<version>.dmg.sha256` file on the
 shasum -a 256 -c Lopper-0.1.0.dmg.sha256
 ```
 
-## The first launch (until Lopper is notarized)
+## The first launch
 
-Lopper is not yet signed with an Apple Developer ID, so macOS shows "Lopper cannot be opened" the first time. Pick one:
+Lopper is not signed with an Apple Developer ID, so macOS blocks it the first time ("Apple could not verify Lopper is
+free of malware"). You confirm it once and it never asks again:
 
-- **Right-click Open.** In Applications, right-click Lopper, choose **Open**, then **Open** again in the dialog.
-- **System Settings.** After the first blocked attempt, go to **Privacy & Security**, scroll to the message about
-  Lopper and choose **Open Anyway**.
-- **Terminal.** One line removes the quarantine flag:
+1. Open Lopper from Applications. When the warning appears, click **Done**. Do not choose Move to Trash.
+2. Open **System Settings**, then **Privacy & Security**, and scroll down to the Security section. It says Lopper was
+   blocked. Click **Open Anyway**, confirm with your password or Touch ID, then **Open**.
 
-  ```bash
-  xattr -dr com.apple.quarantine /Applications/Lopper.app
-  ```
+On macOS 15 (Sequoia) and later this is the only way in; right-click, Open no longer works there. On macOS 14 you can
+also right-click Lopper in Applications, choose **Open**, then **Open** again.
 
-You only do this once. Lopper is open source, so you can also read exactly what it does or build it yourself.
+Prefer the Terminal? One line removes the quarantine flag and skips the warning:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Lopper.app
+```
+
+Lopper is open source, so you can also read exactly what it does or build it yourself.
 
 ## Homebrew
 

@@ -139,7 +139,8 @@ Applications.
 brew install --cask zawalid/lopper/lopper    # or with Homebrew
 ```
 
-Until the app is notarized, macOS asks you to confirm the first launch once. The one-time steps, updating and
+macOS blocks the first launch because Lopper is not signed with an Apple Developer ID. Open it once, then go to
+**System Settings, Privacy & Security, Open Anyway** (the Homebrew install skips this). The steps, updating and
 uninstalling are in the **[install guide](docs/install.md)**.
 
 **Requirements:** macOS 14 or later, and git (`xcode-select --install`). The [GitHub CLI](https://cli.github.com)
@@ -218,8 +219,9 @@ branch names left out unless you include them. You copy or save it yourself; Lop
 <details>
 <summary><b>Why does macOS warn me on the first launch?</b></summary>
 
-The app is not yet signed with an Apple Developer ID, so macOS Gatekeeper asks you to confirm it once. The
-[install guide](docs/install.md) has the 10-second steps. Lopper is open source, so you can read it or build it yourself.
+The app is not signed with an Apple Developer ID, so macOS Gatekeeper blocks it the first time. Open it, then choose
+**Open Anyway** in System Settings, Privacy & Security; you only do this once. The
+[install guide](docs/install.md) has the steps. Lopper is open source, so you can read it or build it yourself.
 
 </details>
 
