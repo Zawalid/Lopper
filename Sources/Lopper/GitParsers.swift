@@ -100,7 +100,7 @@ public enum GitParsers {
 
     /// Format string to pass to `git for-each-ref refs/heads --format=...`.
     public static let branchFormat =
-        "%(refname:short)%00%(objectname)%00%(upstream:short)%00%(upstream:track)%00%(committerdate:unix)%00%(HEAD)"
+        "%(refname:lstrip=2)%00%(objectname)%00%(upstream:short)%00%(upstream:track)%00%(committerdate:unix)%00%(HEAD)"
 
     /// Output of `git for-each-ref refs/heads --format=<branchFormat>`.
     public static func parseBranches(_ text: String) -> [BranchRef] {

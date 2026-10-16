@@ -58,7 +58,14 @@ public struct MergeEvidenceDetector: Sendable {
         }
         if let cherry = try? await git.run(["cherry", ref, tip], in: repoRoot), cherry.succeeded {
             let lines = cherry.stdout.split(separator: "\n")
-            return !lines.isEmpty && lines.allSatisfy { $0.hasPrefix("-") }
+            guard !lines.isEmpty, lines.allSatisfy({ $0.hasPrefix("-") }) else { return false }
+            // `git cherry` skips merge commits, so work that exists only in a merge commit (a conflict resolution, or an
+            // "update branch" merge with real edits) would go unseen. With any merge on the branch, answer "not included".
+            guard let merges = try? await git.run(["rev-list", "--merges", "--count", "\(ref)..\(tip)"], in: repoRoot),
+                merges.succeeded,
+                Int(merges.stdout.trimmingCharacters(in: .whitespacesAndNewlines)) == 0
+            else { return false }
+            return true
         }
         return false
     }

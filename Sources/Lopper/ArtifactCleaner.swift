@@ -103,11 +103,19 @@ public struct ArtifactCleaner: Sendable {
             }
             let loose = try await git.run(
                 ["ls-files", "-z", "--others", "--exclude-standard", "--", relative], in: checkout)
+            // A failed command says nothing: only a successful, empty answer means "nothing loose in here".
+            guard loose.succeeded else { return .failed(message: "Could not ask git about this folder.") }
             if !loose.stdout.isEmpty {
                 return .skipped(reason: "This folder holds files git does not ignore, so it was left alone")
             }
         } catch {
             return .failed(message: "Could not ask git about this folder. \(UserMessage.describe(error))")
+        }
+
+        // Git does not look inside an ignored folder, so a repository cloned in there (with commits nobody pushed) would
+        // go unseen by every check above. Installed packages may carry their own `.git`; nothing else should.
+        if artifact.name != "node_modules", Self.containsRepository(at: path) {
+            return .skipped(reason: "This folder contains a git repository, which may hold work that exists nowhere else")
         }
 
         var record = UndoRecord(
@@ -119,11 +127,16 @@ public struct ArtifactCleaner: Sendable {
         } catch {
             return .failed(message: "Nothing was changed because the undo log could not be written.")
         }
+        let identity = UndoRecord.identity(ofItemAt: path.path)
         do {
             let trashed = try trash.moveToTrash(path)
             record.trashedPath = trashed.path
+            record.trashedIdentity = identity
             record.status = .completed
-            try? await undoLog.append(record)
+            guard (try? await undoLog.append(record)) != nil else {
+                return .failed(message: "The folder is in the Trash (\(trashed.path)), but the history entry could not be "
+                    + "saved, so Undo cannot list it. Put it back from the Trash in Finder.")
+            }
             return .removed(record)
         } catch {
             record.status = .failed
@@ -131,6 +144,15 @@ public struct ArtifactCleaner: Sendable {
             try? await undoLog.append(record)
             return .failed(message: "Could not move the folder to the Trash. \(UserMessage.describe(error))")
         }
+    }
+
+    /// True when a `.git` file or folder sits anywhere below `folder`. Links are not followed.
+    static func containsRepository(at folder: URL) -> Bool {
+        guard let walker = FileManager.default.enumerator(
+            at: folder, includingPropertiesForKeys: nil, options: [.skipsPackageDescendants])
+        else { return false }
+        for case let item as URL in walker where item.lastPathComponent == ".git" { return true }
+        return false
     }
 
     /// A tool cache is cleared only when it is exactly one of the folders in the catalog: no search, no
@@ -158,11 +180,16 @@ public struct ArtifactCleaner: Sendable {
         } catch {
             return .failed(message: "Nothing was changed because the undo log could not be written.")
         }
+        let identity = UndoRecord.identity(ofItemAt: entry.path.path)
         do {
             let trashed = try trash.moveToTrash(entry.path)
             record.trashedPath = trashed.path
+            record.trashedIdentity = identity
             record.status = .completed
-            try? await undoLog.append(record)
+            guard (try? await undoLog.append(record)) != nil else {
+                return .failed(message: "The folder is in the Trash (\(trashed.path)), but the history entry could not be "
+                    + "saved, so Undo cannot list it. Put it back from the Trash in Finder.")
+            }
             return .removed(record)
         } catch {
             record.status = .failed

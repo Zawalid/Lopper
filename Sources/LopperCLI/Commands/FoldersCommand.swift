@@ -54,6 +54,7 @@ struct FoldersCommand: AsyncParsableCommand {
 
         func run() async throws {
             let session = try Session.open(options, requireFolders: false)
+            try session.requireTrustedSettings()
             let url = FoldersCommand.canonical(path)
             var isDirectory: ObjCBool = false
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
@@ -81,6 +82,7 @@ struct FoldersCommand: AsyncParsableCommand {
 
         func run() async throws {
             let session = try Session.open(options, requireFolders: false)
+            try session.requireTrustedSettings()
             let url = FoldersCommand.canonical(path)
             var settings = SettingsLoader.load(from: session.context.settingsURL).settings
             let before = settings.folders.count

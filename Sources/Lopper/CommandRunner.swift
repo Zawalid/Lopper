@@ -27,15 +27,19 @@ public struct CommandRunner: Sendable {
     public var executable: URL
     public var timeout: Duration
     public var environment: [String: String]
+    /// Decides which variables of the calling process the command inherits. Everything by default.
+    public var inheritsVariable: @Sendable (String) -> Bool
 
     public init(
         executable: URL,
         timeout: Duration = .seconds(30),
-        environment: [String: String] = [:]
+        environment: [String: String] = [:],
+        inheritsVariable: @escaping @Sendable (String) -> Bool = { _ in true }
     ) {
         self.executable = executable
         self.timeout = timeout
         self.environment = environment
+        self.inheritsVariable = inheritsVariable
     }
 
     public func run(_ arguments: [String], in directory: URL? = nil) async throws -> CommandOutput {
@@ -43,7 +47,7 @@ public struct CommandRunner: Sendable {
         process.executableURL = executable
         process.arguments = arguments
         process.currentDirectoryURL = directory
-        var env = ProcessInfo.processInfo.environment
+        var env = ProcessInfo.processInfo.environment.filter { inheritsVariable($0.key) }
         for (key, value) in environment { env[key] = value }
         process.environment = env
 
@@ -61,6 +65,17 @@ public struct CommandRunner: Sendable {
         async let stdoutData = Self.drain(stdoutPipe.fileHandleForReading)
         async let stderrData = Self.drain(stderrPipe.fileHandleForReading)
 
+        // The watchdog must end with the command. Left sleeping it keeps the process and its pipes alive for the whole
+        // timeout, and a scan that runs thousands of git commands then runs out of file descriptors.
+        let watchdog = Task {
+            do { try await Task.sleep(for: limit) } catch { return }
+            if box.process.isRunning {
+                timedOut.withLock { $0 = true }
+                box.process.terminate()
+            }
+        }
+        defer { watchdog.cancel() }
+
         let status: Int32
         do {
             status = try await withTaskCancellationHandler {
@@ -74,14 +89,6 @@ public struct CommandRunner: Sendable {
                         try? stdoutPipe.fileHandleForWriting.close()
                         try? stderrPipe.fileHandleForWriting.close()
                         continuation.resume(throwing: CommandError.launchFailed(String(describing: error)))
-                        return
-                    }
-                    Task {
-                        try? await Task.sleep(for: limit)
-                        if box.process.isRunning {
-                            timedOut.withLock { $0 = true }
-                            box.process.terminate()
-                        }
                     }
                 }
             } onCancel: {

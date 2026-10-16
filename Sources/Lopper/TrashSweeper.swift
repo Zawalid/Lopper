@@ -40,8 +40,16 @@ public struct TrashSweeper: Sendable {
             guard record.action == .trashFolder, record.status == .completed,
                   let path = record.trashedPath else { return false }
             // `fileExists` follows links; a dangling link is not something worth reporting.
-            return (try? FileManager.default.attributesOfItem(atPath: path)) != nil
+            guard (try? FileManager.default.attributesOfItem(atPath: path)) != nil else { return false }
+            return isStillTheSameItem(record, at: path)
         }
+    }
+
+    /// False when something else now sits where Lopper put a folder. The Trash reuses plain names, so after the person
+    /// empties it, their own `dist` can land on the very path an old record names.
+    static func isStillTheSameItem(_ record: UndoRecord, at path: String) -> Bool {
+        guard let expected = record.trashedIdentity else { return true }  // written before identity was recorded
+        return UndoRecord.identity(ofItemAt: path) == expected
     }
 
     public static func totals(of records: [UndoRecord]) -> Totals {
@@ -60,9 +68,17 @@ public struct TrashSweeper: Sendable {
     public func deleteForGood(_ records: [UndoRecord], now: Date = Date()) async -> Result {
         var deleted: [UndoRecord] = []
         var failures: [Failure] = []
-        for record in records {
-            guard record.action == .trashFolder, let path = record.trashedPath else {
-                failures.append(Failure(record: record, message: "This is not a folder Lopper trashed"))
+        // The log is the authority, not the list the caller was handed: a record that was restored or expired since the
+        // list was made must not be acted on.
+        let current = Dictionary(uniqueKeysWithValues: await undoLog.all().map { ($0.id, $0) })
+        for given in records {
+            let record = current[given.id] ?? given
+            guard record.action == .trashFolder, record.status == .completed, let path = record.trashedPath else {
+                failures.append(Failure(record: given, message: "This is not a folder Lopper trashed"))
+                continue
+            }
+            guard Self.isStillTheSameItem(record, at: path) else {
+                failures.append(Failure(record: record, message: "Something else is in the Trash under this name now, so it was left alone"))
                 continue
             }
             guard Self.isInTrash(path) else {

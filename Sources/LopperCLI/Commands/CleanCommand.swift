@@ -43,15 +43,24 @@ struct CleanCommand: AsyncParsableCommand {
     var query: String?
 
     func run() async throws {
-        if includeReview && repo == nil && (query ?? "").isEmpty {
-            throw ValidationError("--include-review needs a name to remove or --repo, so it cannot sweep everything.")
+        if includeReview && repo == nil && (query ?? "").count < 3 {
+            throw ValidationError(
+                "--include-review needs a name of at least 3 characters, or --repo, so it cannot sweep everything.")
         }
         let session = try Session.open(options)
+        try session.requireTrustedSettings()
         let console = session.console
         let scan = await session.workspace.scan()
 
         let candidates = RowFilter(repository: repo, query: query).apply(scan.rows)
-        let chosen = candidates.filter { $0.isBulkEligible || (includeReview && $0.verdict == .review && $0.isSelectable) }
+        // Review items are removed only when the name matches the item itself (not just a folder it sits in), and never
+        // while an agent may still be using the worktree.
+        let needle = query ?? ""
+        let chosen = candidates.filter {
+            $0.isBulkEligible
+                || (includeReview && $0.verdict == .review && $0.isSelectable && $0.agentHeldBackReason == nil
+                    && (needle.isEmpty || $0.title.localizedCaseInsensitiveContains(needle)))
+        }
         let held = candidates.filter { !chosen.contains($0) && $0.verdict != .protected }
 
         if chosen.isEmpty {

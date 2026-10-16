@@ -68,7 +68,9 @@ struct DiskCommand: AsyncParsableCommand {
     func run() async throws {
         let session = try Session.open(options)
         let console = session.console
-        let scan = await session.workspace.scan(measureSizes: false)
+        // "Untouched" is about the project: when anything outside the generated folder was last edited. Measuring that
+        // reads every project, so it only happens when the option asks for it.
+        let scan = await session.workspace.scan(measureSizes: untouchedDays != nil)
         var folders = await session.workspace.artifacts(for: scan)
         if let repo {
             folders = folders.filter {
@@ -77,13 +79,21 @@ struct DiskCommand: AsyncParsableCommand {
         }
         if let days = untouchedDays {
             let cutoff = session.now.addingTimeInterval(-TimeInterval(days) * 86_400)
-            folders = folders.filter { ($0.newestModification ?? .distantPast) < cutoff }
+            // A project whose last edit is unknown is not untouched: unknown must never mean "safe to clear".
+            folders = folders.filter {
+                guard let edited = scan.sizes[$0.projectDirectory.path]?.newestModification else { return false }
+                return edited < cutoff
+            }
         }
         let offered = folders.filter { $0.removal.isOffered }
         let clearable = offered.reduce(Int64(0)) { $0 + $1.bytes }
         let cacheFolders = caches ? await session.workspace.developerCaches() : []
 
-        if clear { try await performClear(session: session, offered: offered, clearable: clearable); return }
+        if clear {
+            try session.requireTrustedSettings()
+            try await performClear(session: session, offered: offered, clearable: clearable)
+            return
+        }
 
         if options.json {
             console.line(try JSONOutput.string(

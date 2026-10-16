@@ -93,34 +93,34 @@ public struct Cleaner: Sendable {
                 trashRef: Self.trashRef(now: now, label: label), status: .pending, batchID: batchID,
                 reason: entry.evidence.summary, bytes: bytes)
             let folderGone = entry.isPrunable && !FileManager.default.fileExists(atPath: entry.path.path)
-            return await execute(record: &record, repoRoot: repoRoot) {
-                if folderGone {
-                    // Nothing on disk is left to lose: dropping the registration is all that remains.
-                    return try await git.runChecked(["worktree", "prune"], in: repoRoot)
+            if folderGone {
+                // A folder that is missing together with the one it sat in is usually a drive that is not connected,
+                // not a deleted worktree: its files may be intact. A locked one is held by the person who locked it.
+                let parent = entry.path.deletingLastPathComponent().path
+                guard FileManager.default.fileExists(atPath: parent) else {
+                    return .skipped(reason: "The folder is missing and so is the one it was in. Its drive may not be connected")
                 }
-                // The worktree must still be at the commit that was verified: anything committed since
-                // then (a detached HEAD has no branch to keep it) would be orphaned by the removal.
-                let current = try await git.runChecked(["rev-parse", "HEAD"], in: entry.path)
-                guard current == entry.head else { throw CleanError.movedAfterVerification(entry.path.path) }
+                if entry.isLocked { return .skipped(reason: "The worktree is locked") }
+            }
+            return await execute(record: &record, repoRoot: repoRoot) {
+                if !folderGone {
+                    // The worktree must still be at the commit that was verified: anything committed since
+                    // then (a detached HEAD has no branch to keep it) would be orphaned by the removal.
+                    let current = try await git.runChecked(["rev-parse", "HEAD"], in: entry.path)
+                    guard current == entry.head else { throw CleanError.movedAfterVerification(entry.path.path) }
+                }
                 // A detached HEAD has no branch to keep its commits. Give them one before the folder goes,
                 // and take it back if git then refuses the removal, so a refusal leaves nothing behind.
-                var savedRef: String?
-                if entry.branch == nil && entry.verdict.kind != .safe {
-                    let name = Self.savedBranchName(forWorktreeAt: entry.path, head: entry.head)
-                    let ref = "refs/heads/\(name)"
-                    let existing = try await git.run(["rev-parse", "--verify", "--quiet", ref], in: repoRoot)
-                    if existing.succeeded {
-                        // Someone (an earlier removal) already saved this commit under this name: keep it and
-                        // never roll it back. A different commit under the name is never overwritten.
-                        let at = existing.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard at == entry.head else { throw CleanError.savedBranchTaken(name) }
-                    } else {
-                        // The empty old value makes the update create-only.
-                        try await git.runChecked(["update-ref", ref, entry.head, ""], in: repoRoot)
-                        savedRef = ref
-                    }
-                }
+                let savedRef = try await saveDetachedHead(
+                    path: entry.path, head: entry.head, branch: entry.branch, isSafe: entry.verdict.kind == .safe,
+                    repoRoot: repoRoot)
                 do {
+                    if folderGone {
+                        // Nothing on disk is left to lose. Only this worktree's registration goes: `git worktree prune`
+                        // would also drop every other missing worktree, including ones holding commits no branch has.
+                        try await removeRegistration(of: entry.path, repoRoot: repoRoot)
+                        return ""
+                    }
                     // Never --force: git itself refuses to remove a worktree with local changes.
                     return try await git.runChecked(["worktree", "remove", entry.path.path], in: repoRoot)
                 } catch {
@@ -133,11 +133,61 @@ public struct Cleaner: Sendable {
         }
     }
 
-    /// Drops registrations whose folder is gone. Loses nothing: branches and commits are untouched.
+    /// Drops registrations whose folder is gone, one at a time, saving detached commits first. Loses nothing:
+    /// branches and commits are untouched, and a detached head gets a branch before its registration goes.
     public func pruneWorktreeRegistrations(repoRoot: URL) async throws {
         try await gate.run(key: repoRoot.path) {
-            _ = try await git.runChecked(["worktree", "prune"], in: repoRoot)
+            let listing = try await git.runChecked(["worktree", "list", "--porcelain", "-z"], in: repoRoot)
+            for entry in GitParsers.parseWorktreeList(listing) where entry.isPrunable && !entry.isLocked && !entry.isBare {
+                let url = URL(fileURLWithPath: entry.path)
+                guard !FileManager.default.fileExists(atPath: url.path),
+                    FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path)
+                else { continue }
+                _ = try await saveDetachedHead(
+                    path: url, head: entry.head, branch: entry.branch, isSafe: false, repoRoot: repoRoot)
+                try await removeRegistration(of: url, repoRoot: repoRoot)
+            }
         }
+    }
+
+    /// For a detached worktree whose commit no branch holds: a create-only branch at that commit. Returns the ref it
+    /// made, so a failure later can take it back; nil when nothing was needed or an earlier removal already made it.
+    private func saveDetachedHead(path: URL, head: String, branch: String?, isSafe: Bool, repoRoot: URL) async throws -> String? {
+        guard branch == nil, !isSafe else { return nil }
+        let name = Self.savedBranchName(forWorktreeAt: path, head: head)
+        let ref = "refs/heads/\(name)"
+        let existing = try await git.run(["rev-parse", "--verify", "--quiet", ref], in: repoRoot)
+        if existing.succeeded {
+            // Someone (an earlier removal) already saved this commit under this name: keep it and
+            // never roll it back. A different commit under the name is never overwritten.
+            let at = existing.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard at == head else { throw CleanError.savedBranchTaken(name) }
+            return nil
+        }
+        // The empty old value makes the update create-only.
+        try await git.runChecked(["update-ref", ref, head, ""], in: repoRoot)
+        return ref
+    }
+
+    /// Deletes git's bookkeeping folder for exactly this worktree (`<common dir>/worktrees/<id>`), found through its
+    /// `gitdir` file. Refuses when none matches, so a registration for another worktree is never taken by mistake.
+    private func removeRegistration(of worktree: URL, repoRoot: URL) async throws {
+        let common = try await git.runChecked(["rev-parse", "--git-common-dir"], in: repoRoot)
+        let commonDirectory = (common.hasPrefix("/") ? URL(fileURLWithPath: common) : URL(fileURLWithPath: common, relativeTo: repoRoot))
+            .standardizedFileURL
+        let registrations = commonDirectory.appendingPathComponent("worktrees")
+        let wanted = worktree.canonicalized.path
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: registrations.path)) ?? []
+        for name in names {
+            let folder = registrations.appendingPathComponent(name)
+            guard let text = try? String(contentsOf: folder.appendingPathComponent("gitdir"), encoding: .utf8) else { continue }
+            let recorded = URL(fileURLWithPath: text.trimmingCharacters(in: .whitespacesAndNewlines)).deletingLastPathComponent()
+            if recorded.canonicalized.path == wanted || recorded.standardizedFileURL.path == worktree.standardizedFileURL.path {
+                try FileManager.default.removeItem(at: folder)
+                return
+            }
+        }
+        throw CleanError.movedAfterVerification(worktree.path)
     }
 
     // MARK: Restore
@@ -185,15 +235,21 @@ public struct Cleaner: Sendable {
     /// Removes keep-alive refs older than the retention window and marks their records expired.
     @discardableResult
     public func expireTrash(retentionDays: Int, now: Date = Date()) async -> Int {
-        let cutoff = now.addingTimeInterval(-TimeInterval(retentionDays) * 86_400)
+        // A retention of zero or less, or a clock that jumped forward, must not wipe the safety net of recent removals.
+        let cutoff = now.addingTimeInterval(-TimeInterval(max(retentionDays, 1)) * 86_400)
         var expired = 0
-        for record in await undoLog.all() where record.status == .completed && record.timestamp < cutoff {
+        for record in await undoLog.all()
+        where record.status == .completed && record.timestamp < cutoff && record.timestamp <= now {
             if record.action == .trashFolder {
                 // The Trash is the person's: only note that a folder is gone once it really is.
                 if let trashed = record.trashedPath, FileManager.default.fileExists(atPath: trashed) { continue }
             } else {
                 let repoRoot = URL(fileURLWithPath: record.repoPath)
-                _ = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
+                // Only Lopper's own keep-alive refs are ever deleted, whatever a damaged log says.
+                if Self.isKeepAliveRef(record.trashRef) {
+                    let deleted = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
+                    guard deleted?.succeeded == true else { continue }
+                }
             }
             var updated = record
             updated.status = .expired
@@ -246,6 +302,12 @@ public struct Cleaner: Sendable {
         return "lopper/saved/\(cleaned)-\(head.prefix(8))"
     }
 
+    /// True only for refs under Lopper's own namespace, so a tampered or damaged undo log can never make Lopper delete
+    /// a branch or a tag.
+    static func isKeepAliveRef(_ ref: String) -> Bool {
+        ref.hasPrefix("refs/lopper/trash/") && !ref.contains("..")
+    }
+
     static func trashRef(now: Date, label: String) -> String {
         "refs/lopper/trash/\(Int(now.timeIntervalSince1970))/\(label)"
     }
@@ -267,14 +329,20 @@ public struct Cleaner: Sendable {
         }
         do {
             _ = try await command()
-            record.status = .completed
-            try? await undoLog.append(record)
-            return .removed(record)
         } catch {
             record.status = .failed
             record.detail = String(describing: error)
             try? await undoLog.append(record)
             return .failed(message: UserMessage.describe(error))
+        }
+        // The removal happened. If the log cannot say so, say that plainly instead of reporting a clean success.
+        record.status = .completed
+        do {
+            try await undoLog.append(record)
+            return .removed(record)
+        } catch {
+            return .failed(message: "It was removed, but the history entry could not be saved, so Undo may not list it. "
+                + "The commit is kept at \(record.trashRef): git branch <name> \(record.tip)")
         }
     }
 
@@ -338,6 +406,9 @@ public struct Cleaner: Sendable {
         guard manager.fileExists(atPath: trashed) else {
             throw CleanError.restoreBlocked("it is no longer in the Trash")
         }
+        if let expected = record.trashedIdentity, UndoRecord.identity(ofItemAt: trashed) != expected {
+            throw CleanError.restoreBlocked("something else is in the Trash under that name now")
+        }
         if manager.fileExists(atPath: original) {
             throw CleanError.restoreBlocked("\(original) already exists")
         }
@@ -350,7 +421,7 @@ public struct Cleaner: Sendable {
     }
 
     private func finishRestore(_ record: UndoRecord, detail: String, repoRoot: URL) async throws -> RestoreOutcome {
-        if !record.trashRef.isEmpty {
+        if Self.isKeepAliveRef(record.trashRef) {
             _ = try? await git.run(["update-ref", "-d", record.trashRef], in: repoRoot)
         }
         var updated = record

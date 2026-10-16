@@ -130,6 +130,9 @@ public struct Settings: Sendable, Equatable {
     public var rules = Rules()
     /// Top-level keys written by a newer build, preserved untouched.
     public var unknownKeys: [String: JSONValue]
+    /// Keys the file held but this build could not read (a wrong type, a typo). They are in use as defaults, so the
+    /// loader reports a recovery; protections the file did spell out correctly are kept.
+    public internal(set) var damagedKeys: [String] = []
 
     public static let defaultAgentFinishedGraceMinutes = 120
     public static let defaultProtectedPatterns = ["main", "master", "develop", "release/*", "hotfix/*"]
@@ -278,12 +281,25 @@ public struct Settings: Sendable, Equatable {
     }
 
     public func save(to url: URL) throws {
+        // A file written by a newer build can hold fields this build does not know inside the structures it does know,
+        // and saving would drop them. Leave it alone: updating Lopper is the fix.
+        if let existing = try? Data(contentsOf: url),
+            let object = try? JSONSerialization.jsonObject(with: existing) as? [String: Any],
+            let version = object["schemaVersion"] as? Int, version > Settings.currentSchemaVersion
+        {
+            throw SettingsSaveError.writtenByNewerVersion(version)
+        }
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(self).write(to: url, options: .atomic)
     }
+}
+
+public enum SettingsSaveError: Error, Equatable {
+    /// The file on disk was written by a newer Lopper than this one.
+    case writtenByNewerVersion(Int)
 }
 
 // MARK: Codable
@@ -309,33 +325,39 @@ extension Settings: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: AnyKey.self)
         let defaults = Settings()
-        func value<T: Decodable>(_ key: String, as type: T.Type) throws -> T? {
-            try container.decodeIfPresent(type, forKey: AnyKey(key))
+        var damaged: [String] = []
+        // One unreadable key must not reset the others: a protected pattern the person wrote stays protected even if
+        // some unrelated number in the same file has the wrong type.
+        func value<T: Decodable>(_ key: String, as type: T.Type) -> T? {
+            do { return try container.decodeIfPresent(type, forKey: AnyKey(key)) } catch {
+                damaged.append(key)
+                return nil
+            }
         }
 
-        let version = try value("schemaVersion", as: Int.self) ?? 1
+        let version = value("schemaVersion", as: Int.self) ?? 1
         schemaVersion = max(version, Settings.currentSchemaVersion)
-        scanDepth = try value("scanDepth", as: Int.self) ?? defaults.scanDepth
-        protectedPatterns = try value("protectedPatterns", as: [String].self) ?? defaults.protectedPatterns
-        staleDays = try value("staleDays", as: Int.self) ?? defaults.staleDays
-        disposableNames = try value("disposableNames", as: [String].self) ?? defaults.disposableNames
-        trashRetentionDays = try value("trashRetentionDays", as: Int.self) ?? defaults.trashRetentionDays
+        scanDepth = min(max(value("scanDepth", as: Int.self) ?? defaults.scanDepth, 1), 12)
+        protectedPatterns = value("protectedPatterns", as: [String].self) ?? defaults.protectedPatterns
+        staleDays = max(value("staleDays", as: Int.self) ?? defaults.staleDays, 1)
+        disposableNames = value("disposableNames", as: [String].self) ?? defaults.disposableNames
+        trashRetentionDays = min(max(value("trashRetentionDays", as: Int.self) ?? defaults.trashRetentionDays, 1), 3650)
         agentFinishedGraceMinutes = max(
-            0, try value("agentFinishedGraceMinutes", as: Int.self) ?? defaults.agentFinishedGraceMinutes)
+            0, value("agentFinishedGraceMinutes", as: Int.self) ?? defaults.agentFinishedGraceMinutes)
 
-        rules = try value("rules", as: Rules.self) ?? Rules()
+        rules = value("rules", as: Rules.self) ?? Rules()
 
-        if let folders = try value("folders", as: [FolderSetting].self) {
+        if let folders = value("folders", as: [FolderSetting].self) {
             self.folders = folders
         } else {
-            self.folders = (try value("roots", as: [URL].self) ?? []).map { FolderSetting(path: $0) }
+            self.folders = (value("roots", as: [URL].self) ?? []).map { FolderSetting(path: $0) }
         }
 
-        var repos = try value("repos", as: [String: RepoOverrides].self) ?? [:]
-        for (path, branch) in try value("defaultBranchOverrides", as: [String: String].self) ?? [:] {
+        var repos = value("repos", as: [String: RepoOverrides].self) ?? [:]
+        for (path, branch) in value("defaultBranchOverrides", as: [String: String].self) ?? [:] {
             repos[path, default: RepoOverrides()].defaultBranch = branch
         }
-        for (path, names) in try value("repoDisposableNames", as: [String: [String]].self) ?? [:] {
+        for (path, names) in value("repoDisposableNames", as: [String: [String]].self) ?? [:] {
             var merged = repos[path, default: RepoOverrides()].disposableNames
             for name in names where !merged.contains(name) { merged.append(name) }
             repos[path, default: RepoOverrides()].disposableNames = merged
@@ -348,6 +370,7 @@ extension Settings: Codable {
             unknown[key.stringValue] = try container.decode(JSONValue.self, forKey: key)
         }
         unknownKeys = unknown
+        damagedKeys = damaged
     }
 
     public func encode(to encoder: Encoder) throws {

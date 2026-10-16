@@ -43,6 +43,11 @@ public struct Reinstaller: Sendable {
         guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory), isDirectory.boolValue
         else { return .failed("The project folder no longer exists") }
 
+        // The folder must really be gone. `npm ci` removes node_modules itself, with no Trash and no undo record, so it
+        // is only ever run to bring back a folder Lopper has just moved away.
+        if FileManager.default.fileExists(atPath: directory.appendingPathComponent("node_modules").path) {
+            return .failed("node_modules is still there, so nothing was reinstalled")
+        }
         let runner = CommandRunner(executable: shell, timeout: timeout, environment: environment)
         do {
             let output = try await runner.run(shellArguments + [command], in: directory)

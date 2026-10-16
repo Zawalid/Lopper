@@ -12,6 +12,8 @@ final class SettingsStore: @unchecked Sendable {
     private let lock = NSLock()
     private var pending: Settings?
     private var task: Task<Void, Never>?
+    /// True when the file exists but could not be read. Writing then would replace what may be perfectly good settings.
+    private var writesBlocked = false
 
     static var standard: SettingsStore {
         SettingsStore(url: LopperSupport.directory().appendingPathComponent("settings.json"))
@@ -27,9 +29,20 @@ final class SettingsStore: @unchecked Sendable {
         self.writer = writer
     }
 
+    /// False while the file exists but could not be read: saving would replace what may be perfectly good settings.
+    var canWrite: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !writesBlocked
+    }
+
     /// Loads without ever discarding a file that cannot be read: see `SettingsLoader`.
     func load() -> SettingsLoadResult {
-        SettingsLoader.load(from: url)
+        let result = SettingsLoader.load(from: url)
+        lock.lock()
+        writesBlocked = result.outcome == .unreadable
+        lock.unlock()
+        return result
     }
 
     /// Remembers the latest value and writes it once changes stop arriving.
@@ -50,11 +63,12 @@ final class SettingsStore: @unchecked Sendable {
     func flush() {
         lock.lock()
         let value = pending
+        let blocked = writesBlocked
         pending = nil
         task?.cancel()
         task = nil
         lock.unlock()
-        guard let value else { return }
+        guard let value, !blocked else { return }
         try? writer(value, url)
     }
 

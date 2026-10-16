@@ -51,6 +51,7 @@ struct AgentsCommand: AsyncParsableCommand {
         let tools = AgentToolTotal.totals(of: agentRows)
 
         if reclaimFinished {
+            try session.requireTrustedSettings()
             let held = rows.filter { !$0.isBulkEligible }
             if reclaimable.isEmpty {
                 console.line(options.json ? "{}" : "No finished agent worktrees to reclaim.")

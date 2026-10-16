@@ -22,6 +22,9 @@ public struct RepoInspector: Sendable {
         let listed: [WorktreeListEntry]
         let refs: [BranchRef]
         let stashBranches: Set<String>
+        /// Branches a detached worktree is in the middle of rebasing or bisecting, by branch name, with the worktree.
+        /// `git worktree list` shows such a worktree as detached, so without this the branch looks unused.
+        let branchesInOperation: [String: String]
         let mergedPRs: [MergedPR]
         let prAvailable: Bool
     }
@@ -53,16 +56,50 @@ public struct RepoInspector: Sendable {
                 prAvailable = false
             }
         }
+        let listedWorktrees = GitParsers.parseWorktreeList(worktreeText)
+        let inOperation = await branchesInOperation(listedWorktrees)
         return Context(
             repoRoot: repoRoot,
             defaultName: defaultName,
             defaultRefs: defaultRefs,
             detector: MergeEvidenceDetector(git: git, repoRoot: repoRoot, defaultRefs: defaultRefs),
-            listed: GitParsers.parseWorktreeList(worktreeText),
+            listed: listedWorktrees,
             refs: GitParsers.parseBranches(branchText),
             stashBranches: GitParsers.parseStashBranches(stashText),
+            branchesInOperation: inOperation,
             mergedPRs: mergedPRs,
             prAvailable: prAvailable)
+    }
+
+    /// How many branches of one repository are judged at the same time. The scan already runs several repositories
+    /// at once, so this stays small.
+    static let branchConcurrency = 4
+
+    /// `transform` over `items`, `width` at a time, results in the order of `items`.
+    static func mapConcurrently<Element: Sendable, Result: Sendable>(
+        _ items: [Element], width: Int, _ transform: @escaping @Sendable (Element) async -> Result
+    ) async -> [Result] {
+        guard items.count > 1, width > 1 else {
+            var results: [Result] = []
+            for item in items { results.append(await transform(item)) }
+            return results
+        }
+        var results = [Result?](repeating: nil, count: items.count)
+        await withTaskGroup(of: (Int, Result).self) { group in
+            var next = 0
+            func addNext() {
+                guard next < items.count else { return }
+                let index = next
+                next += 1
+                group.addTask { (index, await transform(items[index])) }
+            }
+            for _ in 0..<min(width, items.count) { addNext() }
+            while let (index, value) = await group.next() {
+                results[index] = value
+                addNext()
+            }
+        }
+        return results.compactMap { $0 }
     }
 
     public func inspect(repoRoot: URL, now: Date = Date()) async throws -> RepoSnapshot {
@@ -70,13 +107,14 @@ public struct RepoInspector: Sendable {
         let remoteURL = (try? await git.run(["remote", "get-url", "origin"], in: repoRoot))
             .flatMap { $0.succeeded ? $0.stdout.trimmingCharacters(in: .whitespacesAndNewlines) : nil }
 
-        var branchEntries: [BranchEntry] = []
-        for ref in context.refs {
-            branchEntries.append(await branchEntry(ref, in: context))
+        // Every branch costs a few git processes, so a repository with thousands of them is judged several at a time.
+        // The result keeps git's order either way.
+        let branchEntries = await Self.mapConcurrently(context.refs, width: Self.branchConcurrency) { ref in
+            await branchEntry(ref, in: context)
         }
-        var worktreeEntries: [WorktreeEntry] = []
-        for (index, entry) in context.listed.enumerated() where !entry.isBare {
-            worktreeEntries.append(await worktreeEntry(entry, isMain: index == 0, in: context))
+        let listedWorktrees = Array(context.listed.enumerated().filter { !$0.element.isBare })
+        let worktreeEntries = await Self.mapConcurrently(listedWorktrees, width: Self.branchConcurrency) { item in
+            await worktreeEntry(item.element, isMain: item.offset == 0, in: context)
         }
 
         let repo = Repo(
@@ -119,6 +157,7 @@ public struct RepoInspector: Sendable {
         let counts = await aheadBehind(
             tip: ref.tip, defaultRef: context.defaultRefs.first, repoRoot: context.repoRoot)
         let worktreesWithBranch = linked.filter { $0.branch == ref.name }.map(\.path)
+            + (context.branchesInOperation[ref.name].map { [$0] } ?? [])
         let input = ClassificationInput(
             branchName: ref.name,
             evidence: evidence,
@@ -144,6 +183,11 @@ public struct RepoInspector: Sendable {
         // Git also calls a worktree "prunable" when it merely cannot enter the folder, so the
         // flag is not trusted: only a folder that is really gone has nothing left to lose.
         let folderMissing = !FileManager.default.fileExists(atPath: entry.path)
+        if folderMissing, !FileManager.default.fileExists(atPath: url.deletingLastPathComponent().path) {
+            // The folder it sat in is missing too: most likely a drive that is not connected, so nothing is known about
+            // what the folder holds.
+            unreadable = true
+        }
         if !folderMissing {
             // A prunable folder that still exists has lost its .git file: running git inside it
             // would answer for the enclosing repository, so it is never read.
@@ -213,7 +257,62 @@ public struct RepoInspector: Sendable {
             ["status", "--porcelain=v1", "-z", "--ignored", "--untracked-files=normal"], in: url),
             output.succeeded
         else { return nil }
-        return GitParsers.parseStatus(output.stdout, disposable: disposable)
+        var status = GitParsers.parseStatus(output.stdout, disposable: disposable)
+        // `git status` says nothing about a file flagged skip-worktree or assume-unchanged, so edits to it look clean,
+        // and `git worktree remove` would delete them. Compare those files with the index ourselves.
+        if !status.isDirty, await hasHiddenModifications(at: url) { status.isDirty = true }
+        return status
+    }
+
+    /// True when a file git was told to stop watching (skip-worktree, assume-unchanged) differs from what the index
+    /// holds. Unreadable answers count as modified, because the question is whether anything could be lost.
+    private func hasHiddenModifications(at url: URL) async -> Bool {
+        guard let listing = try? await git.run(["ls-files", "-v", "-z"], in: url) else { return true }
+        guard listing.succeeded else { return true }
+        var flagged: [String] = []
+        for entry in listing.stdout.split(separator: "\u{0}", omittingEmptySubsequences: true) {
+            guard entry.count > 2, let tag = entry.first else { continue }
+            // Lowercase tags are assume-unchanged; S and s are skip-worktree. A plain H is a normal tracked file.
+            if tag == "S" || tag == "s" || tag.isLowercase { flagged.append(String(entry.dropFirst(2))) }
+        }
+        let present = flagged.filter { FileManager.default.fileExists(atPath: url.appendingPathComponent($0).path) }
+        guard !present.isEmpty else { return false }
+        for chunk in stride(from: 0, to: present.count, by: 100).map({ Array(present[$0..<min($0 + 100, present.count)]) }) {
+            guard let staged = try? await git.run(["ls-files", "-s", "-z", "--"] + chunk, in: url), staged.succeeded,
+                let hashed = try? await git.run(["hash-object", "--"] + chunk, in: url), hashed.succeeded
+            else { return true }
+            var indexed: [String: String] = [:]
+            for record in staged.stdout.split(separator: "\u{0}", omittingEmptySubsequences: true) {
+                // "<mode> <sha> <stage>\t<path>"
+                let parts = record.split(separator: "\t", maxSplits: 1)
+                guard parts.count == 2, let sha = parts[0].split(separator: " ").dropFirst().first else { continue }
+                indexed[String(parts[1])] = String(sha)
+            }
+            let working = hashed.stdout.split(separator: "\n").map(String.init)
+            guard working.count == chunk.count else { return true }
+            for (path, sha) in zip(chunk, working) where indexed[path] != sha { return true }
+        }
+        return false
+    }
+
+    /// Reads each detached worktree's own folder for a rebase or bisect in progress and the branch it is working on.
+    private func branchesInOperation(_ listed: [WorktreeListEntry]) async -> [String: String] {
+        var result: [String: String] = [:]
+        for entry in listed where entry.branch == nil && !entry.isBare && !entry.isPrunable {
+            let url = URL(fileURLWithPath: entry.path)
+            guard let output = try? await git.run(["rev-parse", "--absolute-git-dir"], in: url), output.succeeded else { continue }
+            let gitDir = URL(fileURLWithPath: output.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
+            for file in ["rebase-merge/head-name", "rebase-apply/head-name"] {
+                guard let text = try? String(contentsOf: gitDir.appendingPathComponent(file), encoding: .utf8) else { continue }
+                let name = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if name.hasPrefix("refs/heads/") { result[String(name.dropFirst("refs/heads/".count))] = entry.path }
+            }
+            if let start = try? String(contentsOf: gitDir.appendingPathComponent("BISECT_START"), encoding: .utf8) {
+                let name = start.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty { result[name] = entry.path }
+            }
+        }
+        return result
     }
 
     private func operationInProgress(at url: URL) async -> Bool {

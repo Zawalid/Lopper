@@ -37,12 +37,15 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
     public var bytes: Int64?
     /// Where a trashed folder ended up inside the Trash, so it can be put back. Only set for `.trashFolder`.
     public var trashedPath: String?
+    /// Who the trashed folder was (device and inode), so a different folder that later takes the same name in the Trash
+    /// is never mistaken for it. Absent in records written before this field existed.
+    public var trashedIdentity: String?
 
     public init(
         id: UUID = UUID(), timestamp: Date, repoPath: String, action: UndoAction, branch: String?,
         tip: String, upstream: String?, worktreePath: String?, trashRef: String,
         status: UndoStatus, detail: String? = nil, batchID: UUID? = nil,
-        reason: String? = nil, bytes: Int64? = nil, trashedPath: String? = nil
+        reason: String? = nil, bytes: Int64? = nil, trashedPath: String? = nil, trashedIdentity: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -59,6 +62,15 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
         self.reason = reason
         self.bytes = bytes
         self.trashedPath = trashedPath
+        self.trashedIdentity = trashedIdentity
+    }
+
+    /// `device:inode` of what is at `path` now, without following links. Nil when nothing is there.
+    public static func identity(ofItemAt path: String) -> String? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+            let device = attributes[.systemNumber] as? NSNumber, let inode = attributes[.systemFileNumber] as? NSNumber
+        else { return nil }
+        return "\(device):\(inode)"
     }
 }
 
@@ -77,6 +89,10 @@ public actor UndoLog {
         directory.appendingPathComponent("undo-log.jsonl")
     }
 
+    /// Appends one line. The file is opened with O_APPEND, so two processes (the app and `lop`) can never overwrite
+    /// each other, locked while writing, and a half-written last line left by a crash gets a newline first so the new
+    /// record is never glued onto it. Throws when the line could not be written in full: callers rely on "did not
+    /// throw" meaning "recorded".
     public func append(_ record: UndoRecord) throws {
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -85,17 +101,35 @@ public actor UndoLog {
         encoder.outputFormatting = [.sortedKeys]
         var line = try encoder.encode(record)
         line.append(0x0A)
-        if FileManager.default.fileExists(atPath: url.path) {
-            let handle = try FileHandle(forWritingTo: url)
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: line)
-        } else {
-            try line.write(to: url, options: .atomic)
+
+        let descriptor = open(url.path, O_RDWR | O_APPEND | O_CREAT, 0o644)
+        guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        defer { close(descriptor) }
+        guard flock(descriptor, LOCK_EX) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+        defer { flock(descriptor, LOCK_UN) }
+
+        let size = lseek(descriptor, 0, SEEK_END)
+        if size > 0 {
+            var last: UInt8 = 0x0A
+            if pread(descriptor, &last, 1, size - 1) == 1, last != 0x0A { line.insert(0x0A, at: 0) }
         }
+        try line.withUnsafeBytes { buffer in
+            var offset = 0
+            while offset < buffer.count {
+                let written = write(descriptor, buffer.baseAddress! + offset, buffer.count - offset)
+                if written < 0 {
+                    if errno == EINTR { continue }
+                    throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+                }
+                offset += written
+            }
+        }
+        guard fsync(descriptor) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
     }
 
-    /// Latest state of every record, newest first.
+    /// Latest state of every record, newest first. A line this build cannot read is skipped, but a record whose latest
+    /// line is unreadable (a newer build changed its state) is left out entirely rather than shown in an older state:
+    /// showing it as restorable again could mislead.
     public func all() -> [UndoRecord] {
         guard let data = try? Data(contentsOf: url) else { return [] }
         let decoder = JSONDecoder()
@@ -104,6 +138,9 @@ public actor UndoLog {
         for line in data.split(separator: 0x0A) {
             if let record = try? decoder.decode(UndoRecord.self, from: Data(line)) {
                 latest[record.id] = record
+            } else if let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                let text = object["id"] as? String, let id = UUID(uuidString: text) {
+                latest.removeValue(forKey: id)
             }
         }
         return latest.values.sorted { $0.timestamp > $1.timestamp }

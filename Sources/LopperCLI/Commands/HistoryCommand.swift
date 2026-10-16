@@ -116,8 +116,13 @@ struct UndoCommand: AsyncParsableCommand {
             }
             if let batch = latest.batchID {
                 let members = history.filter { $0.batchID == batch && $0.status == .completed }
+                // The engine restores branches first, then worktrees, then folders; the names must line up with that
+                // order or a failure would be reported against the wrong item.
+                let ordered = [UndoAction.deleteBranch, .removeWorktree, .trashFolder].flatMap { action in
+                    members.filter { $0.action == action }
+                }
                 let results = await session.workspace.restoreBatch(batch)
-                outcomes = zip(members.map(HistoryFormat.name), results).map { ($0, $1) }
+                outcomes = zip(ordered.map(HistoryFormat.name), results).map { ($0, $1) }
             } else {
                 outcomes = [(HistoryFormat.name(latest), await session.workspace.restore(latest))]
             }

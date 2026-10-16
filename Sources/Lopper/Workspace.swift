@@ -114,11 +114,15 @@ public struct Workspace: Sendable {
         let items = rows.compactMap(\.cleanupItem)
         let strict = Set(items.filter { if case .worktree = $0 { true } else { false } }.map(\.id))
         var hints: [String: Int64] = [:]
+        var heldBack: [String: String] = [:]
         for row in rows {
-            if let item = row.cleanupItem, let size = row.size { hints[item.id] = size }
+            guard let item = row.cleanupItem else { continue }
+            if let size = row.size { hints[item.id] = size }
+            // Whatever the caller chose, a worktree an agent may still be using is never removed from here.
+            if let reason = row.agentHeldBackReason { heldBack[item.id] = reason }
         }
         return BatchCleaner(cleaner: cleaner).run(
-            items: items, now: now(), control: control, strictItemIDs: strict, sizeHints: hints)
+            items: items, now: now(), control: control, strictItemIDs: strict, sizeHints: hints, heldBack: heldBack)
     }
 
     public func history() async -> [UndoRecord] {

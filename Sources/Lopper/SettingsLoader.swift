@@ -10,6 +10,9 @@ public enum SettingsLoadOutcome: Sendable, Equatable {
     case recoveredFromCorruption(backup: URL)
     /// The file was written by a newer build. Known fields are used, unknown ones preserved; `backup` is a copy.
     case newerVersion(backup: URL)
+    /// The file exists but could not be read at all (permissions, a transient error). Defaults are in use, nothing was
+    /// copied, and nothing must be saved over it: the person's settings may be perfectly fine.
+    case unreadable
 }
 
 public struct SettingsLoadResult: Sendable, Equatable {
@@ -24,10 +27,14 @@ public enum SettingsLoader {
             return SettingsLoadResult(settings: Settings(), outcome: .created)
         }
         guard let data = try? Data(contentsOf: url) else {
-            return recovered(from: url, now: now)
+            return SettingsLoadResult(settings: Settings(), outcome: .unreadable)
         }
         guard let settings = try? JSONDecoder().decode(Settings.self, from: data) else {
             return recovered(from: url, now: now)
+        }
+        if !settings.damagedKeys.isEmpty {
+            // Most of the file is fine, so it is used; the parts that were not are named by `damagedKeys`.
+            return recovered(from: url, now: now, keeping: settings)
         }
         let version = fileVersion(in: data)
         if version > Settings.currentSchemaVersion {
@@ -43,13 +50,13 @@ public enum SettingsLoader {
         return SettingsLoadResult(settings: settings, outcome: .loaded)
     }
 
-    private static func recovered(from url: URL, now: Date) -> SettingsLoadResult {
+    private static func recovered(from url: URL, now: Date, keeping settings: Settings? = nil) -> SettingsLoadResult {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyyMMdd-HHmmss"
         let backup = backupURL(for: url, label: "broken-\(formatter.string(from: now))")
         copyIfMissing(url, to: backup)
-        return SettingsLoadResult(settings: Settings(), outcome: .recoveredFromCorruption(backup: backup))
+        return SettingsLoadResult(settings: settings ?? Settings(), outcome: .recoveredFromCorruption(backup: backup))
     }
 
     /// The `schemaVersion` the file declares; files from before versioning count as 1.

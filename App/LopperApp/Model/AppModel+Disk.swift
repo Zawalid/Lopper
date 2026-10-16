@@ -185,6 +185,7 @@ extension AppModel {
     }
 
     func beginDiskClear(_ items: [DiskArtifact], title: String) {
+        guard !settingsNeedAttention else { notice = Self.settingsAttentionNotice; return }
         let offered = items.filter { $0.removal.isOffered }
         guard !offered.isEmpty, diskClear == nil, clean == nil else { return }
         diskClear = DiskClearState(title: title, artifacts: offered)
@@ -219,6 +220,9 @@ extension AppModel {
         let client = self.client
 
         Task {
+            // Only a project whose own folder really went to the Trash is reinstalled: `npm ci` deletes node_modules
+            // first, so running it in a project Lopper refused to touch would be an unrecorded removal.
+            var clearedProjects: Set<URL> = []
             for (index, artifact) in items.enumerated() {
                 if diskClear?.isStopping == true { break }
                 let names = settings.disposableSet(for: artifact.repoRoot)
@@ -227,6 +231,7 @@ extension AppModel {
                 let title = "\(artifact.name) in \(artifact.checkoutRoot.lastPathComponent)"
                 switch outcome {
                 case .removed:
+                    clearedProjects.insert(artifact.projectDirectory)
                     current.outcomes.append(ItemOutcome(id: artifact.id, title: title, status: .removed, message: nil))
                     current.removed += 1
                     current.reclaimedBytes += artifact.bytes
@@ -239,10 +244,7 @@ extension AppModel {
                 diskClear = current
             }
             if diskClear?.reinstall == true, diskClear?.isStopping != true {
-                let targets = (diskClear?.reinstallTargets ?? []).filter { target in
-                    // Only projects whose folder was actually cleared.
-                    items.contains { $0.projectDirectory == target.directory } && (diskClear?.removed ?? 0) > 0
-                }
+                let targets = (diskClear?.reinstallTargets ?? []).filter { clearedProjects.contains($0.directory) }
                 let base = items.count
                 for (index, target) in targets.enumerated() {
                     guard diskClear?.isStopping != true else { break }

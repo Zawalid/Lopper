@@ -222,6 +222,10 @@ final class AppModel {
             let loaded = store.load()
             self.settings = loaded.settings
             self.notice = Self.notice(for: loaded.outcome)
+            switch loaded.outcome {
+            case .unreadable, .recoveredFromCorruption: self.settingsNeedAttention = true
+            default: break
+            }
         }
         isOnboarding = self.settings.roots.isEmpty
         // A pending debounced save must not be lost when the app quits.
@@ -237,9 +241,12 @@ final class AppModel {
         case .recoveredFromCorruption(let backup):
             return "Your settings file couldn't be read, so Lopper started with defaults. "
                 + "The original was kept as \(backup.lastPathComponent)."
+        case .unreadable:
+            return "Your settings file exists but could not be read, so Lopper is using defaults and will not save "
+                + "changes over it. Nothing is removed until it can be read."
         case .newerVersion(let backup):
-            return "Your settings were saved by a newer version of Lopper. They are used as they are, "
-                + "and a copy was kept as \(backup.lastPathComponent)."
+            return "Your settings were saved by a newer version of Lopper. They are used as they are, and "
+                + "a copy was kept as \(backup.lastPathComponent). This version will not change that file; update Lopper to edit it."
         }
     }
 
@@ -373,10 +380,21 @@ final class AppModel {
 
     /// Applies a settings change, saves it (debounced), and rescans when the change affects what is found or
     /// how it is decided. Callers never start scans by hand for settings changes.
+    /// True while the settings file could not be read in full. Defaults are in use, which can put the person's own
+    /// protected branches back to the built-in ones, so nothing is removed until they have looked at it (changing a
+    /// setting counts) or, for an unreadable file, until it can be read.
+    private(set) var settingsNeedAttention = false
+
+    static let settingsAttentionNotice = "Your settings could not be read in full, so Lopper is not removing anything yet. "
+        + "Check Settings (changing any setting confirms them), or restore the original file."
+
     func updateSettings(_ change: (inout Settings) -> Void) {
         var copy = settings
         change(&copy)
         guard copy != settings else { return }
+        // Changing a setting is the person confirming what is in use. An unreadable file stays blocked: nothing can be
+        // saved over it, so there is nothing to confirm.
+        if settingsNeedAttention, store.canWrite { settingsNeedAttention = false }
         let needsRescan = copy.requiresRescan(comparedTo: settings)
         settings = copy
         store.scheduleSave(copy)
@@ -987,6 +1005,7 @@ final class AppModel {
     }
 
     func beginClean(rows: [CleanupRow]) {
+        guard !settingsNeedAttention else { notice = Self.settingsAttentionNotice; return }
         guard !rows.isEmpty, clean == nil else { return }
         clean = CleanState(rows: rows)
     }

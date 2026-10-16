@@ -61,6 +61,9 @@ struct Session {
     let context: CLIContext
     let options: GlobalOptions
     let settings: Settings
+    /// How the settings file was read. A damaged or unreadable file means defaults are in use, which resets the
+    /// person's protected branches, so anything that removes or saves must call `requireTrustedSettings()`.
+    let settingsOutcome: SettingsLoadOutcome
     let workspace: Workspace
     let console: any Console
     let style: Style
@@ -84,9 +87,35 @@ struct Session {
             undoLog: UndoLog(url: context.undoLogURL), trash: context.trash, now: context.now)
         let console = context.console
         let color = console.useColor && !options.noColor
+        switch loaded.outcome {
+        case .unreadable:
+            console.writeError("warning: the settings file could not be read, so defaults are in use.\n")
+        case .recoveredFromCorruption(let backup):
+            console.writeError("warning: part of the settings file could not be read (original kept as \(backup.lastPathComponent)), so some settings are defaults.\n")
+        default: break
+        }
         return Session(
-            context: context, options: options, settings: settings, workspace: workspace, console: console,
-            style: Style(enabled: color))
+            context: context, options: options, settings: settings, settingsOutcome: loaded.outcome, workspace: workspace,
+            console: console, style: Style(enabled: color))
+    }
+
+    /// Refuses to go on when the settings file was damaged or unreadable. Defaults would put the person's own protected
+    /// branches, hidden repositories and throwaway names back to the built-in ones, and a save would then overwrite
+    /// what they wrote.
+    func requireTrustedSettings() throws {
+        switch settingsOutcome {
+        case .unreadable:
+            throw ValidationError(
+                "The settings file \(context.settingsURL.path) exists but cannot be read, so Lopper would use defaults "
+                    + "instead of your protected branches. Fix its permissions and try again (`lop doctor` shows more).")
+        case .recoveredFromCorruption(let backup):
+            throw ValidationError(
+                "Part of the settings file could not be read, so some of your settings would be defaults, including "
+                    + "possibly your protected branches. The original is kept as \(backup.lastPathComponent). Fix "
+                    + "\(context.settingsURL.lastPathComponent) (`lop doctor` shows more) and try again.")
+        default:
+            return
+        }
     }
 
     var now: Date { context.now() }

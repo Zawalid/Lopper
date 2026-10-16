@@ -67,6 +67,7 @@ struct DoctorCommand: AsyncParsableCommand {
         case .migrated: "upgraded from an older version"
         case .recoveredFromCorruption: "could not be read, a backup was kept"
         case .newerVersion: "written by a newer Lopper"
+        case .unreadable: "exists but cannot be read; defaults are in use and nothing is saved over it"
         }
     }
 

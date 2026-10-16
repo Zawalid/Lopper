@@ -62,6 +62,14 @@ public struct RepoScanner: Sendable {
             fileURLWithPath: rawPath, relativeTo: dotGitFile.deletingLastPathComponent()
         ).standardizedFileURL
         guard let range = gitDir.path.range(of: "/.git/worktrees/") else { return nil }
+        // Believe the file only when git's own bookkeeping agrees: the folder it names must exist and point back at this
+        // `.git` file. A stray or planted file cannot pull another repository into scope.
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: gitDir.path, isDirectory: &isDirectory), isDirectory.boolValue,
+            let back = try? String(contentsOf: gitDir.appendingPathComponent("gitdir"), encoding: .utf8)
+        else { return nil }
+        let backURL = URL(fileURLWithPath: back.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard backURL.canonicalized.path == dotGitFile.canonicalized.path else { return nil }
         let root = URL(fileURLWithPath: String(gitDir.path[..<range.lowerBound]), isDirectory: true)
         return FileManager.default.fileExists(atPath: root.appendingPathComponent(".git").path)
             ? root.canonicalized : nil
