@@ -81,6 +81,8 @@ jobs:
 
       - name: Checksum and release notes
         run: |
+          # A copy under a fixed name, so the permanent link releases/latest/download/Lopper.dmg always works.
+          cp "build/Lopper-$VERSION.dmg" build/Lopper.dmg
           (cd build && shasum -a 256 "Lopper-$VERSION.dmg" > "Lopper-$VERSION.dmg.sha256")
           awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > build/notes.md
           [ -s build/notes.md ] || echo "Release $VERSION" > build/notes.md
@@ -98,5 +100,5 @@ jobs:
           PRERELEASE=""
           case "$VERSION" in *-*) PRERELEASE="--prerelease";; esac
           gh release create "$GITHUB_REF_NAME" \
-            "build/Lopper-$VERSION.dmg" "build/Lopper-$VERSION.dmg.sha256" \
+            "build/Lopper-$VERSION.dmg" build/Lopper.dmg "build/Lopper-$VERSION.dmg.sha256" \
             --title "Lopper $VERSION" --notes-file build/notes.md $PRERELEASE

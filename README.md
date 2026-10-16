@@ -14,7 +14,7 @@ and lets you undo anything for 30 days.
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-8CF2CC?style=flat-square&labelColor=0B100F)
 ![Swift 6](https://img.shields.io/badge/Swift-6-8CF2CC?style=flat-square&labelColor=0B100F)
 
-[Download](https://github.com/Zawalid/Lopper/releases/latest) &nbsp;·&nbsp; [Install guide](docs/install.md) &nbsp;·&nbsp; [How it stays safe](#how-it-stays-safe) &nbsp;·&nbsp; [Build from source](#build-from-source) &nbsp;·&nbsp; [Roadmap](docs/roadmap.md)
+[Website](https://lopper.zawalid.com) &nbsp;·&nbsp; [Download](https://github.com/Zawalid/Lopper/releases/latest) &nbsp;·&nbsp; [Install guide](docs/install.md) &nbsp;·&nbsp; [How it stays safe](#how-it-stays-safe) &nbsp;·&nbsp; [Build from source](#build-from-source) &nbsp;·&nbsp; [Roadmap](docs/roadmap.md)
 
 <br>
 

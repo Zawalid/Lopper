@@ -1,0 +1,143 @@
+---
+import '../styles/global.css';
+import icon from '../assets/icon.png';
+import { getImage } from 'astro:assets';
+import { site, links } from '../data/site';
+
+interface Props { title?: string; description?: string }
+const { title = site.title, description = site.description } = Astro.props;
+const canonical = new URL(Astro.url.pathname, site.url).toString();
+const logo = await getImage({ src: icon, width: 56, height: 56, format: 'png' });
+const ogImage = new URL('/og.png', site.url).toString();
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: site.name,
+  description,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS 14 or later',
+  url: site.url,
+  downloadUrl: links.download,
+  license: links.license,
+  author: { '@type': 'Person', name: 'Walid Zakan', url: links.author },
+  codeRepository: links.repo,
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#0b100f" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f6f7f5" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Lopper's overview: 453.7 MB ready to reclaim across a developer's repositories." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:creator" content="@Zawaalid" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <link rel="preload" href="/fonts/Barlow-800.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Barlow-400.woff2" as="font" type="font/woff2" crossorigin />
+    <script is:inline>document.documentElement.classList.add('js');</script>
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to the content</a>
+
+    <header class="site-header">
+      <div class="wrap bar">
+        <a class="brand" href="/" aria-label="Lopper, home">
+          <img src={logo.src} width="28" height="28" alt="" />
+          <span>Lopper</span>
+        </a>
+        <nav aria-label="Main">
+          <a href="#features">Features</a>
+          <a href="#safety">Safety</a>
+          <a href="#install">Install</a>
+          <a href={links.repo}>GitHub</a>
+          <a class="button button-primary small" href={links.download}>Download</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main"><slot /></main>
+
+    <footer class="site-footer">
+      <div class="wrap foot">
+        <div>
+          <a class="brand" href="/" aria-label="Lopper, home">
+            <img src={logo.src} width="28" height="28" alt="" />
+            <span>Lopper</span>
+          </a>
+          <p class="muted">Open source under the MIT licence.</p>
+          <p class="muted">Made by <a href={links.author}>Walid Zakan</a>.</p>
+        </div>
+        <nav aria-label="Project">
+          <a href={links.repo}>Source code</a>
+          <a href={links.releases}>Releases</a>
+          <a href={links.changelog}>Changelog</a>
+          <a href={links.issues}>Report an issue</a>
+          <a href={links.license}>Licence</a>
+        </nav>
+        <nav aria-label="Author">
+          <a href={links.github}>GitHub</a>
+          <a href={links.x}>X</a>
+          <a href={links.author}>zawalid.com</a>
+        </nav>
+      </div>
+    </footer>
+
+    <script is:inline>
+      (function () {
+        var items = document.querySelectorAll('[data-reveal]');
+        if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          items.forEach(function (el) { el.classList.add('in'); });
+          return;
+        }
+        var io = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+          });
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+        items.forEach(function (el) { io.observe(el); });
+      })();
+    </script>
+
+    <style>
+      .site-header { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 92%, transparent); border-bottom: 1px solid var(--line); }
+      .bar { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 16px; }
+      .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--text); font-weight: 800; font-size: 1.2rem; text-decoration: none; letter-spacing: -0.01em; }
+      .brand:hover { text-decoration: none; }
+      .brand img { border-radius: 7px; }
+      .site-header nav { display: flex; align-items: center; gap: clamp(14px, 2.4vw, 28px); font-size: 1rem; }
+      .site-header nav a:not(.button) { color: var(--muted); text-decoration: none; font-weight: 500; }
+      .site-header nav a:not(.button):hover { color: var(--text); }
+      .button.small { min-height: 38px; padding: 0 16px; font-size: 0.95rem; }
+      @media (max-width: 720px) { .site-header nav a:not(.button) { display: none; } }
+
+      .site-footer { border-top: 1px solid var(--line); margin-top: clamp(80px, 10vw, 140px); padding-block: 48px 64px; }
+      .foot { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; }
+      .foot nav { display: flex; flex-direction: column; gap: 8px; font-size: 1rem; }
+      .foot nav a { color: var(--muted); text-decoration: none; }
+      .foot nav a:hover { color: var(--text); text-decoration: underline; }
+      .foot .muted { color: var(--muted); font-size: 1rem; margin-top: 10px; }
+      @media (max-width: 720px) { .foot { grid-template-columns: 1fr; } }
+    </style>
+  </body>
+</html>
