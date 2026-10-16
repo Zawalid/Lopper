@@ -16,6 +16,7 @@ struct LopperApp: App {
                 .environment(model)
                 #if DEBUG
                 .task { await ScreenshotMode.runIfRequested(model: model) }
+                .task { await DemoTour.runIfRequested(model: model) }
                 #endif
         }
         .defaultSize(width: 1080, height: 700)

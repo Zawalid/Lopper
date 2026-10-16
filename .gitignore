@@ -11,3 +11,6 @@ App/Lopper.xcodeproj/
 .superpowers/
 docs/superpowers/
 .claude/
+
+# promo video project (sources and renders stay local; host the final file as a release asset)
+videos/
