@@ -1,0 +1,51 @@
+---
+const rules = [
+  ['offer a branch as safe', 'git confirms its commits are already in the default branch, or a pull request merged them.'],
+  ['offer a worktree as safe', 'it has no uncommitted changes and no commits that exist nowhere else.'],
+  ['clear a generated folder', 'it is git-ignored, it is not a symlink, and it is checked again right before it moves to the Trash.'],
+  ['remove anything at all', 'you reviewed the list and confirmed it.'],
+  ['delete for good', 'it is something Lopper itself moved to the Trash, and you asked for it.'],
+];
+---
+<section class="safety" id="safety" aria-labelledby="safety-title">
+  <div class="wrap">
+    <div class="safety-head">
+      <h2 id="safety-title" class="title safety-title" data-scale-in>it never removes work that exists nowhere else.</h2>
+      <p class="lead">
+        That is the whole job. Every rule below is covered by tests that run against real git repositories, because mocking git
+        would hide exactly the cases that lose work. If Lopper cannot prove something is merged, it says so and leaves the
+        decision to you.
+      </p>
+    </div>
+
+    <dl class="ledger" aria-label="When Lopper acts">
+      {rules.map(([what, when]) => (
+        <div class="row" data-ledger-row>
+          <span class="rule-line" aria-hidden="true"></span>
+          <dt><span class="will">Lopper will</span> {what}</dt>
+          <dd><span class="only">only when</span> {when}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+</section>
+
+<style>
+  .safety { position: relative; z-index: 2; overflow-x: clip; background: #0d1412; padding-block: clamp(110px, 14vw, 200px); }
+  .safety::before { content: ""; position: absolute; inset: 0 0 auto; height: 240px; background: linear-gradient(var(--ink), transparent); pointer-events: none; }
+  .safety-head { position: relative; display: grid; gap: 28px; max-width: 64rem; }
+  .safety-title { font-size: clamp(2.4rem, 6.2vw, 6rem); max-width: 12em; }
+  .safety-head .lead { max-width: 40rem; }
+
+  .ledger { margin: clamp(64px, 9vw, 120px) 0 0; }
+  .row { position: relative; display: grid; gap: 10px; padding: 28px 0 30px; }
+  .rule-line { position: absolute; left: 0; right: 0; top: 0; height: 1px; background: var(--line-strong); transform-origin: 0 50%; }
+  .row:last-child { border-bottom: 1px solid var(--line-strong); }
+  .row dt { font-weight: 800; font-size: clamp(1.5rem, 2.6vw, 2.3rem); line-height: 1.05; letter-spacing: -0.025em; text-transform: lowercase; }
+  .will { display: block; font: 500 0.85rem/1.6 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--faint); margin-bottom: 6px; }
+  .row dd { margin: 0; font-size: clamp(1.1rem, 1.4vw, 1.3rem); line-height: 1.5; color: var(--muted); max-width: 34rem; }
+  .only { display: block; font: 500 0.85rem/1.6 var(--font-mono); color: var(--mint); margin-bottom: 6px; }
+  @media (min-width: 900px) {
+    .row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start; padding: 34px 0 38px; }
+  }
+</style>

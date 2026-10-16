@@ -1,0 +1,230 @@
+---
+import Shot from './Shot.astro';
+import overviewShot from '../assets/shots/overview-dark.png';
+import repositoryShot from '../assets/shots/repository-dark.png';
+import agentsShot from '../assets/shots/agents-dark.png';
+import diskShot from '../assets/shots/disk-map-dark.png';
+import historyShot from '../assets/shots/history-dark.png';
+import type { ImageMetadata } from 'astro';
+
+/** Camera: [scale, focus x, focus y], focus in 0..1 of the app window. Start and end per chapter. */
+type Cam = [number, number, number];
+interface Chapter {
+  id: string;
+  name: string;
+  title: string;
+  body: string;
+  media: { kind: 'image' | 'video'; key: string };
+  shot: ImageMetadata | string;
+  alt: string;
+  cam: { d: [Cam, Cam]; m: [Cam, Cam] };
+  list?: { kind: 'evidence' | 'tools'; items: string[]; label: string };
+  note?: string;
+}
+
+const chapters: Chapter[] = [
+  {
+    id: 'overview',
+    name: 'overview',
+    title: 'everything you can let go of, on one page.',
+    body: 'Point Lopper at the folders that hold your projects. The overview adds up what is ready to reclaim across every repository and lists what is worth a second look.',
+    media: { kind: 'image', key: 'overview' },
+    shot: overviewShot,
+    alt: 'The Lopper overview: 453,7 MB ready to reclaim, 22 branches and 9 worktrees across 12 repositories, with counts of safe, need a look and protected items.',
+    cam: { d: [[1.0, 0.5, 0.5], [1.5, 0.56, 0.37]], m: [[1.0, 0.5, 0.5], [2.3, 0.4, 0.33]] },
+    note: 'Example data from a demo setup.',
+  },
+  {
+    id: 'evidence',
+    name: 'evidence',
+    title: 'every verdict shows its evidence.',
+    body: 'Safe, needs a look, or protected. For every branch and worktree, Lopper lists what it checked, so you never have to take a verdict on trust.',
+    media: { kind: 'video', key: 'evidence' },
+    shot: repositoryShot,
+    alt: 'A repository in Lopper: a table of branches with Safe, Review and Protected verdicts, and the inspector explaining why the selected branch is safe.',
+    cam: { d: [[1.15, 0.55, 0.45], [1.8, 0.8, 0.36]], m: [[1.7, 0.55, 0.4], [3.0, 0.88, 0.33]] },
+    list: { kind: 'evidence', label: 'What Lopper checks', items: ['already in the default branch', 'merged through a pull request', 'remote branch deleted', 'nothing only on this branch'] },
+  },
+  {
+    id: 'agents',
+    name: 'agents',
+    title: 'agents leave worktrees behind. lopper finds them.',
+    body: 'Each worktree shows its state, whether it holds unmerged or uncommitted work, and whether the run is finished or abandoned. Reclaim every finished one in one step.',
+    media: { kind: 'video', key: 'agents' },
+    shot: agentsShot,
+    alt: 'The Agents page: a table of agent worktrees with their state, unmerged work, activity, age and size, and a button to reclaim the finished ones.',
+    cam: { d: [[1.25, 0.5, 0.4], [1.7, 0.42, 0.36]], m: [[2.4, 0.3, 0.36], [3.0, 0.36, 0.42]] },
+    list: { kind: 'tools', label: 'Worktrees it recognises', items: ['claude code', 'cursor', 'codex', 'conductor'] },
+  },
+  {
+    id: 'disk',
+    name: 'disk',
+    title: 'see where the gigabytes went.',
+    body: 'node_modules, build output and caches, by project, by kind, or as a treemap sized by bytes. Developer caches get their own row.',
+    media: { kind: 'video', key: 'disk' },
+    shot: diskShot,
+    alt: 'The Disk page as a treemap: node_modules, build output and caches sized by bytes, grouped by project, with developer caches below.',
+    cam: { d: [[1.3, 0.5, 0.25], [1.22, 0.59, 0.62]], m: [[2.2, 0.35, 0.22], [2.0, 0.55, 0.62]] },
+  },
+  {
+    id: 'clean',
+    name: 'review',
+    title: 'nothing moves until you confirm the list.',
+    body: 'Lopper puts everything it will remove on one sheet. Read it, change it, then confirm. Removed items go to the Trash.',
+    media: { kind: 'video', key: 'clean' },
+    shot: '/media/film-clean-2560.webp',
+    alt: 'The Review and clean sheet: 31 items grouped by repository, each with the reason it is safe, and a button to remove them.',
+    cam: { d: [[1.35, 0.5, 0.42], [1.6, 0.48, 0.44]], m: [[2.6, 0.4, 0.33], [2.6, 0.45, 0.4]] },
+  },
+  {
+    id: 'undo',
+    name: 'undo',
+    title: 'undo anything for 30 days.',
+    body: 'Every removal is logged in History with the reason it was safe. Restore one item or a whole cleanup, and branches come back at their exact commit.',
+    media: { kind: 'video', key: 'undo' },
+    shot: historyShot,
+    alt: 'History: a chart of space given back per week and a table of removals with the reason each was safe and how many days are left to restore it.',
+    cam: { d: [[1.8, 0.62, 0.14], [1.25, 0.5, 0.42]], m: [[3.0, 0.7, 0.13], [2.2, 0.36, 0.42]] },
+  },
+];
+---
+<section class="film" id="tour" aria-labelledby="tour-title" data-film>
+  <div class="film-stage" data-film-stage>
+    <h2 id="tour-title" class="sr-only">A tour of Lopper</h2>
+
+    <div class="film-lens" aria-hidden="true" data-lens>
+      <div class="device film-device" data-device>
+        {chapters.map((c, i) => c.media.kind === 'image' ? (
+          <img class="layer" data-layer={c.id} src={`/media/film-${c.media.key}-1920.webp`} srcset={`/media/film-${c.media.key}-1920.webp 1920w, /media/film-${c.media.key}-2560.webp 2560w`} sizes="(max-width: 899px) 240vw, 90vw" alt="" width="2560" height="1600" loading="lazy" decoding="async" />
+        ) : (
+          <video class="layer" data-layer={c.id} data-src={`/media/film-${c.media.key}-{w}.mp4`} data-poster={`/media/film-${c.media.key}-{w}.webp`} muted playsinline preload="none" width="2560" height="1600" tabindex="-1"></video>
+        ))}
+      </div>
+    </div>
+    <div class="film-scrim" aria-hidden="true"></div>
+
+    <div class="film-chapters">
+      {chapters.map((c, i) => (
+        <article class="chapter" id={c.id} data-chapter={c.id} data-cam={JSON.stringify(c.cam)} aria-labelledby={`${c.id}-title`}>
+          <div class="wrap chapter-text">
+            <h3 class="title chapter-title" id={`${c.id}-title`}>
+              {c.title.split(' ').map((w) => (<span class="cw-mask"><span class="cw">{w}</span></span>))}
+            </h3>
+            <p class="lead chapter-body">{c.body}</p>
+            {c.list && (
+              <ul class={`chapter-list list-${c.list.kind}`} aria-label={c.list.label}>
+                {c.list.items.map((item) => (
+                  <li>
+                    {c.list?.kind === 'evidence' ? (
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m5 8.2 2 2 4-4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    ) : null}
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {c.note && <p class="chapter-note">{c.note}</p>}
+          </div>
+          <div class="wrap chapter-shot" style={`--fx:${c.cam.m[1][1] * 100}%;--fy:${c.cam.m[1][2] * 100}%`}>
+            {typeof c.shot === 'string' ? (
+              <img class="shot-img framed" src={c.shot.replace('2560', '1920')} srcset={`${c.shot.replace('2560', '1920')} 1920w, ${c.shot} 2560w`} sizes="(max-width: 600px) 160vw, (min-width: 1408px) 1280px, 92vw" alt={c.alt} width="2560" height="1600" loading="lazy" decoding="async" />
+            ) : (
+              <Shot src={c.shot} alt={c.alt} class="shot-img" />
+            )}
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <nav class="film-rail" aria-label="Tour chapters" data-rail>
+      <ol>
+        {chapters.map((c) => (
+          <li><button type="button" data-rail-link={c.id}>{c.name}</button></li>
+        ))}
+      </ol>
+      <span class="rail-bar" aria-hidden="true"><span data-rail-fill></span></span>
+    </nav>
+  </div>
+</section>
+
+<style>
+  .film { position: relative; z-index: 2; background: var(--ink); }
+  .film-stage { position: relative; padding-block: clamp(80px, 10vw, 160px) 0; }
+  .film-lens, .film-scrim { display: none; }
+
+  /* static layout: chapters stack */
+  .film-chapters { display: grid; gap: clamp(88px, 12vw, 180px); }
+  .chapter { display: grid; gap: clamp(28px, 4vw, 48px); scroll-margin-top: calc(var(--nav-h) + 24px); }
+  .chapter-text { display: grid; gap: 18px; }
+  .chapter-title { max-width: 14em; }
+  .chapter-body { max-width: 34rem; }
+  .cw-mask { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.12em; margin-bottom: -0.12em; margin-right: 0.22em; }
+  .cw { display: inline-block; }
+  .chapter-list { list-style: none; display: grid; gap: 8px; margin-top: 6px; font: 500 1rem/1.4 var(--font-mono); }
+  .chapter-list li { display: flex; align-items: center; gap: 10px; }
+  .list-evidence { color: var(--mint); }
+  .list-evidence svg { width: 18px; height: 18px; flex: none; }
+  .list-tools { grid-auto-flow: row; color: var(--text); }
+  .list-tools li::before { content: "/"; color: var(--faint); }
+  .chapter-note { font: 400 0.85rem var(--font-mono); color: var(--faint); }
+  .shot-img { width: 100%; height: auto; }
+  .framed { border-radius: 14px; box-shadow: 0 0 0 1px var(--line-strong); }
+  /* phones without the tour: crop each screenshot to the part the copy talks about, so it stays readable */
+  @media (max-width: 600px) {
+    .chapter-shot :global(.shot-img) {
+      aspect-ratio: 1 / 1; height: auto; object-fit: cover; object-position: var(--fx) var(--fy);
+      border-radius: 14px; box-shadow: 0 0 0 1px var(--line-strong); background: #151b1a;
+    }
+  }
+
+  .film-rail { display: none; }
+
+  /* scroll-driven version */
+  :global(.motion) .film { height: 1000svh; }
+  :global(.motion) .film-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; padding: 0; }
+  :global(.motion) .film-lens { display: block; position: absolute; inset: 0; overflow: hidden; }
+  :global(.motion) .film-device { position: absolute; left: 0; top: 0; width: 1000px; transform-origin: 0 0; will-change: transform; border-radius: 14px; }
+  :global(.motion) .film-device .layer { opacity: 0; }
+  :global(.motion) .film-device .layer:first-child { opacity: 1; }
+  :global(.motion) .film-scrim { display: block; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, var(--ink) 0%, rgba(11, 16, 15, 0.94) 30%, rgba(11, 16, 15, 0.55) 42%, rgba(11, 16, 15, 0) 54%); }
+  :global(.motion) .film-chapters { display: block; position: absolute; inset: 0; pointer-events: none; }
+  :global(.motion) .chapter { position: absolute; inset: 0; display: flex; align-items: center; }
+  :global(.motion) .chapter-text { width: min(31vw, 30rem); margin: 0 0 0 var(--gutter); padding: 0; max-width: none; pointer-events: auto; }
+  :global(.motion) .chapter-title { font-size: clamp(2.2rem, 3.9vw, 4rem); }
+  :global(.motion) .chapter-shot { display: none; }
+  :global(.motion) .chapter .cw { transform: translateY(140%); }
+  :global(.motion) .chapter:not(:first-child) .chapter-body,
+  :global(.motion) .chapter:not(:first-child) .chapter-list,
+  :global(.motion) .chapter:not(:first-child) .chapter-note { opacity: 0; }
+  :global(.motion) .list-evidence li { color: var(--faint); transition: color 300ms; }
+  :global(.motion) .list-evidence li.on { color: var(--mint); }
+  :global(.motion) .list-tools { font-size: clamp(1.05rem, 1.4vw, 1.25rem); }
+  :global(.motion) .list-tools li { color: var(--faint); transition: color 300ms; }
+  :global(.motion) .list-tools li.on { color: var(--text); }
+  :global(.motion) .list-tools li.on::before { color: var(--mint); }
+
+  :global(.motion) .film-rail { display: block; position: absolute; left: var(--gutter); bottom: clamp(20px, 4vh, 40px); z-index: 3; }
+  .film-rail ol { list-style: none; display: flex; gap: 20px; font: 500 0.85rem var(--font-mono); }
+  .film-rail button { padding: 4px 0; border: 0; background: none; font: inherit; color: var(--faint); cursor: pointer; transition: color 250ms; }
+  .film-rail button:hover, .film-rail button.on { color: var(--text); }
+  .rail-bar { display: block; height: 1px; margin-top: 12px; background: var(--line-strong); }
+  .rail-bar span { display: block; height: 100%; background: var(--mint); transform-origin: 0 50%; transform: scaleX(0); }
+
+  @media (max-width: 899px) {
+    :global(.motion) .film { height: 820svh; }
+    :global(.motion) .film-lens { inset: calc(var(--nav-h) + 8px) var(--gutter) auto var(--gutter); height: 46svh; border-radius: 14px; box-shadow: 0 0 0 1px var(--line-strong); background: #0e1413; }
+    :global(.motion) .film-scrim { display: none; }
+    :global(.motion) .chapter { align-items: flex-start; }
+    :global(.motion) .chapter-text { width: auto; margin: 0; padding: calc(var(--nav-h) + 8px + 46svh + 24px) var(--gutter) 0; gap: 12px; }
+    :global(.motion) .chapter-title { font-size: clamp(1.8rem, 7.4vw, 2.6rem); }
+    :global(.motion) .chapter-body { font-size: 1rem; }
+    :global(.motion) .chapter-list { font-size: 0.9rem; gap: 4px; }
+    :global(.motion) .list-tools { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+    :global(.motion) .film-rail ol { display: none; }
+    :global(.motion) .film-rail { right: var(--gutter); bottom: 14px; }
+    :global(.motion) .rail-bar { margin-top: 0; }
+  }
+  @media (max-height: 560px) and (max-width: 899px) {
+    :global(.motion) .chapter-body { display: none; }
+  }
+</style>

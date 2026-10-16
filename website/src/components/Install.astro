@@ -1,0 +1,63 @@
+---
+import { links, version } from '../data/site';
+const brew = 'brew install --cask zawalid/lopper/lopper';
+const xattr = 'xattr -dr com.apple.quarantine /Applications/Lopper.app';
+const build = 'git clone https://github.com/Zawalid/Lopper.git\ncd Lopper && scripts/build-app.sh';
+---
+<section class="install" id="install" aria-labelledby="install-title" data-install>
+  <div class="install-panel" data-install-panel>
+    <div class="wrap install-grid">
+      <div class="install-main">
+        <h2 id="install-title" class="display install-title">get lopper.</h2>
+        <p class="install-lead">One download, then drag it to Applications. Version {version} needs macOS 14 or later and git.</p>
+        <div class="install-actions">
+          <a class="btn btn-ink" href={links.download}>
+            Download for macOS
+            <svg class="i-down" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.5v11m0 0 4.5-4.5M10 14.5 5.5 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="install-guide link" href={links.install}>Full install guide</a>
+        </div>
+      </div>
+
+      <div class="install-side">
+        <div class="step">
+          <h3>With Homebrew</h3>
+          <div class="cmd"><pre><code>{brew}</code></pre><button class="cmd-copy" type="button" data-copy={brew}>Copy</button></div>
+        </div>
+        <div class="step">
+          <h3>The first launch</h3>
+          <p>Lopper is not notarized yet, so macOS asks you to confirm it once. Right-click Lopper in Applications, choose Open, then Open again. Or run this once:</p>
+          <div class="cmd"><pre><code>{xattr}</code></pre><button class="cmd-copy" type="button" data-copy={xattr}>Copy</button></div>
+        </div>
+        <div class="step">
+          <h3>Build it yourself</h3>
+          <p>The source is open. Install git with <code>xcode-select --install</code> if you do not have it. The GitHub CLI is optional and adds pull request based merge detection.</p>
+          <div class="cmd"><pre><code>{build}</code></pre><button class="cmd-copy" type="button" data-copy={build}>Copy</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="sr-only" aria-live="polite" data-copy-status></p>
+</section>
+
+<style>
+  .install { position: relative; z-index: 2; background: var(--ink); }
+  .install-panel { background: var(--mint); color: var(--mint-ink); padding-block: clamp(80px, 11vw, 160px); }
+  .install-grid { display: grid; gap: clamp(48px, 6vw, 96px); }
+  @media (min-width: 1040px) { .install-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; } }
+  .install-main { display: grid; gap: 26px; align-content: start; }
+  .install-title { font-size: clamp(3.6rem, 11vw, 10rem); }
+  .install-lead { font-size: clamp(1.15rem, 1.5vw, 1.35rem); line-height: 1.5; max-width: 26rem; color: var(--mint-muted); }
+  .install-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 8px; }
+  .install-guide { font-weight: 700; color: var(--mint-ink); }
+  .install-guide:focus-visible { outline-color: var(--mint-ink); }
+
+  .install-side { display: grid; gap: 34px; }
+  .step { display: grid; gap: 10px; padding-top: 22px; border-top: 1px solid rgba(11, 16, 15, 0.2); }
+  .step h3 { font-weight: 800; font-size: 1.35rem; letter-spacing: -0.015em; }
+  .step p { color: var(--mint-muted); }
+  .step p code { color: var(--mint-ink); font-weight: 500; }
+  .step .cmd { margin-top: 4px; }
+
+  :global(.motion) .install-panel { will-change: clip-path; }
+</style>

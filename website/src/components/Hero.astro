@@ -1,0 +1,140 @@
+---
+import { links, version } from '../data/site';
+
+const lines = [['keep', 'your'], ['repositories', 'light.']];
+---
+<section class="hero" id="top" aria-labelledby="hero-title" data-hero>
+  <div class="hero-stage">
+    <div class="wrap hero-copy" data-hero-copy>
+      <h1 id="hero-title" class="display hero-title">
+        {lines.map((line, i) => (
+          <span class="line">
+            {line.map((word, j) => (
+              <>
+                <span class="w-mask"><span class="w" style={`--i:${i * 2 + j}`}>{word}</span></span>{j < line.length - 1 ? ' ' : ''}
+              </>
+            ))}
+          </span>
+        ))}
+      </h1>
+      <div class="hero-sub">
+        <p class="lead">
+          Lopper finds the branches, worktrees and generated folders you no longer need, shows the git evidence that each one is
+          safe to remove, and lets you undo anything for 30 days.
+        </p>
+        <div class="hero-cta">
+          <div class="hero-actions">
+            <a class="btn btn-mint" href={links.download} data-hero-download>
+              Download for macOS
+              <svg class="i-down" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.5v11m0 0 4.5-4.5M10 14.5 5.5 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+            <a class="btn btn-line" href={links.repo}>
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+              Source on GitHub
+            </a>
+          </div>
+          <p class="fine">Version {version}, for macOS 14 or later. Open source, MIT licence.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-device-wrap" data-hero-wrap>
+      <div class="hero-tilt" data-hero-tilt>
+        <div class="device hero-device">
+          <img
+            class="hero-poster"
+            src="/media/hero-poster-1920.webp"
+            srcset="/media/hero-poster-1920.webp 1920w, /media/hero-poster-2560.webp 2560w"
+            sizes="(max-width: 899px) 100vw, 1360px"
+            width="2560"
+            height="1600"
+            alt=""
+            fetchpriority="high"
+            decoding="async"
+          />
+          <video
+            data-hero-video
+            muted
+            loop
+            playsinline
+            preload="none"
+            width="2560"
+            height="1600"
+            aria-label="Lopper in use: the overview, a repository with the evidence for each branch, the Agents page and the Disk treemap. Example data."
+          ></video>
+          <div class="hero-dim" data-hero-dim aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="hero-glow" aria-hidden="true"></div>
+    </div>
+
+    <button class="media-toggle" type="button" data-hero-toggle aria-pressed="false" hidden>
+      <svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="3" width="3" height="10" rx="1" fill="currentColor"/><rect x="9.5" y="3" width="3" height="10" rx="1" fill="currentColor"/></svg>
+      <svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.9 2.7a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg>
+      <span data-label>Pause video</span>
+    </button>
+  </div>
+</section>
+
+<style>
+  .hero { position: relative; }
+  .hero-stage { position: relative; padding-top: calc(72px + clamp(28px, 6vh, 72px)); padding-bottom: clamp(48px, 8vw, 96px); }
+  .hero-stage::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 120%; pointer-events: none;
+    background: radial-gradient(50% 42% at 50% 78%, rgba(140, 242, 204, 0.1), transparent 70%);
+  }
+  .hero-copy { position: relative; z-index: 1; }
+  .hero-title { display: flex; flex-direction: column; }
+  .line { display: block; white-space: nowrap; }
+  .w-mask { display: inline-block; overflow: hidden; padding-bottom: 0.1em; margin-bottom: -0.1em; vertical-align: top; }
+  .w { display: inline-block; }
+  .hero-sub { display: grid; gap: 28px; margin-top: clamp(24px, 4vh, 44px); }
+  @media (min-width: 1000px) {
+    .hero-sub { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 64px; align-items: end; }
+    .hero-sub .lead { max-width: 33rem; }
+  }
+  .hero-cta { display: grid; gap: 14px; }
+  @media (min-width: 1000px) { .hero-cta { justify-items: end; text-align: right; } }
+  .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+  .fine { color: var(--faint); font-size: 0.95rem; }
+
+  .hero-device-wrap { position: relative; z-index: 2; width: min(1240px, calc(100% - 2 * var(--gutter))); margin: clamp(40px, 7vh, 80px) auto 0; perspective: 2200px; }
+  .hero-tilt { transform-origin: 50% 0%; will-change: transform; }
+  .hero-device { background: #101615; }
+  .hero-dim { position: absolute; inset: 0; background: var(--ink); opacity: 0; pointer-events: none; }
+  .hero-glow { position: absolute; inset: 20% 8% -10% 8%; z-index: -1; background: radial-gradient(closest-side, rgba(140, 242, 204, 0.14), transparent); filter: blur(30px); pointer-events: none; }
+
+  .media-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin: 14px auto 0; min-height: 36px; padding: 0 14px 0 12px; border-radius: 999px;
+    background: rgba(11, 16, 15, 0.8); color: var(--muted); border: 1px solid var(--line-strong);
+    font: 600 0.9rem var(--font-body); cursor: pointer;
+    transition: color 200ms, border-color 200ms;
+  }
+  .media-toggle:hover { color: var(--text); border-color: var(--text); }
+  .media-toggle svg { width: 14px; height: 14px; }
+  .media-toggle .i-play { display: none; }
+  .media-toggle[aria-pressed="true"] .i-play { display: block; }
+  .media-toggle[aria-pressed="true"] .i-pause { display: none; }
+  .media-toggle:not([hidden]) { display: flex; width: max-content; }
+
+  /* scroll-linked version */
+  :global(.motion) .hero { height: 290svh; }
+  :global(.motion) .hero-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; padding-bottom: 0; }
+  :global(.motion) .hero-tilt { transform: rotateX(24deg) scale(0.92); }
+  :global(.motion) .media-toggle { position: absolute; right: var(--gutter); bottom: 20px; margin: 0; z-index: 3; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.motion) .w { animation: rise 1000ms var(--ease-out) both; animation-delay: calc(var(--i) * 70ms + 80ms); }
+    :global(.motion) .hero-sub { animation: fade 900ms var(--ease-out) 420ms both; }
+    :global(.motion) .hero-device { animation: lift 1400ms var(--ease-out) 300ms both; }
+  }
+  @keyframes rise { from { transform: translateY(105%); } to { transform: none; } }
+  @keyframes fade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes lift { from { opacity: 0; transform: translateY(80px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 640px) {
+    .hero-actions .btn { flex: 1 1 100%; }
+    :global(.motion) .hero-tilt { transform: rotateX(16deg) scale(0.96); }
+  }
+</style>

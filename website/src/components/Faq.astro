@@ -1,0 +1,44 @@
+---
+const faq = [
+  ['Can it delete my unmerged work?', 'No. A branch or worktree holding commits that exist nowhere else is never offered as safe. If Lopper cannot prove something is merged it shows "needs a look" and leaves the decision to you. Even then, removed branches come back from History at their exact commit.'],
+  ['Does it send anything anywhere?', 'No. There is no account, no analytics and no crash reporting, and this site has none either. Lopper runs git, and the GitHub CLI if you have it, on your Mac and reads only the folders you chose.'],
+  ['Which AI tools does it understand?', 'Worktrees from Claude Code, Cursor, Codex and Conductor are recognised by their layout and labelled with the tool. Worktrees from anything else are handled as ordinary git worktrees.'],
+  ['Will it ever clean up on its own?', 'No. Rules and the weekly digest only offer a cleanup. Nothing is removed until you have reviewed the list and confirmed it, and everything goes to the Trash first.'],
+  ['Why does macOS warn me the first time?', 'The app is not yet signed with an Apple Developer ID, so Gatekeeper asks you to confirm it once. The steps are in the install section above. The source is open, so you can read it or build it yourself.'],
+];
+---
+<section class="faq" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-grid">
+    <h2 id="faq-title" class="title">questions.</h2>
+    <div class="faq-list">
+      {faq.map(([q, a]) => (
+        <details data-faq>
+          <summary><span>{q}</span><span class="plus" aria-hidden="true"></span></summary>
+          <div class="answer"><p>{a}</p></div>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq { position: relative; z-index: 2; background: var(--ink); padding-block: clamp(96px, 12vw, 180px); }
+  .faq-grid { display: grid; gap: 40px; }
+  @media (min-width: 960px) { .faq-grid { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr); gap: 64px; } }
+  .faq-list { border-top: 1px solid var(--line-strong); }
+  details { border-bottom: 1px solid var(--line-strong); }
+  summary {
+    list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 24px;
+    padding: 24px 0; font-weight: 700; font-size: clamp(1.15rem, 1.6vw, 1.4rem); letter-spacing: -0.01em;
+    transition: color 200ms;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { color: var(--mint); }
+  summary:focus-visible { outline-offset: 6px; }
+  .plus { position: relative; flex: none; width: 18px; height: 18px; }
+  .plus::before, .plus::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: currentColor; border-radius: 2px; transition: transform 320ms var(--ease-out); }
+  .plus::after { transform: rotate(90deg); }
+  details[open] .plus::after { transform: rotate(0deg); }
+  .answer { overflow: hidden; }
+  .answer p { padding-bottom: 26px; color: var(--muted); max-width: 40rem; }
+</style>

@@ -1,0 +1,46 @@
+---
+const statement = 'no account. no analytics. no network calls of its own. lopper runs git on your mac and reads only the folders you choose.';
+const details = [
+  ['In the menu bar', 'A popover keeps Lopper one click away.'],
+  ['Command-K', 'Opens the command palette.'],
+  ['Rules that offer', 'Rules and a weekly digest suggest a cleanup. They never delete on their own.'],
+  ['Native', 'Written in SwiftUI for macOS 14 or later. Needs git, and the GitHub CLI if you want pull request checks.'],
+];
+---
+<section class="quiet" id="private" aria-labelledby="quiet-title" data-quiet>
+  <div class="wrap">
+    <h2 id="quiet-title" class="statement" data-statement>
+      {statement.split(' ').map((w) => (<span class="sw">{w} </span>))}
+    </h2>
+    <dl class="details">
+      {details.map(([term, desc]) => (
+        <div class="detail" data-reveal>
+          <dt>{term}</dt>
+          <dd>{desc}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+</section>
+
+<style>
+  .quiet { position: relative; z-index: 2; background: var(--ink); padding-block: clamp(120px, 16vw, 240px) clamp(96px, 12vw, 180px); }
+  .statement {
+    font-weight: 800; text-transform: lowercase; letter-spacing: -0.035em; line-height: 1.02;
+    font-size: clamp(2.2rem, 5.6vw, 5.6rem); max-width: 16em;
+  }
+  .sw { transition: color 200ms; }
+  :global(.motion) .sw { color: #4f5b57; }
+  :global(.motion) .sw.lit { color: var(--text); }
+
+  .details { margin: clamp(72px, 10vw, 140px) 0 0; display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--line); }
+  .detail { padding: 22px 0; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+  .detail dt { font-weight: 700; font-size: 1.2rem; letter-spacing: -0.01em; }
+  .detail dd { margin: 0; color: var(--muted); }
+  @media (min-width: 720px) { .details { grid-template-columns: 1fr 1fr; column-gap: 40px; } }
+  @media (min-width: 1100px) {
+    .details { grid-template-columns: repeat(4, 1fr); border-top: 0; column-gap: 0; }
+    .detail { border-bottom: 0; border-left: 1px solid var(--line); padding: 4px 28px 8px; align-content: start; }
+    .detail:first-child { border-left: 0; padding-left: 0; }
+  }
+</style>

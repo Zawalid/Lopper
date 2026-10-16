@@ -1,0 +1,202 @@
+---
+/**
+ * The brand moment: a git graph grows, the finished branches go quiet, the scissors cut them.
+ * Geometry follows the promo film (trunk at x 1180). Stale branches are split at t = 0.3 with
+ * de Casteljau so the stump stays on the trunk and the tail falls away.
+ */
+type Pt = [number, number];
+type Kind = 'hi' | 'dim' | 'stale';
+interface Branch { id: string; kind: Kind; d: [Pt, Pt, Pt, Pt]; group: number }
+
+const raw: [string, Kind, string][] = [
+  ['s1', 'stale', 'M 1180 1030 C 1136.8 980.5 1018 940 820 940'],
+  ['b1', 'hi', 'M 1180 990 C 1225.6 896.5 1351 820 1560 820'],
+  ['s2', 'stale', 'M 1180 950 C 1253.2 922.5 1454.5 900 1790 900'],
+  ['b2', 'dim', 'M 1180 900 C 1117.6 823 946 760 660 760'],
+  ['s3', 'stale', 'M 1180 840 C 1078 763 797.5 700 330 700'],
+  ['b3', 'hi', 'M 1180 800 C 1242.4 712 1414 640 1700 640'],
+  ['b4', 'hi', 'M 1180 740 C 1132 641 1000 560 780 560'],
+  ['s4', 'stale', 'M 1180 690 C 1216 596.5 1315 520 1480 520'],
+  ['b5', 'hi', 'M 1180 640 C 1232.8 524.5 1378 430 1620 430'],
+  ['s5', 'stale', 'M 1180 590 C 1098.4 496.5 874 420 500 420'],
+  ['b6', 'dim', 'M 1180 540 C 1146.4 424.5 1054 330 900 330'],
+  ['b7', 'dim', 'M 1180 490 C 1254.4 385.5 1459 300 1800 300'],
+  ['s6', 'stale', 'M 1180 430 C 1206.4 320 1279 230 1400 230'],
+  ['b8', 'hi', 'M 1180 380 C 1112.8 281 928 200 620 200'],
+  ['b9', 'dim', 'M 1180 330 C 1225.6 231 1351 150 1560 150'],
+  ['b10', 'hi', 'M 1180 270 C 1159.6 182 1103.5 110 1010 110'],
+];
+
+function parse(d: string): [Pt, Pt, Pt, Pt] {
+  const n = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+  // Narrower than the film's frame so the tree sits beside the copy: left side 70 %, right side 80 %.
+  const x = (v: number) => (v < 1180 ? 1180 - (1180 - v) * 0.7 : 1180 + (v - 1180) * 0.8);
+  return [[x(n[0]), n[1]], [x(n[2]), n[3]], [x(n[4]), n[5]], [x(n[6]), n[7]]];
+}
+const lerp = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+const f = (p: Pt) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+const path = (c: [Pt, Pt, Pt, Pt]) => `M ${f(c[0])} C ${f(c[1])} ${f(c[2])} ${f(c[3])}`;
+
+const branches: Branch[] = raw.map(([id, kind, d]) => {
+  const c = parse(d);
+  const y = c[0][1];
+  return { id, kind, d: c, group: y >= 840 ? 0 : y >= 590 ? 1 : 2 };
+});
+
+const CUT = 0.3;
+const stale = branches
+  .filter((b) => b.kind === 'stale')
+  .map((b) => {
+    const [P0, P1, P2, P3] = b.d;
+    const A = lerp(P0, P1, CUT), B = lerp(P1, P2, CUT), C = lerp(P2, P3, CUT);
+    const D = lerp(A, B, CUT), E = lerp(B, C, CUT), F = lerp(D, E, CUT);
+    return { ...b, stump: path([P0, A, D, F]), tail: path([F, E, C, P3]), cut: F };
+  });
+
+const lines = [
+  'every feature leaves a branch.',
+  'every agent run leaves a worktree.',
+  'every worktree grows its own node_modules.',
+  'most of it is finished. none of it says so.',
+  'lopper cuts only what git can vouch for,',
+  'and leaves everything else alone.',
+];
+const receipts = ['already in the default branch', 'merged through a pull request', 'remote branch deleted', 'nothing only on this branch'];
+---
+<section class="prune" id="why" aria-labelledby="prune-title" data-prune>
+  <div class="prune-stage">
+    <div class="wrap prune-copy">
+      <h2 id="prune-title" class="sr-only">Why Lopper exists</h2>
+      <div class="prune-lines" data-prune-lines>
+        {lines.map((line, i) => (
+          <p class="title pl" data-line={i}>
+            {line.split(' ').map((word) => (
+              <span class="pw-mask"><span class="pw">{word}</span></span>
+            ))}
+          </p>
+        ))}
+      </div>
+      <ul class="receipts" data-receipts aria-label="The evidence Lopper looks for">
+        {receipts.map((r) => (
+          <li><span class="slash" aria-hidden="true">/</span> {r}</li>
+        ))}
+      </ul>
+    </div>
+
+    <div class="prune-art" aria-hidden="true">
+      <svg class="graph" viewBox="560 70 1140 1010" preserveAspectRatio="xMidYMax meet" data-graph>
+        <path class="trunk" d="M 1180 1080 L 1180 118" data-trunk />
+        {branches.filter((b) => b.kind !== 'stale').map((b) => (
+          <path class={`br ${b.kind}`} d={path(b.d)} data-grow={b.group} data-live />
+        ))}
+        {stale.map((b) => (
+          <g data-stale={b.id} data-cut={`${b.cut[0].toFixed(1)} ${b.cut[1].toFixed(1)}`}>
+            <path class="br hi grow" d={path(b.d)} data-grow={b.group} />
+            <path class="br dead stump" d={b.stump} />
+            <g class="tail" data-tail>
+              <path class="br dead" d={b.tail} />
+              <circle class="tip dead" cx={b.d[3][0]} cy={b.d[3][1]} r="7" />
+            </g>
+          </g>
+        ))}
+        {branches.map((b) => (
+          <circle class="commit" cx="1180" cy={b.d[0][1]} r="5.5" data-commit={b.group} />
+        ))}
+        {branches.filter((b) => b.kind !== 'stale').map((b) => (
+          <g class={`node ${b.kind}`} data-node={b.group}>
+            <circle class="halo" cx={b.d[3][0]} cy={b.d[3][1]} r="19" />
+            <circle class="tip" cx={b.d[3][0]} cy={b.d[3][1]} r={b.kind === 'hi' ? 9 : 7} />
+          </g>
+        ))}
+        {stale.map((b) => (
+          <circle class="tip live-tip" cx={b.d[3][0]} cy={b.d[3][1]} r="8" data-stale-tip={b.id} data-node={b.group} />
+        ))}
+        <circle class="head" cx="1180" cy="118" r="8" data-head />
+        <g class="rings">
+          {stale.map((b) => (<circle class="ring" cx={b.cut[0]} cy={b.cut[1]} r="8" data-ring={b.id} />))}
+        </g>
+        <g class="scissors" data-scissors>
+          <g transform="translate(-90 0)">
+            <g data-blade-b>
+              <g transform="scale(1 -1)">
+                <path class="blade" d="M -14 -9 L 116 -8 Q 150 -5 170 0 L -14 0 Z" />
+                <path class="shank" d="M -12 -3 C -34 8 -50 18 -62 30" />
+                <ellipse class="loop" cx="-90" cy="46" rx="31" ry="22" transform="rotate(-24 -90 46)" />
+              </g>
+            </g>
+            <g data-blade-a>
+              <path class="blade" d="M -14 -9 L 116 -8 Q 150 -5 170 0 L -14 0 Z" />
+              <path class="shank" d="M -12 -3 C -34 8 -50 18 -62 30" />
+              <ellipse class="loop" cx="-90" cy="46" rx="31" ry="22" transform="rotate(-24 -90 46)" />
+            </g>
+            <circle class="screw" cx="0" cy="0" r="7" />
+          </g>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<style>
+  .prune { position: relative; z-index: 2; background: var(--ink); }
+  .prune-stage { position: relative; padding-block: clamp(96px, 14vw, 180px) 0; }
+  .prune-copy { position: relative; z-index: 2; }
+  .prune-lines { display: grid; gap: 0.7em; }
+  .pl { max-width: 15em; font-size: clamp(1.9rem, 3.6vw, 3.4rem); }
+  .pl:nth-child(n + 4) { color: var(--muted); }
+  .pl:nth-child(n + 5) { color: var(--text); }
+  .pw-mask { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.12em; margin-bottom: -0.12em; margin-right: 0.24em; }
+  .pw { display: inline-block; }
+  .receipts { list-style: none; margin-top: 28px; display: grid; gap: 6px; font: 500 clamp(0.95rem, 1.2vw, 1.1rem) / 1.5 var(--font-mono); color: var(--mint); }
+  .slash { color: var(--faint); }
+
+  .prune-art { position: relative; margin-top: 40px; }
+  .graph { width: 100%; height: auto; overflow: visible; }
+
+  .graph .trunk, .graph .br { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .graph .trunk { stroke: var(--mint); stroke-width: 4.5; }
+  .graph .br.hi { stroke: var(--mint); stroke-width: 3.2; }
+  .graph .br.dim { stroke: var(--mint); stroke-width: 2.4; stroke-opacity: 0.5; }
+  .graph .br.dead { stroke: #56615d; stroke-width: 2.4; stroke-dasharray: 10 9; }
+  .graph .grow { opacity: 0; }
+  .graph .commit { fill: var(--ink); stroke: var(--mint); stroke-width: 2; }
+  .graph .node.hi .tip { fill: var(--mint); }
+  .graph .node.hi .halo { fill: none; stroke: var(--mint); stroke-opacity: 0.4; stroke-width: 1.2; }
+  .graph .node.dim .tip { fill: var(--ink); stroke: var(--mint); stroke-opacity: 0.65; stroke-width: 2; }
+  .graph .node.dim .halo { display: none; }
+  .graph .tip.dead { fill: var(--ink); stroke: #56615d; stroke-width: 2; }
+  .graph .live-tip { fill: var(--mint); opacity: 0; }
+  .graph .head { fill: var(--mint); }
+  .graph .ring { fill: none; stroke: var(--mint); stroke-width: 2; opacity: 0; }
+  .graph .scissors { opacity: 0; }
+  .graph .blade { fill: #18201e; stroke: var(--mint); stroke-width: 3; stroke-linejoin: round; }
+  .graph .shank { fill: none; stroke: var(--mint); stroke-width: 6; stroke-linecap: round; }
+  .graph .loop { fill: none; stroke: var(--mint); stroke-width: 5; }
+  .graph .screw { fill: var(--mint); }
+
+  @media (min-width: 1000px) {
+    .prune-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+    .prune-copy { padding-bottom: clamp(48px, 8vw, 120px); }
+    .prune-art { margin-top: 0; }
+  }
+
+  /* scroll-driven version: one line at a time over a pinned stage */
+  :global(.motion) .prune { height: 640svh; margin-top: -100svh; }
+  :global(.motion) .prune-stage { position: sticky; top: 0; height: 100svh; padding: 0; overflow: hidden; display: block; }
+  :global(.motion) .prune-copy { position: absolute; inset: 0; padding-top: calc(var(--nav-h) + clamp(32px, 9vh, 120px)); padding-bottom: 0; }
+  :global(.motion) .prune-lines { display: grid; gap: 0; }
+  :global(.motion) .pl { grid-area: 1 / 1; color: var(--text); max-width: 13em; font-size: clamp(2.2rem, 4.2vw, 4.4rem); }
+  :global(.motion) .pl:not(:first-child) .pw { transform: translateY(140%); }
+  :global(.motion) .receipts { margin-top: clamp(20px, 4vh, 40px); }
+  :global(.motion) .receipts li { opacity: 0; }
+  :global(.motion) .prune-art { position: absolute; inset: 0; margin: 0; }
+  :global(.motion) .graph { position: absolute; right: 0; bottom: 0; height: 92%; width: auto; max-width: none; }
+  :global(.motion) .graph .stump, :global(.motion) .graph .tail { opacity: 0; }
+  @media (min-width: 1000px) {
+    :global(.motion) .graph { right: 3vw; height: 92%; }
+    :global(.motion) .pl { max-width: 8.4em; }
+  }
+  @media (max-width: 999px) {
+    :global(.motion) .graph { left: 50%; right: auto; transform: translateX(-54%); height: 52%; }
+  }
+</style>
