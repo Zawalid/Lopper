@@ -32,6 +32,7 @@ struct SettingsView: View {
         case .general: GeneralPane()
         case .folders: FoldersPane()
         case .safety: SafetyPane()
+        case .rules: RulesPane()
         case .tools: ToolsPane()
         case .advanced: AdvancedPane()
         case .about: AboutPane()

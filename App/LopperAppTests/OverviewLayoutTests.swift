@@ -45,4 +45,14 @@ final class OverviewLayoutTests: XCTestCase {
     func testBeforeAnyFolderIsChosenOnlyTheInvitationShows() {
         XCTAssertEqual(OverviewLayout.sections(for: .needsFolders), [.hero])
     }
+
+    func testRuleSuggestionsSitBetweenTheNumbersAndWhatNeedsALook() {
+        let ready = OverviewLayout.sections(for: .ready)
+        XCTAssertLessThan(ready.firstIndex(of: .statStrip)!, ready.firstIndex(of: .suggestions)!)
+        XCTAssertLessThan(ready.firstIndex(of: .suggestions)!, ready.firstIndex(of: .worthALook)!)
+        XCTAssertTrue(OverviewLayout.sections(for: .allTidy(review: 0)).contains(.suggestions),
+                      "folders can be worth clearing even when no branch is")
+        XCTAssertFalse(OverviewLayout.sections(for: .scanning(done: 1, total: 4)).contains(.suggestions))
+        XCTAssertFalse(OverviewLayout.sections(for: .needsFolders).contains(.suggestions))
+    }
 }

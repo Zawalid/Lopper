@@ -26,8 +26,10 @@ final class WindowSnapshotTests: XCTestCase {
             Fixtures.branch("main", .protected),
         ], worktrees: [Fixtures.worktree("feat/in-worktree", .safe)])
         let model = AppModel.preview(
-            snapshots: [reviewSnapshot], history: Fixtures.historyRecords, route: .overview)
+            snapshots: [reviewSnapshot], history: Fixtures.historyRecords, route: .overview,
+            clock: { Fixtures.now })
         model.showInspector = true
+        model.updateSettings { $0.rules.oldMergedBranches = .init(isEnabled: true, days: 5) }
 
         let controller = NSHostingController(rootView: RootView().environment(model))
         let window = NSWindow(contentViewController: controller)

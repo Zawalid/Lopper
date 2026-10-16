@@ -15,6 +15,6 @@ final class SettingsPaneTests: XCTestCase {
         let available = SettingsPane.available
         XCTAssertFalse(available.contains(.notifications), "notifications arrives with automation rules")
         XCTAssertEqual(available.first, .general)
-        XCTAssertEqual(available, [.general, .folders, .safety, .tools, .advanced, .about])
+        XCTAssertEqual(available, [.general, .folders, .safety, .rules, .tools, .advanced, .about])
     }
 }

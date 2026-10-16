@@ -13,13 +13,14 @@ enum DigestPolicy {
     }
 
     static func message(
-        safeItems: Int, itemBytes: Int64, folderBytes: Int64, agentsFinished: Int
+        safeItems: Int, itemBytes: Int64, folderBytes: Int64, agentsFinished: Int, ruleSuggestions: Int = 0
     ) -> (title: String, body: String) {
         let total = itemBytes + folderBytes
         var parts: [String] = []
         if safeItems > 0 { parts.append("\(Plural.count(safeItems, "branch and worktree", "branches and worktrees")) are safe to remove") }
         if folderBytes > 0 { parts.append("\(SizeFormat.string(folderBytes)) sits in generated folders") }
         if agentsFinished > 0 { parts.append("\(Plural.count(agentsFinished, "agent worktree")) finished") }
+        if ruleSuggestions > 0 { parts.append("Your rules found \(Plural.count(ruleSuggestions, "thing")) worth reviewing") }
         return ("\(SizeFormat.string(total)) can be given back", parts.joined(separator: ". ") + ".")
     }
 }

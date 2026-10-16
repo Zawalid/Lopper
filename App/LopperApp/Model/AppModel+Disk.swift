@@ -75,7 +75,7 @@ extension AppModel {
         guard DigestPolicy.shouldNotify(reclaimable: reclaimable, last: preferences.lastDigest, now: now) else { return }
         let message = DigestPolicy.message(
             safeItems: items.safe, itemBytes: items.reclaimableBytes, folderBytes: folders,
-            agentsFinished: agentsSummary.reclaimable)
+            agentsFinished: agentsSummary.reclaimable, ruleSuggestions: ruleSuggestions.count)
         await digest.send(title: message.title, body: message.body)
         preferences.recordDigest(at: now)
     }

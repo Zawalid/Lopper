@@ -6,6 +6,7 @@ enum SettingsPane: CaseIterable, Identifiable, Hashable {
     case general
     case folders
     case safety
+    case rules
     case tools
     case notifications
     case advanced
@@ -18,6 +19,7 @@ enum SettingsPane: CaseIterable, Identifiable, Hashable {
         case .general: "General"
         case .folders: "Folders"
         case .safety: "Safety"
+        case .rules: "Rules"
         case .tools: "Tools"
         case .notifications: "Notifications"
         case .advanced: "Advanced"
@@ -30,6 +32,7 @@ enum SettingsPane: CaseIterable, Identifiable, Hashable {
         case .general: "gearshape"
         case .folders: "folder"
         case .safety: "checkmark.shield"
+        case .rules: "wand.and.stars"
         case .tools: "wrench.and.screwdriver"
         case .notifications: "bell"
         case .advanced: "slider.horizontal.3"

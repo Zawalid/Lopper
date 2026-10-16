@@ -34,6 +34,7 @@ struct OverviewContent: View {
         switch section {
         case .hero: hero(totals)
         case .statStrip: statStrip(totals)
+        case .suggestions: suggestions
         case .worthALook: worthALook(totals)
         case .staleNote: staleRow
         case .cards: cards
@@ -154,6 +155,50 @@ struct OverviewContent: View {
                         title: "Repositories", value: "\(totals.repositories)",
                         symbol: "shippingbox", tint: .blue)
                 }
+            }
+        }
+    }
+
+    /// What the person's own rules found. Opening one goes to the same review sheet as everything else.
+    @ViewBuilder
+    private var suggestions: some View {
+        let found = model.ruleSuggestions
+        if !found.isEmpty && !model.isScanning {
+            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Suggested by your rules").font(.headline)
+                    Text("Nothing is removed until you review it.")
+                        .font(.caption).foregroundStyle(Theme.metaText)
+                    Spacer()
+                    OpenSettingsButton(pane: .rules) { Text("Edit rules") }
+                        .buttonStyle(.lopperLink)
+                }
+                VStack(spacing: 0) {
+                    ForEach(Array(found.enumerated()), id: \.element.id) { index, suggestion in
+                        if index > 0 { Divider() }
+                        HStack(spacing: Theme.Spacing.md) {
+                            Image(systemName: suggestion.kind == .untouchedFolders ? "shippingbox" : "arrow.triangle.branch")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 28, height: 28)
+                                .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(suggestion.title).font(.callout.weight(.medium))
+                                Text(suggestion.detail)
+                                    .font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer(minLength: Theme.Spacing.md)
+                            Button("Review") { model.review(suggestion) }
+                                .buttonStyle(.lopperSecondary)
+                                .controlSize(.small)
+                                .disabled(model.clean != nil || model.diskClear != nil)
+                        }
+                        .padding(Theme.Spacing.md)
+                    }
+                }
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: Theme.cardRadius))
+                .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius).stroke(Color(nsColor: .separatorColor)))
             }
         }
     }

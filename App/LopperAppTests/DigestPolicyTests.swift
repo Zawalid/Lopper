@@ -32,4 +32,11 @@ final class DigestPolicyTests: XCTestCase {
         XCTAssertFalse(message.body.contains("agent"))
         XCTAssertTrue(message.body.contains("generated folders"))
     }
+
+    func testTheMessageMentionsWhatTheRulesFound() {
+        let message = DigestPolicy.message(
+            safeItems: 2, itemBytes: 100_000_000, folderBytes: 2_000_000_000, agentsFinished: 0, ruleSuggestions: 2)
+
+        XCTAssertTrue(message.body.contains("Your rules found 2 things worth reviewing"), message.body)
+    }
 }

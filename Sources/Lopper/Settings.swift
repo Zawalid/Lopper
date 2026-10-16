@@ -60,6 +60,59 @@ public struct RepoOverrides: Codable, Sendable, Equatable {
 }
 
 public struct Settings: Sendable, Equatable {
+    /// Rules only ever suggest. They find things worth cleaning and say so; nothing is removed without the
+    /// person reviewing it first.
+    public struct Rules: Codable, Sendable, Equatable {
+        public struct Rule: Codable, Sendable, Equatable {
+            public var isEnabled: Bool
+            public var days: Int
+
+            public init(isEnabled: Bool = false, days: Int) {
+                self.isEnabled = isEnabled
+                self.days = Rule.clamped(days)
+            }
+
+            static func clamped(_ days: Int) -> Int { min(max(days, 1), 365) }
+
+            fileprivate enum CodingKeys: String, CodingKey { case isEnabled, days }
+
+            public init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+                // The default is filled in by `Rules`, which knows which rule this is.
+                days = Rule.clamped(try container.decodeIfPresent(Int.self, forKey: .days) ?? 0)
+            }
+        }
+
+        /// Offer to clear generated folders in projects nobody has edited for this many days.
+        public var untouchedFolders: Rule
+        /// Offer to remove branches that are merged and have had no commit for this many days.
+        public var oldMergedBranches: Rule
+
+        public init(
+            untouchedFolders: Rule = Rule(days: 30), oldMergedBranches: Rule = Rule(days: 14)
+        ) {
+            self.untouchedFolders = untouchedFolders
+            self.oldMergedBranches = oldMergedBranches
+        }
+
+        private enum CodingKeys: String, CodingKey { case untouchedFolders, oldMergedBranches }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            let defaults = Rules()
+            func rule(_ key: CodingKeys, fallback: Rule) throws -> Rule {
+                guard var rule = try container.decodeIfPresent(Rule.self, forKey: key) else { return fallback }
+                // A rule written without `days` keeps its own default, not the clamp's minimum.
+                let nested = try? container.nestedContainer(keyedBy: Rule.CodingKeys.self, forKey: key)
+                if nested?.contains(.days) != true { rule.days = fallback.days }
+                return rule
+            }
+            untouchedFolders = try rule(.untouchedFolders, fallback: defaults.untouchedFolders)
+            oldMergedBranches = try rule(.oldMergedBranches, fallback: defaults.oldMergedBranches)
+        }
+    }
+
     /// The schema this build reads and writes. Older files are migrated in memory on load.
     public static let currentSchemaVersion = 2
 
@@ -74,6 +127,7 @@ public struct Settings: Sendable, Equatable {
     public var agentFinishedGraceMinutes: Int
     /// Per-repository settings, keyed by the repository's path.
     public var repos: [String: RepoOverrides]
+    public var rules = Rules()
     /// Top-level keys written by a newer build, preserved untouched.
     public var unknownKeys: [String: JSONValue]
 
@@ -245,7 +299,7 @@ private struct AnyKey: CodingKey {
 extension Settings: Codable {
     private static let knownKeys: Set<String> = [
         "schemaVersion", "folders", "scanDepth", "protectedPatterns", "staleDays", "disposableNames",
-        "trashRetentionDays", "repos", "agentFinishedGraceMinutes",
+        "trashRetentionDays", "repos", "agentFinishedGraceMinutes", "rules",
     ]
     /// Version 1 keys, read for migration and never written again.
     private static let legacyKeys: Set<String> = ["roots", "defaultBranchOverrides", "repoDisposableNames"]
@@ -268,6 +322,8 @@ extension Settings: Codable {
         trashRetentionDays = try value("trashRetentionDays", as: Int.self) ?? defaults.trashRetentionDays
         agentFinishedGraceMinutes = max(
             0, try value("agentFinishedGraceMinutes", as: Int.self) ?? defaults.agentFinishedGraceMinutes)
+
+        rules = try value("rules", as: Rules.self) ?? Rules()
 
         if let folders = try value("folders", as: [FolderSetting].self) {
             self.folders = folders
@@ -307,5 +363,6 @@ extension Settings: Codable {
         try container.encode(trashRetentionDays, forKey: AnyKey("trashRetentionDays"))
         try container.encode(repos, forKey: AnyKey("repos"))
         try container.encode(agentFinishedGraceMinutes, forKey: AnyKey("agentFinishedGraceMinutes"))
+        try container.encode(rules, forKey: AnyKey("rules"))
     }
 }

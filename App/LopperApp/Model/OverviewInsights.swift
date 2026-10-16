@@ -4,7 +4,7 @@ import Lopper
 /// The blocks of the Overview page, in the order they appear. The page renders exactly this list, so a block
 /// can never be drawn twice by one state also drawing it inside another.
 enum OverviewSection: Hashable {
-    case hero, statStrip, worthALook, staleNote, cards, activity, folders
+    case hero, statStrip, suggestions, worthALook, staleNote, cards, activity, folders
 }
 
 enum OverviewLayout {
@@ -18,9 +18,9 @@ enum OverviewLayout {
         case .nothingFound:
             return [.hero, .activity, .folders]
         case .allTidy:
-            return [.hero, .worthALook, .staleNote, .cards, .activity, .folders]
+            return [.hero, .suggestions, .worthALook, .staleNote, .cards, .activity, .folders]
         case .ready:
-            return [.hero, .statStrip, .worthALook, .staleNote, .cards, .activity, .folders]
+            return [.hero, .statStrip, .suggestions, .worthALook, .staleNote, .cards, .activity, .folders]
         }
     }
 }
