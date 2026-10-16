@@ -9,4 +9,4 @@ cd "$(dirname "$0")/.."
 VERSION="${1:?usage: scripts/formula.sh <version>}"
 SHA="$(curl -fsSL "https://github.com/Zawalid/Lopper/releases/download/v$VERSION/lop-$VERSION-macos.tar.gz.sha256" | cut -d' ' -f1)"
 [ -n "$SHA" ] || { echo "no checksum found for v$VERSION" >&2; exit 1; }
-sed -e "s/@VERSION@/$VERSION/" -e "s/@SHA256@/$SHA/" packaging/homebrew/lop.rb
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@SHA256@/$SHA/" packaging/homebrew/lop.rb
