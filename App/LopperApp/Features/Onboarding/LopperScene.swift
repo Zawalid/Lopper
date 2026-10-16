@@ -13,12 +13,13 @@ struct LopperScene: View {
     var fixedTime: Double?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.controlActiveState) private var activeState
     @State private var pointer: CGPoint?
     private let graph = SceneGraph.make()
 
     var body: some View {
         GeometryReader { proxy in
-            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || fixedTime != nil)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || fixedTime != nil || activeState == .inactive)) { timeline in
                 let time = currentTime(timeline.date)
                 ZStack(alignment: .bottomTrailing) {
                     Canvas { context, size in

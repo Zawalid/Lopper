@@ -254,7 +254,7 @@ private struct DiskTotalsStrip: View {
     var body: some View {
         let totals = model.diskTotals
         VStack(spacing: Theme.Spacing.sm) {
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.lg) {
                 StatTile(
                     title: "On disk", value: SizeFormat.string(totals.footprint), symbol: "internaldrive",
                     tint: .blue)
@@ -271,6 +271,7 @@ private struct DiskTotalsStrip: View {
                     tint: .secondary,
                     action: totals.untouchedBytes > 0 ? { model.beginClearUntouched() } : nil)
             }
+            .statStrip()
             if model.artifactPhase == .scanning || model.isScanning {
                 HStack(spacing: Theme.Spacing.sm) {
                     ProgressView().controlSize(.small)
@@ -432,7 +433,7 @@ private struct FolderRow: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
             VStack(alignment: .leading, spacing: 1) {
-                Text(relativePath).font(.callout).lineLimit(1).truncationMode(.middle)
+                Text(relativePath).font(.data()).lineLimit(1).truncationMode(.middle)
                 Text(note).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer(minLength: Theme.Spacing.md)

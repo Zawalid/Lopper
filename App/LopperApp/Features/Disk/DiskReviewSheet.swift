@@ -193,7 +193,7 @@ private struct ReviewFolderRow: View {
                 .accessibilityLabel("Include \(artifact.name)")
             Image(systemName: "folder").foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 1) {
-                Text(relativePath).lineLimit(1).truncationMode(.middle)
+                Text(relativePath).font(.data()).lineLimit(1).truncationMode(.middle)
                 if case .offered(let how) = artifact.removal {
                     Text("Comes back with \(how)").font(.caption).foregroundStyle(.secondary)
                 }

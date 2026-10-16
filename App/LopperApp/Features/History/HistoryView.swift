@@ -294,7 +294,7 @@ private struct ItemCell: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 1) {
-                Text(entry.title).lineLimit(1).truncationMode(.middle)
+                Text(entry.title).font(.data()).lineLimit(1).truncationMode(.middle)
                 Text("\(entry.repoName) · \(entry.kindLabel)")
                     .font(.caption).foregroundStyle(Theme.metaText).lineLimit(1)
             }
@@ -381,7 +381,7 @@ struct HistoryInspector: View {
     private func header(_ entry: HistoryEntry) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
             Text(entry.title)
-                .font(.title3.weight(.semibold))
+                .font(.data(.title3, weight: .semibold))
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: Theme.Spacing.sm) {

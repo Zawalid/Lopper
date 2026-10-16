@@ -38,6 +38,11 @@ enum Theme {
     static let cautionText = adaptive(
         light: NSColor(srgbRed: 0.63, green: 0.29, blue: 0.03, alpha: 1), dark: .systemOrange)
 
+    /// The brand's bright mint, for fills that carry dark text (primary buttons, ticks, the hero).
+    static let mint = Color(red: 0.55, green: 0.95, blue: 0.80)
+    /// The deep blue-black the welcome stage and the Overview banner sit on.
+    static let ink = Color(red: 0.045, green: 0.055, blue: 0.09)
+
     static let cardRadius: CGFloat = 12
     static let controlRadius: CGFloat = 8
 }
@@ -90,5 +95,12 @@ extension CleanupRow.Kind {
         case .branch: "Branch"
         case .worktree: "Worktree"
         }
+    }
+}
+
+extension Font {
+    /// Names, paths, counts and sizes: things a person compares or copies are set in a monospaced face.
+    static func data(_ style: Font.TextStyle = .callout, weight: Font.Weight = .regular) -> Font {
+        .system(style, design: .monospaced, weight: weight)
     }
 }

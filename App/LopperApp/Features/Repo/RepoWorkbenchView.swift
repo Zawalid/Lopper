@@ -150,7 +150,7 @@ private struct NameCell: View {
                 .foregroundStyle(.secondary)
                 .accessibilityLabel(row.kind.label)
             VStack(alignment: .leading, spacing: 1) {
-                Text(row.title).lineLimit(1)
+                Text(row.title).font(.data()).lineLimit(1)
                 if row.kind == .worktree {
                     Text(row.location)
                         .font(.caption)

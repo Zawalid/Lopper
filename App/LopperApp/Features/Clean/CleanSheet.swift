@@ -169,7 +169,7 @@ struct ReviewRow: View {
                 .accessibilityLabel("Include \(row.title)")
             Image(systemName: row.kind.symbol).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 1) {
-                Text(row.title).lineLimit(1)
+                Text(row.title).font(.data()).lineLimit(1)
                 // Two lines: for an agent worktree this is where the saved branch's name appears, and a note
                 // cut off at "lopper/saved/detached..." hides exactly what the person needs to read.
                 Text(row.agent?.rowNote ?? row.reasons.first ?? row.evidence)

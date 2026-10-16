@@ -132,7 +132,7 @@ struct OverviewContent: View {
     @ViewBuilder
     private func statStrip(_ totals: Totals) -> some View {
         if case .ready = model.overviewState {
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.lg) {
                 StatTile(
                     title: "Safe to remove", value: "\(totals.safe)", symbol: "checkmark.circle",
                     tint: VerdictKind.safe.tint, action: { model.beginCleanAllSafe() })
@@ -156,6 +156,7 @@ struct OverviewContent: View {
                         symbol: "shippingbox", tint: .blue)
                 }
             }
+            .statStrip()
         }
     }
 

@@ -286,7 +286,7 @@ private struct WorktreeCell: View {
         HStack(spacing: Theme.Spacing.sm) {
             AgentToolIcon(tool: item.assessment.detection.tool, size: 18)
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.title).lineLimit(1)
+                Text(item.title).font(.data()).lineLimit(1)
                 Text("\(item.row.repoName) · \(item.assessment.detection.label)")
                     .font(.caption).foregroundStyle(Theme.metaText).lineLimit(1)
             }

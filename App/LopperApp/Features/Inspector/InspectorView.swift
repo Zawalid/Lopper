@@ -46,7 +46,7 @@ struct InspectorContent: View {
             TriageControls()
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.sm) {
                 Text(row.title)
-                    .font(.title3.weight(.semibold))
+                    .font(.data(.title3, weight: .semibold))
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)

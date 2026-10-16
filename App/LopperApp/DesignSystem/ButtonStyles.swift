@@ -54,15 +54,15 @@ struct LopperButtonStyle: ButtonStyle {
 
         private var foreground: Color {
             guard isEnabled else { return .secondary.opacity(0.7) }
-            return kind == .primary ? .white : .primary
+            return kind == .primary ? Theme.ink : .primary
         }
 
         private var fill: Color {
             guard isEnabled else { return Color.primary.opacity(0.08) }
             switch kind {
             case .primary:
-                if configuration.isPressed { return Color.accentColor.opacity(0.78) }
-                return isHovering ? Color.accentColor.opacity(0.88) : Color.accentColor
+                if configuration.isPressed { return Theme.mint.opacity(0.78) }
+                return isHovering ? Theme.mint.opacity(0.92) : Theme.mint
             case .secondary:
                 if configuration.isPressed { return Color.primary.opacity(0.2) }
                 return Color.primary.opacity(isHovering ? 0.14 : 0.08)
