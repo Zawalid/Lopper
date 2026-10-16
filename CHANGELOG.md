@@ -6,6 +6,16 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Added
+- `lop`, a command line tool with the same engine and rules as the app: `scan`, `list`, `why`, `clean`, `agents`, `disk`,
+  `history`, `undo`, `folders` and `doctor`, with `--json` output and shell completions. It shares the app's settings
+  and undo history. See docs/cli.md.
+- A website at lopper.zawalid.com.
+
+### Changed
+- The cleanup rows and agent rows moved from the app into the engine, so the app and the command line share one
+  definition of what is safe.
+
 ## [0.1.0] - 2026-10-16
 
 ### Added

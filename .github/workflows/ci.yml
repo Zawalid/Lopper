@@ -38,3 +38,13 @@ jobs:
             -project App/Lopper.xcodeproj -scheme Lopper \
             -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO
+
+  # Informational until the engine builds on Linux; once it passes, remove continue-on-error to keep it portable.
+  linux:
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the engine and the command line tool
+        run: swift build --product lop

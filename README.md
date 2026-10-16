@@ -145,6 +145,20 @@ uninstalling are in the **[install guide](docs/install.md)**.
 **Requirements:** macOS 14 or later, and git (`xcode-select --install`). The [GitHub CLI](https://cli.github.com)
 (`gh`) is optional and adds pull request based merge detection.
 
+## Command line
+
+The same engine is available in the terminal as `lop`, sharing the app's folders and undo history:
+
+```bash
+brew install zawalid/lopper/lop
+lop scan                 # what can be removed, repository by repository
+lop why feature/old-2    # the git evidence for one branch
+lop clean                # review the plan, confirm, remove; undo with `lop undo --last`
+lop agents               # worktrees left by Claude Code, Cursor, Codex and Conductor
+```
+
+Every command has `--json` for scripts and AI agents. See the [command line guide](docs/cli.md).
+
 ## Quick start
 
 1. **Open Lopper.** Pick your project folders from the suggestions, or let it search your Mac.
