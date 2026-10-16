@@ -25,6 +25,9 @@ public struct RepoInspector: Sendable {
         /// Branches a detached worktree is in the middle of rebasing or bisecting, by branch name, with the worktree.
         /// `git worktree list` shows such a worktree as detached, so without this the branch looks unused.
         let branchesInOperation: [String: String]
+        /// Ahead and behind counts against the first default ref for every branch tip, from one call. Empty when this
+        /// git is too old to answer (before 2.41), in which case each branch is asked about on its own.
+        let aheadBehindByTip: [String: (ahead: Int, behind: Int)]
         let mergedPRs: [MergedPR]
         let prAvailable: Bool
     }
@@ -58,15 +61,42 @@ public struct RepoInspector: Sendable {
         }
         let listedWorktrees = GitParsers.parseWorktreeList(worktreeText)
         let inOperation = await branchesInOperation(listedWorktrees)
+        let parsedRefs = GitParsers.parseBranches(branchText)
+
+        // One question per repository instead of one per branch: which branch tips are already part of the default
+        // branch, and how far each is ahead and behind it. Anything git cannot answer this way is asked per branch.
+        var ancestorTips = Set<String>()
+        var answeredAll = !defaultRefs.isEmpty
+        for ref in defaultRefs {
+            guard let listed = try? await git.run(
+                ["for-each-ref", "refs/heads", "--merged=\(ref)", "--format=%(objectname)"], in: repoRoot),
+                listed.succeeded
+            else { answeredAll = false; break }
+            ancestorTips.formUnion(listed.stdout.split(separator: "\n").map(String.init))
+        }
+        var counts: [String: (ahead: Int, behind: Int)] = [:]
+        if let first = defaultRefs.first,
+            let listed = try? await git.run(
+                ["for-each-ref", "refs/heads", "--format=%(objectname) %(ahead-behind:\(first))"], in: repoRoot),
+            listed.succeeded
+        {
+            for line in listed.stdout.split(separator: "\n") {
+                let parts = line.split(separator: " ").map(String.init)
+                if parts.count == 3, let ahead = Int(parts[1]), let behind = Int(parts[2]) { counts[parts[0]] = (ahead, behind) }
+            }
+        }
         return Context(
             repoRoot: repoRoot,
             defaultName: defaultName,
             defaultRefs: defaultRefs,
-            detector: MergeEvidenceDetector(git: git, repoRoot: repoRoot, defaultRefs: defaultRefs),
+            detector: MergeEvidenceDetector(
+                git: git, repoRoot: repoRoot, defaultRefs: defaultRefs,
+                ancestorTips: ancestorTips, coveredTips: answeredAll ? Set(parsedRefs.map(\.tip)) : []),
             listed: listedWorktrees,
-            refs: GitParsers.parseBranches(branchText),
+            refs: parsedRefs,
             stashBranches: GitParsers.parseStashBranches(stashText),
             branchesInOperation: inOperation,
+            aheadBehindByTip: counts,
             mergedPRs: mergedPRs,
             prAvailable: prAvailable)
     }
@@ -155,7 +185,7 @@ public struct RepoInspector: Sendable {
         let evidence = await context.detector.evidence(
             tip: ref.tip, branchName: ref.name, upstreamGone: ref.upstreamGone, mergedPRs: context.mergedPRs)
         let counts = await aheadBehind(
-            tip: ref.tip, defaultRef: context.defaultRefs.first, repoRoot: context.repoRoot)
+            tip: ref.tip, defaultRef: context.defaultRefs.first, repoRoot: context.repoRoot, known: context.aheadBehindByTip)
         let worktreesWithBranch = linked.filter { $0.branch == ref.name }.map(\.path)
             + (context.branchesInOperation[ref.name].map { [$0] } ?? [])
         let input = ClassificationInput(
@@ -207,7 +237,7 @@ public struct RepoInspector: Sendable {
             tip: entry.head, branchName: entry.branch,
             upstreamGone: ref?.upstreamGone ?? false, mergedPRs: context.mergedPRs)
         let counts = await aheadBehind(
-            tip: entry.head, defaultRef: context.defaultRefs.first, repoRoot: context.repoRoot)
+            tip: entry.head, defaultRef: context.defaultRefs.first, repoRoot: context.repoRoot, known: context.aheadBehindByTip)
         let input = ClassificationInput(
             branchName: entry.branch,
             evidence: evidence,
@@ -232,7 +262,10 @@ public struct RepoInspector: Sendable {
             createdAt: isMain ? nil : WorktreeMetadata.createdAt(ofWorktreeAt: url))
     }
 
-    private func aheadBehind(tip: String, defaultRef: String?, repoRoot: URL) async -> (ahead: Int, behind: Int) {
+    private func aheadBehind(
+        tip: String, defaultRef: String?, repoRoot: URL, known: [String: (ahead: Int, behind: Int)] = [:]
+    ) async -> (ahead: Int, behind: Int) {
+        if let answer = known[tip] { return answer }
         guard let defaultRef,
             let output = try? await git.run(
                 ["rev-list", "--left-right", "--count", "\(defaultRef)...\(tip)"], in: repoRoot),

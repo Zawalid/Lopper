@@ -4,8 +4,18 @@ import Foundation
 public struct GitRunner: Sendable {
     private let runner: CommandRunner
 
+    /// `/usr/bin/git` is only a stub that looks up the active developer folder and runs the real git from there, which
+    /// costs about ten milliseconds on every call: a scan runs tens of thousands of them. Go to the real one directly,
+    /// and fall back to the stub when it is not where `xcode-select` says.
+    public static let preferredExecutable: URL = {
+        let stub = URL(fileURLWithPath: "/usr/bin/git")
+        guard let developer = GitAvailability.activeDeveloperDirectory() else { return stub }
+        let real = URL(fileURLWithPath: developer).appendingPathComponent("usr/bin/git")
+        return FileManager.default.isExecutableFile(atPath: real.path) ? real : stub
+    }()
+
     public init(
-        executable: URL = URL(fileURLWithPath: "/usr/bin/git"),
+        executable: URL = GitRunner.preferredExecutable,
         timeout: Duration = .seconds(30)
     ) {
         runner = CommandRunner(

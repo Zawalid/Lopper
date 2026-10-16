@@ -126,7 +126,7 @@ Lopper's one job is to never remove work that exists nowhere else.
 | Remove anything at all | you reviewed the list and confirmed it |
 | Delete for good | it is something Lopper itself moved to the Trash, and you asked for it |
 
-Every removal can be undone for 30 days from History. Rules only ever suggest. About 650 automated tests back this,
+Every removal can be undone for 30 days from History. Rules only ever suggest. About 780 automated tests back this (see [how it is checked](docs/safety.md)),
 many of them against real git repositories created on the fly, because mocking git would hide exactly the cases that
 lose work.
 

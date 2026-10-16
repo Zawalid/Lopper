@@ -133,12 +133,12 @@ final class AppModel {
     let preferences: AppPreferences
     private let store: SettingsStore
 
-    private(set) var settings: Settings
+    private(set) var settings: Settings { didSet { invalidateRows() } }
     private(set) var phase: ScanPhase = .idle
-    private(set) var results: [RepoScanResult] = []
-    private(set) var sizes: [String: DiskUsage] = [:]
+    private(set) var results: [RepoScanResult] = [] { didSet { invalidateRows() } }
+    private(set) var sizes: [String: DiskUsage] = [:] { didSet { invalidateRows() } }
     /// Worktrees measured since the latest scan finished. Only these have trustworthy activity times.
-    private(set) var measuredPaths: Set<String> = []
+    private(set) var measuredPaths: Set<String> = [] { didSet { invalidateRows() } }
     var history: [UndoRecord] = []
     /// Folders Lopper cleared that are still in the Trash, so still using disk.
     var trashedFolders: [UndoRecord] = []
@@ -265,9 +265,22 @@ final class AppModel {
         snapshots.flatMap { mappedRows($0) }
     }
 
+    /// The rows of each repository, kept until what they are built from changes. Every redraw reads the totals and the
+    /// summaries, and rebuilding eight thousand rows for each read made the window stutter on a large scan. They are
+    /// also dropped after thirty seconds, because an agent worktree's state depends on the clock.
+    @ObservationIgnored private var rowCache: [String: (rows: [CleanupRow], at: Date)] = [:]
+
+    private func invalidateRows() { rowCache.removeAll(keepingCapacity: true) }
+
     private func mappedRows(_ snapshot: RepoSnapshot) -> [CleanupRow] {
-        RowMapper.rows(
-            for: snapshot, sizes: sizes, policy: agentPolicy, now: clock(), measuredPaths: measuredPaths)
+        let now = clock()
+        if let hit = rowCache[snapshot.repo.id], now.timeIntervalSince(hit.at) >= 0, now.timeIntervalSince(hit.at) < 30 {
+            return hit.rows
+        }
+        let rows = RowMapper.rows(
+            for: snapshot, sizes: sizes, policy: agentPolicy, now: now, measuredPaths: measuredPaths)
+        rowCache[snapshot.repo.id] = (rows, now)
+        return rows
     }
 
     func rows(forRepo id: String) -> [CleanupRow] {
@@ -873,6 +886,8 @@ final class AppModel {
     func setWorktreeKept(_ row: CleanupRow, _ kept: Bool) {
         guard let path = row.path?.path else { return }
         preferences.setWorktreeKept(path, kept)
+        // The kept set is part of the agent policy the rows are built from.
+        invalidateRows()
     }
 
     /// Every detected agent worktree, loudest first, then oldest activity first.

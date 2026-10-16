@@ -19,6 +19,16 @@ work lands; `scripts/release.sh` moves them under the new version.
   in a small local log, capped at 500 entries and 30 days.
 
 ### Fixed
+- Safety audit (see docs/safety.md): edits hidden with `skip-worktree` or `assume-unchanged` no longer make a worktree
+  look clean; work that lives only in a merge commit is no longer called merged; a branch being rebased in another
+  worktree is never deleted; removing one missing worktree no longer drops the others; undo records survive two writers
+  and a crash; a reused Trash name can no longer be mistaken for a Lopper folder; damaged settings stop removals instead
+  of silently resetting protections; `--include-review` never removes an agent that is still working; `lop disk
+  --untouched-days` looks at the project, not the generated folder; reinstall only runs where a folder was really
+  cleared; git is no longer redirected by `GIT_DIR` and similar variables.
+- Large scans: file descriptors are released as soon as a command ends, so thousands of branches no longer end in
+  "could not start git". A scan of 200 repositories takes 15 seconds instead of 100, and the window no longer stutters
+  with thousands of rows.
 - A folder macOS refused to open used to look like "No repositories found". It is now named, and the other folders
   are still scanned.
 
