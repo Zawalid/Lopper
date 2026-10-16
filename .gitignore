@@ -6,3 +6,8 @@ DerivedData/
 
 build/
 App/Lopper.xcodeproj/
+
+# AI workflow files: plans, specs and working notes stay on this machine
+.superpowers/
+docs/superpowers/
+.claude/

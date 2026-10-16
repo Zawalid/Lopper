@@ -25,12 +25,12 @@ Sidebar: **Overview**, **Agents**, **Disk**, **History**, then **Repositories**.
 |---|---|---|
 | Overview (cockpit) | One number, one action, repositories that need attention first | done |
 | Repository workbench | Table, filters, inspector, clean selection | done |
-| History | Every removal, restore a batch or an item | done (basic) |
+| History | Every removal in a sortable table with an inspector, restore one or a whole cleanup, space given back per week | done |
 | Menu bar popover | Same glance, same one-click clean | done |
 | Onboarding | Choose folders, first scan | done (basic) |
 | Settings | See section 4 | partial |
 | Agents | Worktrees made by AI tools: age, unmerged work, size, finished or abandoned, reclaim all finished | done |
-| Disk | Where space goes: biggest worktrees, build folders; reclaim artifacts without removing the worktree | planned |
+| Disk | Where space goes: generated folders by project, kind and as a map, developer caches, free space, clear to the Trash with undo, optional reinstall | done |
 | Rules and schedule | "Delete branches merged more than 14 days ago", run weekly, digest notification | planned |
 | What's new, About, Updates | Release notes, version, check for updates | planned |
 
@@ -112,7 +112,7 @@ These are cheap now and expensive later.
 ## 7. How we work through it
 
 1. Pick the next item together.
-2. I write a one-page design for it in `docs/superpowers/specs/` (screens, states, data, risks, tests).
+2. I write a one-page design for it (screens, states, data, risks, tests).
 3. You approve or change it.
 4. I write the plan, build it test first, run the real-window tests, and show it in the running app.
 5. Review, merge, tick it off here.
