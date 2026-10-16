@@ -42,6 +42,19 @@ person makes. Add one when you add a page.
 scripts/render-screens.sh build/renders      # light and dark PNGs of the key screens
 ```
 
+## Screenshots for the README
+
+The Debug build can photograph its own window, so no screen recording permission is needed. Build the demo
+world, then run the app against it with `LOPPER_SCREENSHOT_DIR` set. It scans, walks through the pages in dark
+and light, writes a PNG for each, and quits:
+
+```bash
+LOPPER_SCREENSHOT_DIR=$PWD/build/shots scripts/demo-world/run.sh
+```
+
+The code is `App/LopperApp/Preview/ScreenshotMode.swift` and exists in Debug builds only. Resize the results
+with `sips -Z 2000` before committing them to `docs/images`.
+
 ## Build something to share
 
 ```bash

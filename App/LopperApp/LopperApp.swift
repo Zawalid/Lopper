@@ -14,6 +14,9 @@ struct LopperApp: App {
         Window("Lopper", id: "main") {
             RootView()
                 .environment(model)
+                #if DEBUG
+                .task { await ScreenshotMode.runIfRequested(model: model) }
+                #endif
         }
         .defaultSize(width: 1080, height: 700)
         .commands { LopperCommands(model: model) }

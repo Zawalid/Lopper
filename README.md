@@ -7,7 +7,33 @@ anything for 30 days.
 It is a native macOS app (SwiftUI) with a small Swift engine underneath. Everything stays on your Mac: no
 account, no upload, no telemetry.
 
-<!-- screenshots: docs/images/overview.png, disk.png, history.png, menubar.png -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/overview-dark.png">
+  <img alt="Lopper overview: 453.7 MB ready to reclaim, with the repositories that hold the most" src="docs/images/overview-light.png">
+</picture>
+
+<table>
+<tr>
+<td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/repository-dark.png">
+  <img alt="A repository: every branch and worktree with its verdict, and the evidence behind it" src="docs/images/repository-light.png">
+</picture></td>
+<td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/agents-dark.png">
+  <img alt="Agents: worktrees left behind by Claude Code, Cursor, Codex and Conductor" src="docs/images/agents-light.png">
+</picture></td>
+</tr>
+<tr>
+<td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/disk-map-dark.png">
+  <img alt="Disk map: generated folders and developer caches sized by bytes" src="docs/images/disk-map-light.png">
+</picture></td>
+<td width="50%"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/history-dark.png">
+  <img alt="History: every removal, why it was safe, and how long it can be restored" src="docs/images/history-light.png">
+</picture></td>
+</tr>
+</table>
 
 ## What it does
 
