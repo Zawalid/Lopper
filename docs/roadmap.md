@@ -1,7 +1,7 @@
 # Lopper roadmap
 
-Living document. Status values: `done`, `next`, `planned`, `idea`. Each item gets a one-page design (what,
-why, screens, states, data, risks, tests) before any code, then a plan, then a build. We go one at a time.
+Living document. Status values: `done`, `next`, `planned`, `idea`. Each item gets a short design (what, why,
+screens, states, data, risks, tests) before any code.
 
 ## 1. Product
 
@@ -109,15 +109,7 @@ These are cheap now and expensive later.
 | 4 | Ship | Signing, notarization, updates, website, licensing, pricing, private beta |
 | 5+ | Reach | Remote branches, GitLab, stash, more tools, teams (only if asked for) |
 
-## 7. How we work through it
-
-1. Pick the next item together.
-2. I write a one-page design for it (screens, states, data, risks, tests).
-3. You approve or change it.
-4. I write the plan, build it test first, run the real-window tests, and show it in the running app.
-5. Review, merge, tick it off here.
-
-## 8. Open decisions
+## 7. Open decisions
 
 - Name availability check for "Lopper" before any public release.
 - Pricing model (one-time versus subscription) and what exactly is free; decided in phase 4, informed by use.

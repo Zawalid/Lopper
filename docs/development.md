@@ -1,6 +1,6 @@
 # Developing Lopper
 
-Run everything from the repository root (`~/Personal/Projects/Lopper`).
+Run everything from the repository root.
 
 ## See changes fast
 
@@ -10,8 +10,8 @@ Run everything from the repository root (`~/Personal/Projects/Lopper`).
 | `scripts/dev.sh --watch` | Same, automatically, every time you save a file under `App/` or `Sources/` | about 4 s per save |
 | `scripts/dev.sh --logs` | Build, open, then stream the app's log output | |
 
-Leave `scripts/dev.sh --watch` running in a terminal tab. When a change is made (by you or by me) the app
-quits and comes back with it.
+Leave `scripts/dev.sh --watch` running in a terminal tab. When a file changes the app quits and comes back
+with it.
 
 ## Live previews in Xcode
 
@@ -49,7 +49,7 @@ scripts/build-app.sh      # build/Lopper.app (ad hoc signed unless SIGN_IDENTITY
 scripts/make-dmg.sh       # build/Lopper.dmg
 ```
 
-Signing and notarization need an Apple Developer account; see the plan, Task 13.
+Signing and notarization need an Apple Developer account. Set `SIGN_IDENTITY` to a "Developer ID Application: ..." name.
 
 ## Where things live
 
@@ -57,7 +57,7 @@ Signing and notarization need an Apple Developer account; see the plan, Task 13.
 - `App/LopperApp/`: the SwiftUI app. `Model/` state, `Services/` engine access, `Features/` one folder per
   screen, `DesignSystem/` shared components, `Preview/` debug-only sample data and previews.
 - `App/project.yml`: describes the Xcode project; `App/Lopper.xcodeproj` is generated and not committed.
-- `docs/`: specs, plans, roadmap, verification notes.
+- `docs/`: development notes, the settings file format, the roadmap.
 
 ## Trying the Agents page on real worktrees
 
