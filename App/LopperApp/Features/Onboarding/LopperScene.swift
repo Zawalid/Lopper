@@ -16,7 +16,7 @@ struct LopperScene: View {
 
     var body: some View {
         GeometryReader { proxy in
-            TimelineView(.animation(minimumInterval: 1.0 / 45, paused: reduceMotion || fixedTime != nil)) { timeline in
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || fixedTime != nil)) { timeline in
                 let time = currentTime(timeline.date)
                 ZStack(alignment: .bottomTrailing) {
                     Canvas { context, size in
