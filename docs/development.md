@@ -63,6 +63,7 @@ scripts/make-dmg.sh       # build/Lopper.dmg
 ```
 
 Signing and notarization need an Apple Developer account. Set `SIGN_IDENTITY` to a "Developer ID Application: ..." name.
+Releases are cut with `scripts/release.sh` and published by a workflow; see [releasing.md](releasing.md).
 
 ## Where things live
 

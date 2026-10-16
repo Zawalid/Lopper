@@ -1,0 +1,102 @@
+name: Release
+
+# Pushing a tag like v0.2.0 (made by scripts/release.sh) builds the app, packs a DMG and publishes a GitHub Release.
+# Without signing secrets the app is ad hoc signed (people open it once with right-click, Open). Add the secrets
+# below and the same workflow signs with a Developer ID certificate and notarizes the DMG.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    env:
+      # Optional signing. All five must be set as repository secrets to turn signing on:
+      #   DEVELOPER_ID_P12 (base64 of the .p12), DEVELOPER_ID_P12_PASSWORD, DEVELOPER_ID_NAME
+      #   ("Developer ID Application: Your Name (TEAMID)"), NOTARY_KEY_ID, NOTARY_ISSUER_ID, NOTARY_KEY_P8 (base64)
+      HAS_SIGNING: ${{ secrets.DEVELOPER_ID_P12 != '' && secrets.DEVELOPER_ID_NAME != '' && secrets.NOTARY_KEY_P8 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the version and check it matches the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PROJECT_VERSION="$(grep -m1 'MARKETING_VERSION' App/project.yml | awk '{print $2}')"
+          if [ "$VERSION" != "$PROJECT_VERSION" ]; then
+            echo "tag $GITHUB_REF_NAME does not match MARKETING_VERSION $PROJECT_VERSION in App/project.yml" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - run: brew install xcodegen
+
+      - name: Run the engine tests
+        run: |
+          git config --global user.email "ci@example.com"
+          git config --global user.name "CI"
+          git config --global init.defaultBranch main
+          swift test
+
+      - name: Import the signing certificate
+        if: env.HAS_SIGNING == 'true'
+        env:
+          P12: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/release.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          echo "SIGN_IDENTITY=${{ secrets.DEVELOPER_ID_NAME }}" >> "$GITHUB_ENV"
+
+      - name: Build the app
+        run: scripts/build-app.sh
+
+      - name: Pack the DMG
+        run: |
+          scripts/make-dmg.sh
+          mv build/Lopper.dmg "build/Lopper-$VERSION.dmg"
+
+      - name: Notarize and staple
+        if: env.HAS_SIGNING == 'true'
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          xcrun notarytool submit "build/Lopper-$VERSION.dmg" \
+            --key "$RUNNER_TEMP/AuthKey.p8" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
+          xcrun stapler staple "build/Lopper-$VERSION.dmg"
+
+      - name: Checksum and release notes
+        run: |
+          (cd build && shasum -a 256 "Lopper-$VERSION.dmg" > "Lopper-$VERSION.dmg.sha256")
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > build/notes.md
+          [ -s build/notes.md ] || echo "Release $VERSION" > build/notes.md
+          {
+            echo
+            echo "### Install"
+            echo "Download the DMG, drag Lopper to Applications. See docs/install.md for the first-launch steps."
+            echo "SHA-256: \`$(cut -d' ' -f1 "build/Lopper-$VERSION.dmg.sha256")\`"
+          } >> build/notes.md
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PRERELEASE=""
+          case "$VERSION" in *-*) PRERELEASE="--prerelease";; esac
+          gh release create "$GITHUB_REF_NAME" \
+            "build/Lopper-$VERSION.dmg" "build/Lopper-$VERSION.dmg.sha256" \
+            --title "Lopper $VERSION" --notes-file build/notes.md $PRERELEASE

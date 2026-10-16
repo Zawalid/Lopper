@@ -61,31 +61,25 @@ Lopper's job is to never remove work that exists nowhere else.
 - Nothing is permanently deleted unless you empty the Trash. The one exception is the optional "delete for
   good", which only touches items Lopper itself moved to the Trash.
 
-## Requirements
+## Install
 
-- macOS 14 or later
-- Git on your `PATH` (install the Xcode command line tools with `xcode-select --install`)
-- Optional: the [GitHub CLI](https://cli.github.com) (`gh`) for pull request based merge detection
+Download the latest DMG from [Releases](https://github.com/Zawalid/Lopper/releases/latest), drag Lopper to
+Applications, and open it. Until the app is notarized, macOS asks you to confirm the first launch once; the steps
+are in the [install guide](docs/install.md), along with Homebrew (`brew install --cask zawalid/lopper/lopper`),
+building from source, updating and uninstalling.
 
-## Build from source
+**Requirements:** macOS 14 or later, and git on your `PATH` (`xcode-select --install`). The
+[GitHub CLI](https://cli.github.com) (`gh`) is optional and adds pull request based merge detection.
+
+## Build from source and contribute
 
 You need Xcode 16 or later and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
 ```bash
 git clone https://github.com/Zawalid/Lopper.git
-cd Lopper/App && xcodegen generate && open Lopper.xcodeproj
-```
-
-Or build and run a Debug build from the terminal:
-
-```bash
-scripts/dev.sh
-```
-
-Run the tests:
-
-```bash
-swift test                                   # engine
+cd Lopper
+scripts/dev.sh               # build a Debug app and open it; add --watch to relaunch on save
+swift test                   # engine tests
 cd App && xcodegen generate && xcodebuild test -project Lopper.xcodeproj -scheme Lopper -destination 'platform=macOS'
 ```
 
@@ -96,8 +90,8 @@ scripts/demo-world/build.sh ~/LopperDemo
 scripts/demo-world/run.sh
 ```
 
-See [docs/development.md](docs/development.md) for the rest of the development loop and
-[docs/roadmap.md](docs/roadmap.md) for what is planned.
+See [docs/development.md](docs/development.md) for the development loop, [docs/releasing.md](docs/releasing.md) for
+versions and releases, and [docs/roadmap.md](docs/roadmap.md) for what is planned.
 
 ## Project layout
 

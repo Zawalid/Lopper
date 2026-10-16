@@ -1,6 +1,6 @@
 name: Lopper
 options:
-  bundleIdPrefix: dev.lopper
+  bundleIdPrefix: com.zawalid
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
@@ -27,7 +27,7 @@ targets:
       base:
         PRODUCT_NAME: Lopper
         PRODUCT_MODULE_NAME: LopperApp
-        PRODUCT_BUNDLE_IDENTIFIER: dev.lopper.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.zawalid.lopper
         MARKETING_VERSION: 0.1.0
         CURRENT_PROJECT_VERSION: 1
         GENERATE_INFOPLIST_FILE: YES
@@ -44,7 +44,7 @@ targets:
       - target: LopperApp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.lopper.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.zawalid.lopper.tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Lopper.app/Contents/MacOS/Lopper"
         BUNDLE_LOADER: "$(TEST_HOST)"
