@@ -1,7 +1,7 @@
 name: Release
 
 # Pushing a tag like v0.2.0 (made by scripts/release.sh) builds the app, packs a DMG and publishes a GitHub Release.
-# Without signing secrets the app is ad hoc signed (people open it once with right-click, Open). Add the secrets
+# Without signing secrets the app is ad hoc signed (people confirm it once with Open Anyway in System Settings). Add the secrets
 # below and the same workflow signs with a Developer ID certificate and notarizes the DMG.
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       # Optional signing. All five must be set as repository secrets to turn signing on:
       #   DEVELOPER_ID_P12 (base64 of the .p12), DEVELOPER_ID_P12_PASSWORD, DEVELOPER_ID_NAME

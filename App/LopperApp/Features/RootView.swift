@@ -91,6 +91,10 @@ private struct DetailView: View {
             // that would only cover a rectangle around it.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.pageBackground)
+            // The toolbar takes the page's own color. Without this a build made with an older SDK paints the
+            // title bar in the system's flat, lighter grey, which shows as a separate band above the page.
+            .toolbarBackground(Theme.pageBackground, for: .windowToolbar)
+            .toolbarBackground(.visible, for: .windowToolbar)
             // The notice lives in the detail column only. An inset on the whole split view would also push
             // the sidebar's first row up under the traffic lights.
             .safeAreaInset(edge: .top, spacing: 0) {
