@@ -1,15 +1,27 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** The released version, read from the app's own project file so the site never disagrees with the app. */
+/**
+ * The released version, read from the app's own project file so the site never disagrees with the app. The build runs
+ * from the website folder, so that is tried first: the path relative to this file only works when the file is read from
+ * source, not from the bundled output, which is where the old lookup silently fell back to 0.1.0.
+ */
 function readVersion(): string {
-  try {
-    const file = fileURLToPath(new URL('../../../App/project.yml', import.meta.url));
-    const match = readFileSync(file, 'utf8').match(/MARKETING_VERSION:\s*(\S+)/);
-    return match?.[1] ?? '0.1.0';
-  } catch {
-    return '0.1.0';
+  const candidates = [
+    resolve(process.cwd(), '../App/project.yml'),
+    resolve(process.cwd(), 'App/project.yml'),
+    fileURLToPath(new URL('../../../App/project.yml', import.meta.url)),
+  ];
+  for (const file of candidates) {
+    try {
+      const match = readFileSync(file, 'utf8').match(/MARKETING_VERSION:\s*(\S+)/);
+      if (match?.[1]) return match[1];
+    } catch {
+      // try the next place
+    }
   }
+  throw new Error('Could not read MARKETING_VERSION from App/project.yml: the site would show the wrong version.');
 }
 
 export const version = readVersion();
