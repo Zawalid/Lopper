@@ -6,6 +6,10 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Fixed
+- On macOS 26 the top of the window showed a strip in a different grey from the sidebar below it. The window
+  toolbar color is now only set on macOS 14 and 15, where the title bar is a separate band.
+
 ## [0.3.0] - 2026-10-16
 
 ### Added
