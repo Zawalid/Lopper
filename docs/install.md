@@ -42,7 +42,8 @@ Lopper is open source, so you can also read exactly what it does or build it you
 brew install --cask zawalid/lopper/lopper
 ```
 
-The cask removes the quarantine flag for you. Upgrade with `brew upgrade --cask lopper`.
+Homebrew does not remove the macOS quarantine flag, so the first launch needs the same one-time Open Anyway step as the
+download (the cask prints the reminder). Upgrade with `brew upgrade --cask lopper`.
 
 ## Build from source
 

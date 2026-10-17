@@ -169,7 +169,7 @@ brew install --cask zawalid/lopper/lopper    # or with Homebrew
 ```
 
 macOS blocks the first launch because Lopper is not signed with an Apple Developer ID. Open it once, then go to
-**System Settings, Privacy & Security, Open Anyway** (the Homebrew install skips this). The steps, updating and
+**System Settings, Privacy & Security, Open Anyway** (the same applies after a Homebrew install). The steps, updating and
 uninstalling are in the **[install guide](docs/install.md)**.
 
 **Requirements:** macOS 14 or later, and git (`xcode-select --install`). The [GitHub CLI](https://cli.github.com)
