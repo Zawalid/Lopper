@@ -45,6 +45,8 @@ enum DemoTour {
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // The footage is about reclaiming space; the "only on this Mac" banner would sit on top of every overview shot.
+        model.debugHideLocalOnly(true)
         model.route = .overview
         try? await Task.sleep(for: .seconds(2))
 
