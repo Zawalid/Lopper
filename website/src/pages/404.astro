@@ -1,0 +1,26 @@
+---
+import Base from '../layouts/Base.astro';
+import { links } from '../data/site';
+import { guides, guidePath } from '../data/guides';
+---
+<Base title="Page not found | Lopper" description="That page does not exist." home={false} structuredData={[]}>
+  <meta slot="head" name="robots" content="noindex" />
+  <section class="nf">
+    <div class="wrap">
+      <h1 class="display">not here.</h1>
+      <p class="lead">The page you wanted does not exist. These do:</p>
+      <ul class="nf-links">
+        <li><a class="link" href="/">Lopper, the Mac app</a></li>
+        <li><a class="link" href={links.guides}>All guides</a></li>
+        {guides.map((g) => <li><a class="link" href={guidePath(g.slug)}>{g.title}</a></li>)}
+      </ul>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .nf { padding: calc(72px + clamp(48px, 9vw, 120px)) 0 clamp(80px, 12vw, 160px); min-height: 70vh; }
+  .nf .wrap { display: grid; gap: 28px; }
+  .nf-links { list-style: none; display: grid; gap: 12px; font-size: 1.2rem; }
+  .nf-links a { color: var(--mint); }
+</style>

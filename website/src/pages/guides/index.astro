@@ -1,0 +1,59 @@
+---
+import Base from '../../layouts/Base.astro';
+import { site, links } from '../../data/site';
+import { guides, guidePath } from '../../data/guides';
+
+const title = 'Git cleanup guides: branches, worktrees, agents | Lopper';
+const description = 'Practical, tested guides to cleaning up git branches and worktrees, including the ones AI coding agents leave behind.';
+const url = new URL(links.guides, site.url).toString();
+const data = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Lopper guides',
+    description,
+    url,
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Lopper', item: site.url },
+      { '@type': 'ListItem', position: 2, name: 'Guides', item: url },
+    ],
+  },
+];
+const day = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+---
+<Base title={title} description={description} image="/og-guide.png" imageAlt="Lopper guides" home={false} structuredData={data}>
+  <section class="guides">
+    <div class="wrap guides-head">
+      <h1 class="title">guides.</h1>
+      <p class="lead">
+        Practical guides to cleaning up git branches and worktrees, with commands that were run before they were written down.
+      </p>
+    </div>
+    <ul class="wrap guide-list">
+      {guides.map((guide) => (
+        <li>
+          <a class="guide-card" href={guidePath(guide.slug)}>
+            <h2>{guide.title}</h2>
+            <p>{guide.description}</p>
+            <span class="meta">Updated {day(guide.updated)}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </section>
+</Base>
+
+<style>
+  .guides { padding-top: calc(72px + clamp(32px, 6vw, 80px)); padding-bottom: clamp(72px, 10vw, 140px); min-height: 70vh; }
+  .guides-head { display: grid; gap: 20px; max-width: 52rem; margin-inline: 0; }
+  .guide-list { list-style: none; display: grid; gap: 16px; margin-top: clamp(32px, 5vw, 64px); max-width: 52rem; margin-inline: 0; }
+  .guide-card { display: grid; gap: 10px; padding: 24px 26px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--ink-2); color: var(--text); text-decoration: none; transition: border-color 200ms var(--ease-out), background-color 200ms var(--ease-out); }
+  .guide-card h2 { font-weight: 800; font-size: 1.6rem; line-height: 1.1; letter-spacing: -0.02em; }
+  .guide-card p { color: var(--muted); }
+  .guide-card .meta { font: 500 0.85rem var(--font-mono); color: var(--faint); }
+  @media (hover: hover) and (pointer: fine) { .guide-card:hover { border-color: var(--mint); background: var(--ink-3); } }
+</style>

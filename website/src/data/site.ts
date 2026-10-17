@@ -38,6 +38,7 @@ export const links = {
   install: `${repo}/blob/main/docs/install.md`,
   safety: `${repo}/blob/main/docs/safety.md`,
   cli: `${repo}/blob/main/docs/cli.md`,
+  guides: '/guides/',
   author: 'https://zawalid.com',
   github: 'https://github.com/Zawalid',
   x: 'https://x.com/Zawaalid',
@@ -46,7 +47,9 @@ export const links = {
 export const site = {
   name: 'Lopper',
   url: 'https://lopper.zawalid.com',
-  title: 'Lopper: keep your repositories light',
+  title: 'Lopper: clean up git branches and worktrees on your Mac',
   description:
-    'A native Mac app that finds the branches, worktrees and generated folders you no longer need, shows the git evidence that each is safe to remove, and lets you undo anything for 30 days.',
+    'Free Mac app that finds merged git branches, leftover AI agent worktrees and node_modules, shows why each is safe to remove, and undoes anything for 30 days.',
+  /** The day the pages last changed in a way worth telling a search engine about. */
+  updated: '2026-10-17',
 };

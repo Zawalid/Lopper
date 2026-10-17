@@ -14,7 +14,7 @@ and lets you undo anything for 30 days.
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-8CF2CC?style=flat-square&labelColor=0B100F)
 ![Swift 6](https://img.shields.io/badge/Swift-6-8CF2CC?style=flat-square&labelColor=0B100F)
 
-[Website](https://lopper.zawalid.com) &nbsp;·&nbsp; [Download](https://github.com/Zawalid/Lopper/releases/latest) &nbsp;·&nbsp; [Install guide](docs/install.md) &nbsp;·&nbsp; [How it stays safe](#how-it-stays-safe) &nbsp;·&nbsp; [Build from source](#build-from-source) &nbsp;·&nbsp; [Roadmap](docs/roadmap.md)
+[Website](https://lopper.zawalid.com) &nbsp;·&nbsp; [Guides](https://lopper.zawalid.com/guides/) &nbsp;·&nbsp; [Download](https://github.com/Zawalid/Lopper/releases/latest) &nbsp;·&nbsp; [Install guide](docs/install.md) &nbsp;·&nbsp; [How it stays safe](#how-it-stays-safe) &nbsp;·&nbsp; [Build from source](#build-from-source) &nbsp;·&nbsp; [Roadmap](docs/roadmap.md)
 
 <br>
 
@@ -33,7 +33,10 @@ If you work in many repositories, especially with AI coding agents, the leftover
 deleted, worktrees from agents that finished days ago, a `node_modules` in every copy. Cleaning them by hand means
 checking each one, and one wrong force delete loses work.
 
-Lopper does the checking for you. For every branch, worktree and generated folder it shows a verdict and the git
+Lopper does the checking for you.
+
+Stuck on `cannot delete branch used by worktree`? The [guide](https://lopper.zawalid.com/guides/cannot-delete-branch-used-by-worktree/)
+shows the safe order to fix it by hand, with real git output. For every branch, worktree and generated folder it shows a verdict and the git
 evidence behind it, you review a list, and everything it removes can be restored.
 
 ## Features

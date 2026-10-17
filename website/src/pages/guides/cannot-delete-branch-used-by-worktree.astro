@@ -1,0 +1,143 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { guides } from '../../data/guides';
+
+const guide = guides.find((g) => g.slug === 'cannot-delete-branch-used-by-worktree')!;
+const toc = [
+  { id: 'short-answer', label: 'The short answer' },
+  { id: 'what-it-means', label: 'What the error means' },
+  { id: 'find-the-worktree', label: 'Find the worktree' },
+  { id: 'check-nothing-is-lost', label: 'Check nothing is lost' },
+  { id: 'remove-then-delete', label: 'Remove it, then the branch' },
+  { id: 'deleted-by-hand', label: 'Deleted by hand' },
+  { id: 'ai-agents', label: 'Why AI agents leave these' },
+  { id: 'many-worktrees', label: 'When there are dozens' },
+];
+---
+<Guide guide={guide} toc={toc}>
+  <Fragment slot="checked">
+    Every command and message below was run in a throwaway repository on git 2.54.0 (Apple Git-157), with the folder path shortened to <code>~/code</code>.
+  </Fragment>
+
+  <h2 id="short-answer">The short answer</h2>
+  <p>
+    Git will not delete a branch while any worktree has it checked out. Find that worktree with
+    <code>git worktree list</code>, check that it holds nothing you need, remove it with
+    <code>git worktree remove</code>, and then delete the branch with <code>git branch -d</code>.
+  </p>
+
+  <h2 id="what-it-means">What the error means</h2>
+  <p>
+    A worktree is an extra working folder attached to the same repository, so you can have several branches checked out
+    at once. Git remembers which branch each worktree has checked out, and it refuses to delete a branch that is in use,
+    because that would pull the ground from under that folder. The wording depends on your version of git:
+  </p>
+<pre class="term"><code><span class="p">$</span> git branch -d claude/checkout-redesign
+<span class="e">error: cannot delete branch 'claude/checkout-redesign' used by worktree at '~/code/web/.claude/worktrees/checkout-redesign'</span></code></pre>
+  <p class="term-note">
+    Older versions of git say <code>Cannot delete branch 'name' checked out at 'path'</code>. The cause and the fix are the same.
+    The message already names the folder, which is the one thing you need for the next step.
+  </p>
+
+  <h2 id="find-the-worktree">Step 1: find the worktree that holds the branch</h2>
+  <p>
+    <code>git worktree list</code> shows every working folder attached to the repository and the branch each one has checked out.
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree list
+~/code/web                                      651badc [main]
+~/code/web/.claude/worktrees/checkout-redesign  1615dbb [claude/checkout-redesign]</code></pre>
+  <p>
+    The first line is your main checkout. Every other line is a linked worktree. A worktree whose folder has gone missing
+    is marked <code>prunable</code>, and one that was locked on purpose is marked <code>locked</code>.
+  </p>
+
+  <h2 id="check-nothing-is-lost">Step 2: check that nothing is lost</h2>
+  <p>
+    Removing a worktree deletes its folder, so look before you remove anything. There are two things that can exist
+    only there.
+  </p>
+  <h3>Commits that are not in your main branch</h3>
+<pre class="term"><code><span class="p">$</span> git log --oneline main..claude/checkout-redesign
+1615dbb redesign checkout</code></pre>
+  <p>
+    If this prints nothing, every commit on the branch is already in <code>main</code>. If it prints commits, they are
+    not merged yet. They may also be on a remote, which <code>git branch -vv</code> shows, or they may exist nowhere
+    else. Do not delete the branch until you know which.
+  </p>
+  <h3>Files that are not committed</h3>
+<pre class="term"><code><span class="p">$</span> git -C ~/code/web/.claude/worktrees/checkout-redesign status --short
+?? notes.txt</code></pre>
+  <p>
+    Empty output means the worktree is clean. Anything listed, here an untracked <code>notes.txt</code>, exists only in
+    that folder. Git protects you from the worst of this: it refuses to remove a worktree that has such files.
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree remove .claude/worktrees/checkout-redesign
+<span class="e">fatal: '.claude/worktrees/checkout-redesign' contains modified or untracked files, use --force to delete it</span></code></pre>
+  <p>
+    Read that message as a stop sign, not a hurdle. The <code>--force</code> option deletes those files for good.
+  </p>
+
+  <h2 id="remove-then-delete">Step 3: remove the worktree, then the branch</h2>
+  <p>Once the worktree is clean, remove it. A successful removal prints nothing.</p>
+<pre class="term"><code><span class="p">$</span> git worktree remove ~/code/web/.claude/worktrees/checkout-redesign</code></pre>
+  <p>
+    Now the branch is free. <code>git branch -d</code> only deletes a branch whose commits are already merged, so if the
+    work was never merged, git tells you so:
+  </p>
+<pre class="term"><code><span class="p">$</span> git branch -d claude/checkout-redesign
+<span class="e">error: the branch 'claude/checkout-redesign' is not fully merged</span>
+<span class="d">hint: If you are sure you want to delete it, run 'git branch -D claude/checkout-redesign'
+hint: Disable this message with "git config set advice.forceDeleteBranch false"</span></code></pre>
+  <p>
+    That is the check from step 2 happening again, and it is the one to take seriously. Merge the branch, push it
+    somewhere, or decide the work is not needed, and then delete it. After the branch was merged into
+    <code>main</code>:
+  </p>
+<pre class="term"><code><span class="p">$</span> git branch -d claude/checkout-redesign
+Deleted branch claude/checkout-redesign (was 1615dbb).</code></pre>
+  <p>
+    The hash in that last line matters. If you delete a branch by mistake, <code>git branch claude/checkout-redesign 1615dbb</code>
+    puts it back, for as long as git has not cleaned up the unreachable commits.
+  </p>
+
+  <h2 id="deleted-by-hand">If you deleted the worktree folder by hand</h2>
+  <p>
+    Deleting the folder in Finder or the terminal leaves git's record of the worktree behind, and the branch stays locked
+    to it. The worktree shows up as <code>prunable</code>:
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree list
+~/code/web   1615dbb [main]
+~/code/wt2   1615dbb [feature/two] prunable
+
+<span class="p">$</span> git worktree prune -v
+Removing worktrees/wt2: gitdir file points to non-existent location</code></pre>
+  <p>
+    <code>git worktree prune</code> only forgets worktrees whose folders are gone. It never touches a folder that exists,
+    and it does not delete the branch, so run <code>git branch -d</code> afterwards. One warning: a worktree on an
+    external drive that is not plugged in also looks gone. Plug the drive in before you prune, or git forgets a worktree
+    that is perfectly fine.
+  </p>
+
+  <h2 id="ai-agents">Why AI coding agents leave these behind</h2>
+  <p>
+    Coding agents use worktrees so several tasks can run on one repository without disturbing each other. Claude Code can
+    work in a worktree it creates inside the repository, under <code>.claude/worktrees/</code>. Cursor, Codex and
+    Conductor keep theirs in <code>.cursor/worktrees</code>, <code>.codex/worktrees</code> and
+    <code>conductor/workspaces</code> according to their documentation, so check where your own install puts them. Branch
+    names often start with <code>claude/</code>, <code>cursor/</code> or <code>codex/</code>, which is a quick way to
+    recognise them in <code>git branch</code>.
+  </p>
+  <p>
+    Depending on the tool and on how a run ended, a worktree is sometimes cleaned up for you and sometimes left behind:
+    runs that made changes, runs that crashed and runs you abandoned. Each one is a full copy of your files, and if the
+    agent installed dependencies there it is a copy of <code>node_modules</code> as well, so a pile of them takes real disk
+    space. They also hold exactly the branches that git then refuses to delete.
+  </p>
+
+  <h2 id="many-worktrees">When there are dozens of them</h2>
+  <p>
+    Two or three worktrees are easy to handle with the steps above. Twenty means running the same checks twenty times,
+    and the cost of getting one wrong is a folder of uncommitted work that is gone. That is the case Lopper was made for,
+    and it is described below.
+  </p>
+</Guide>

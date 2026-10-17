@@ -6,6 +6,7 @@ const faq = [
   ['Which AI tools does it understand?', 'Worktrees from Claude Code, Cursor, Codex and Conductor are recognised by their layout and labelled with the tool. Worktrees from anything else are handled as ordinary git worktrees.'],
   ['Is there a command line?', 'Yes. lop runs the same engine in the terminal, with --json for scripts and AI agents, and shares your folders and undo history with the app. Install it with brew install zawalid/lopper/lop.'],
   ['What if something goes wrong?', 'Everything Lopper removes can be undone for 30 days. If you hit a bug, Settings, About, Diagnostics shows exactly what a bug report would contain, with repository and branch names left out unless you add them. You copy or save it yourself; Lopper sends nothing.'],
+  ['Git says it cannot delete a branch used by a worktree. What now?', 'A worktree has that branch checked out, so git protects it. Find the worktree with git worktree list, check it holds nothing you need, remove it, then delete the branch. The guide shows each step with real output.', '/guides/cannot-delete-branch-used-by-worktree/', 'Read the guide'],
   ['Will it ever clean up on its own?', 'No. Rules and the weekly digest only offer a cleanup. Nothing is removed until you have reviewed the list and confirmed it, and everything goes to the Trash first.'],
   ['Why does macOS warn me the first time?', 'The app is not signed with an Apple Developer ID, so Gatekeeper asks you to confirm it once. The steps are in the install section above. The source is open, so you can read it or build it yourself.'],
 ];
@@ -14,10 +15,10 @@ const faq = [
   <div class="wrap faq-grid">
     <h2 id="faq-title" class="title">questions.</h2>
     <div class="faq-list">
-      {faq.map(([q, a]) => (
+      {faq.map(([q, a, href, label]) => (
         <details data-faq>
           <summary><span>{q}</span><span class="plus" aria-hidden="true"></span></summary>
-          <div class="answer"><p>{a}</p></div>
+          <div class="answer"><p>{a}{href && <> <a class="link faq-link" href={href}>{label}</a>.</>}</p></div>
         </details>
       ))}
     </div>
@@ -43,5 +44,6 @@ const faq = [
   .plus::after { transform: rotate(90deg); }
   details[open] .plus::after { transform: rotate(0deg); }
   .answer { overflow: hidden; }
+  .faq-link { color: var(--mint); }
   .answer p { padding-bottom: 26px; color: var(--muted); max-width: 40rem; }
 </style>
