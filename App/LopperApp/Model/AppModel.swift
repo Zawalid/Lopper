@@ -525,6 +525,8 @@ final class AppModel {
     @ObservationIgnored private var localOnlyDetailsInFlight: Set<String> = []
 
     #if DEBUG
+    /// Screenshot capture only: opens the top row of the Only on this Mac page, so the still shows what a row holds.
+    var debugOpensFirstLocalOnlyRow = false
     @ObservationIgnored private var hiddenLocalOnly: [LocalOnlyItem]?
     @ObservationIgnored private var keepsLocalOnlyHidden = false
 

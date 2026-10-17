@@ -18,6 +18,9 @@ const seenLinks = new Set();
 for (const path of pages) {
   const page = await browser.newPage();
   const errors = [];
+  // The visit counter reports to Cloudflare, which refuses a report from localhost. That says nothing about the page.
+  await page.route('**://cloudflareinsights.com/**', (route) =>
+    route.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*' } }));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 120)); });
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 120)));
   const response = await page.goto(base + path, { waitUntil: 'networkidle' });

@@ -37,7 +37,10 @@ enum ScreenshotMode {
             model.route = .disk
             model.diskGrouping = .map
         },
-        Shot(name: "only-here") { $0.route = .onlyHere },
+        Shot(name: "only-here") { model in
+            model.route = .onlyHere
+            model.debugOpensFirstLocalOnlyRow = true
+        },
         Shot(name: "history") { $0.route = .history },
     ]
 

@@ -55,6 +55,7 @@ struct LocalOnlyList: View {
     var body: some View {
         let sections = LocalOnlyPresenter.sections(of: model.localOnly, query: query)
         let counts = LocalOnlyPresenter.counts(of: model.localOnly, search: query.trimmedSearch)
+        let opened = initiallyOpen.union(debugPreopened(in: sections))
         VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
             header(sections: sections)
             FilterTiles(counts: counts, selection: $query.filter)
@@ -66,7 +67,7 @@ struct LocalOnlyList: View {
                     ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
                         SectionCard(
                             section: section, startsExpanded: index == 0 || query.isNarrowed,
-                            limitsRows: !query.isSearching, initiallyOpen: initiallyOpen)
+                            limitsRows: !query.isSearching, initiallyOpen: opened)
                     }
                 }
             }
@@ -74,6 +75,14 @@ struct LocalOnlyList: View {
         .padding(32)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
+    }
+
+    /// Nothing in a release build: only screenshot capture asks for a row to start open.
+    private func debugPreopened(in sections: [LocalOnlySection]) -> Set<String> {
+        #if DEBUG
+        if model.debugOpensFirstLocalOnlyRow, let first = sections.first?.items.first { return [first.id] }
+        #endif
+        return []
     }
 
     private func header(sections: [LocalOnlySection]) -> some View {

@@ -134,13 +134,13 @@ dark appearance. No account, no analytics, no network calls of its own.
 <tr>
 <td width="50%"><picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/only-here-dark.png">
-  <img alt="Only on this Mac: unpushed commits, uncommitted changes and stashes, by repository" src="docs/images/only-here-light.png">
+  <img alt="Only on this Mac: unpushed commits, uncommitted changes and stashes by repository, with one row open to show its commits" src="docs/images/only-here-light.png">
 </picture></td>
 <td width="50%" valign="middle">
 
 **Nothing here is ever removed.**<br>
-This page lists the work that exists only on your Mac, with a copyable `git push` for each branch. Lopper reads it and
-never pushes for you.
+This page lists the work that exists only on your Mac, most at risk first. Filter it, search it, and open a row to see
+the commits or files inside, with a copyable `git push` for each branch. Lopper reads it and never pushes for you.
 
 </td>
 </tr>
