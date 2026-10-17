@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-17
+
 ### Changed
 - Only on this Mac is easier to work with. Three tiles at the top filter by Not pushed, Uncommitted and Other, and
   a search box and a sort menu narrow the list. Rows are ordered by risk, with commits that no branch holds first
