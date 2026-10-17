@@ -91,10 +91,7 @@ private struct DetailView: View {
             // that would only cover a rectangle around it.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Theme.pageBackground)
-            // The toolbar takes the page's own color. Without this a build made with an older SDK paints the
-            // title bar in the system's flat, lighter grey, which shows as a separate band above the page.
-            .toolbarBackground(Theme.pageBackground, for: .windowToolbar)
-            .toolbarBackground(.visible, for: .windowToolbar)
+            .pageToolbar()
             // The notice lives in the detail column only. An inset on the whole split view would also push
             // the sidebar's first row up under the traffic lights.
             .safeAreaInset(edge: .top, spacing: 0) {
@@ -123,6 +120,22 @@ private struct DetailView: View {
         case .onlyHere: LocalOnlyView()
         case .history: HistoryView()
         case .repo(let id): RepoWorkbenchView(repoID: id)
+        }
+    }
+}
+
+private extension View {
+    /// On macOS 14 and 15 the title bar is a flat band in the system's lighter grey, a separate stripe above the
+    /// page, so it takes the page's own color. On macOS 26 the toolbar floats over the content and the sidebar is a
+    /// glass panel running to the top of the window; a window-wide toolbar color there paints a strip across the
+    /// sidebar too, in a different grey from it.
+    @ViewBuilder func pageToolbar() -> some View {
+        if #available(macOS 26, *) {
+            self
+        } else {
+            self
+                .toolbarBackground(Theme.pageBackground, for: .windowToolbar)
+                .toolbarBackground(.visible, for: .windowToolbar)
         }
     }
 }
