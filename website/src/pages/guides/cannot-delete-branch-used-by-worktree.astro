@@ -1,6 +1,6 @@
 ---
 import Guide from '../../layouts/Guide.astro';
-import { guides } from '../../data/guides';
+import { guides, guidePath } from '../../data/guides';
 
 const guide = guides.find((g) => g.slug === 'cannot-delete-branch-used-by-worktree')!;
 const toc = [
@@ -21,9 +21,7 @@ const toc = [
 
   <h2 id="short-answer">The short answer</h2>
   <p>
-    Git will not delete a branch while any worktree has it checked out. Find that worktree with
-    <code>git worktree list</code>, check that it holds nothing you need, remove it with
-    <code>git worktree remove</code>, and then delete the branch with <code>git branch -d</code>.
+    Git will not delete a branch while any worktree has it checked out. Find that worktree with <code>git worktree list</code>, check that it holds nothing you need, remove it with <code>git worktree remove</code>, and then delete the branch with <code>git branch -d</code>.
   </p>
 
   <h2 id="what-it-means">What the error means</h2>
@@ -90,14 +88,12 @@ const toc = [
 hint: Disable this message with "git config set advice.forceDeleteBranch false"</span></code></pre>
   <p>
     That is the check from step 2 happening again, and it is the one to take seriously. Merge the branch, push it
-    somewhere, or decide the work is not needed, and then delete it. After the branch was merged into
-    <code>main</code>:
+    somewhere, or decide the work is not needed, and then delete it. After the branch was merged into <code>main</code>:
   </p>
 <pre class="term"><code><span class="p">$</span> git branch -d claude/checkout-redesign
 Deleted branch claude/checkout-redesign (was 1615dbb).</code></pre>
   <p>
-    The hash in that last line matters. If you delete a branch by mistake, <code>git branch claude/checkout-redesign 1615dbb</code>
-    puts it back, for as long as git has not cleaned up the unreachable commits.
+    The hash in that last line matters. If you delete a branch by mistake, <code>git branch claude/checkout-redesign 1615dbb</code> puts it back, for as long as git has not cleaned up the unreachable commits.
   </p>
 
   <h2 id="deleted-by-hand">If you deleted the worktree folder by hand</h2>
@@ -121,9 +117,8 @@ Removing worktrees/wt2: gitdir file points to non-existent location</code></pre>
   <h2 id="ai-agents">Why AI coding agents leave these behind</h2>
   <p>
     Coding agents use worktrees so several tasks can run on one repository without disturbing each other. Claude Code can
-    work in a worktree it creates inside the repository, under <code>.claude/worktrees/</code>. Cursor, Codex and
-    Conductor keep theirs in <code>.cursor/worktrees</code>, <code>.codex/worktrees</code> and
-    <code>conductor/workspaces</code> according to their documentation, so check where your own install puts them. Branch
+    work in a worktree it creates inside the repository, under <code>.claude/worktrees/</code>, on a branch named <code>worktree-&lt;name&gt;</code>. The <a class="link" href={guidePath('clean-up-claude-code-worktrees')}>Claude Code worktrees guide</a> covers what it removes by itself and what it leaves. Cursor, Codex and
+    Conductor keep theirs in <code>.cursor/worktrees</code>, <code>.codex/worktrees</code> and <code>conductor/workspaces</code> according to their documentation, so check where your own install puts them. Branch
     names often start with <code>claude/</code>, <code>cursor/</code> or <code>codex/</code>, which is a quick way to
     recognise them in <code>git branch</code>.
   </p>

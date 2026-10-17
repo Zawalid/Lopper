@@ -1,0 +1,181 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { guides, guidePath } from '../../data/guides';
+
+const guide = guides.find((g) => g.slug === 'clean-up-claude-code-worktrees')!;
+const other = guidePath('cannot-delete-branch-used-by-worktree');
+const docs = 'https://code.claude.com/docs/en/worktrees';
+const toc = [
+  { id: 'short-answer', label: 'The short answer' },
+  { id: 'where-they-live', label: 'Where they live' },
+  { id: 'what-claude-cleans', label: 'What Claude cleans up' },
+  { id: 'find-the-stale-ones', label: 'Find the stale ones' },
+  { id: 'check-first', label: 'Check before you remove' },
+  { id: 'remove-them', label: 'Remove them' },
+  { id: 'leftover-folder', label: 'The leftover folder error' },
+  { id: 'stop-the-pile', label: 'Stop the pile growing' },
+  { id: 'many-worktrees', label: 'When there are dozens' },
+];
+---
+<Guide guide={guide} toc={toc}>
+  <Fragment slot="checked">
+    Checked against the <a class="link" href={docs} rel="noopener">Claude Code docs</a> on 17 October 2026. Claude Code changes quickly, so
+    compare with your own install. The git commands and output were run on git 2.54.0 (Apple Git-157) in a throwaway
+    repository with the same layout Claude Code uses, created by hand with <code>git worktree add</code>. Paths are shortened to <code>~/code</code>.
+  </Fragment>
+
+  <h2 id="short-answer">The short answer</h2>
+  <p>
+    Claude Code removes some of its worktrees itself and leaves others, on purpose. To clean up the rest, list them with <code>git worktree list</code>, check each one for work that exists only there, remove the clean ones with <code>git worktree remove</code>, delete the leftover branches with <code>git branch -d</code>, and run <code>git worktree prune</code> for folders that are already gone.
+  </p>
+
+  <h2 id="where-they-live">Where they live</h2>
+  <p>
+    With <code>claude --worktree &lt;name&gt;</code> (or <code>-w</code>), Claude Code creates the worktree at <code>.claude/worktrees/&lt;name&gt;/</code> in your repository, on a new branch called <code>worktree-&lt;name&gt;</code> (<a class="link" href={docs} rel="noopener">docs</a>). If you leave the name out, it picks one such as <code>bright-running-fox</code>. The desktop app uses the same folder by default and lets you change it in its settings.
+    Some older reports describe a different folder, <code>~/.claude-worktrees/&lt;project&gt;/</code> (<a class="link" href="https://github.com/anthropics/claude-code/issues/26725" rel="noopener">issue 26725</a>), so if <code>.claude/worktrees</code> is empty on your machine, look there too.
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree list
+~/code/web                                      cb3c050 [main]
+~/code/web/.claude/worktrees/bright-running-fox cb3c050 [worktree-bright-running-fox]
+~/code/web/.claude/worktrees/checkout-redesign  8efbfad [worktree-checkout-redesign]
+~/code/web/.claude/worktrees/headless-run       cb3c050 [worktree-headless-run] locked
+~/code/web/.claude/worktrees/old-spike          102cd2c [worktree-old-spike]</code></pre>
+  <p>
+    The first line is your main checkout. A folder under <code>.claude/worktrees</code> and a branch starting with <code>worktree-</code> are the quickest way to recognise Claude Code's work. The <code>locked</code> marker is
+    explained below.
+  </p>
+
+  <h2 id="what-claude-cleans">What Claude Code cleans up, and what it keeps</h2>
+  <p>This is what the <a class="link" href={docs} rel="noopener">official docs</a> say about removal:</p>
+  <ul>
+    <li><strong>A session you end with <code>/exit</code> and that changed nothing,</strong> started without a name: the worktree and its branch are removed automatically.</li>
+    <li><strong>A named session, or one with changes or new commits:</strong> Claude asks whether to keep or remove it. Keeping leaves the folder and the branch in place.</li>
+    <li><strong>Non-interactive runs (<code>claude -p</code>):</strong> there is no exit prompt, so these worktrees are not cleaned up and can stay locked.</li>
+    <li><strong>Subagent worktrees</strong> (<code>isolation: worktree</code>): removed when the subagent finishes without changes. Ones with changes stay until a periodic sweep removes those older than <code>cleanupPeriodDays</code>, 30 days by default, and that sweep leaves anything with changed, untracked or unpushed work.</li>
+  </ul>
+  <p>
+    Two more cases come from user reports, not the docs. A crash or a closed terminal never reaches the exit step, which
+    is how stale worktrees pile up (<a class="link" href="https://github.com/anthropics/claude-code/issues/26725" rel="noopener">issue 26725</a>).
+    And the VS Code extension was reported to skip cleanup when you close the tab
+    (<a class="link" href="https://github.com/anthropics/claude-code/issues/31488" rel="noopener">issue 31488</a>, now closed, so
+    check your version).
+  </p>
+  <p>
+    Everything that holds work is kept deliberately, and that is the right call. It is also why the folder fills up.
+  </p>
+
+  <h2 id="find-the-stale-ones">Find the stale ones</h2>
+  <p>
+    Sort the branches by their last commit to see which worktrees have been idle the longest:
+  </p>
+<pre class="term"><code><span class="p">$</span> git for-each-ref --sort=committerdate 'refs/heads/worktree-*' --format='%(committerdate:short)  %(refname:short)'
+2026-08-01  worktree-bright-running-fox
+2026-08-01  worktree-headless-run
+2026-08-20  worktree-old-spike
+2026-10-15  worktree-checkout-redesign</code></pre>
+  <p>And see how much space each one takes:</p>
+<pre class="term"><code><span class="p">$</span> du -sh .claude/worktrees/*
+ 12K .claude/worktrees/bright-running-fox
+ 12K .claude/worktrees/checkout-redesign
+8.0K .claude/worktrees/headless-run
+ 12K .claude/worktrees/old-spike</code></pre>
+  <p class="term-note">
+    These are tiny because the test repository is tiny. Each worktree is a full copy of your files, and one with
+    dependencies installed is far larger.
+  </p>
+  <p>
+    Claude Code locks a worktree while an agent is running in it. A <code>locked</code> marker in the list means a run is
+    active, or ended without releasing the lock. A <code>prunable</code> marker means the folder is gone. Both matter
+    below.
+  </p>
+
+  <h2 id="check-first">Check before you remove anything</h2>
+  <p>
+    The exit prompt exists because a worktree can hold the only copy of someone's work. Check the same two things Claude
+    does. First, commits that are not in your main branch:
+  </p>
+<pre class="term"><code><span class="p">$</span> git log --oneline main..worktree-checkout-redesign
+8efbfad redesign checkout</code></pre>
+  <p>Second, files that were never committed:</p>
+<pre class="term"><code><span class="p">$</span> git -C .claude/worktrees/bright-running-fox status --short
+?? notes.txt</code></pre>
+  <p>
+    Empty output means clean. Anything listed lives only in that folder. Git refuses to remove such a worktree, which is a
+    stop sign and not an obstacle:
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree remove .claude/worktrees/bright-running-fox
+<span class="e">fatal: '.claude/worktrees/bright-running-fox' contains modified or untracked files, use --force to delete it</span></code></pre>
+  <p>
+    The <a class="link" href={other}>first guide</a> goes through these checks in more detail, including what to do when
+    the branch is not merged.
+  </p>
+
+  <h2 id="remove-them">Remove them</h2>
+  <p>
+    For a clean worktree that is not locked, <code>git worktree remove</code> followed by <code>git branch -d</code> is all
+    it takes. A locked one needs one extra step, because git will not remove it:
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree remove .claude/worktrees/headless-run
+<span class="e">fatal: cannot remove a locked working tree, lock reason: claude agent running (pid 4242)</span>
+<span class="d">use 'remove -f -f' to override or unlock first</span></code></pre>
+  <p>
+    Make sure no agent is really still running there, because that is what the lock says. If it is stale, unlock, remove,
+    and delete the branch:
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree unlock .claude/worktrees/headless-run
+<span class="p">$</span> git worktree remove .claude/worktrees/headless-run
+<span class="p">$</span> git branch -d worktree-headless-run
+Deleted branch worktree-headless-run (was cb3c050).</code></pre>
+  <p>
+    If the folder is already gone, the worktree shows as <code>prunable</code> and <code>git worktree prune</code> forgets
+    it:
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree list
+~/code/web                                      cb3c050 [main]
+~/code/web/.claude/worktrees/old-spike          102cd2c [worktree-old-spike] prunable
+
+<span class="p">$</span> git worktree prune -v
+Removing worktrees/old-spike: gitdir file points to non-existent location</code></pre>
+  <p>
+    Prune only forgets worktrees whose folders are missing. It does not delete the branch, and a worktree on an external
+    drive that is not plugged in also looks missing, so plug the drive in first.
+  </p>
+
+  <h2 id="leftover-folder">The "already exists" error when you start again</h2>
+  <p>
+    A cleanup that removed git's record but not the folder leaves a directory behind. The next <code>claude -w</code> with
+    the same name then fails, because git will not create a worktree in a folder that already has files in it. This was <a class="link" href="https://github.com/anthropics/claude-code/issues/45737" rel="noopener">reported</a> and the issue is
+    closed, but the same state can come from a crash. You see git's own message:
+  </p>
+<pre class="term"><code><span class="p">$</span> git worktree add .claude/worktrees/benchmark_only -b worktree-benchmark_only
+Preparing worktree (new branch 'worktree-benchmark_only')
+<span class="e">fatal: '.claude/worktrees/benchmark_only' already exists</span></code></pre>
+  <p>
+    <code>git worktree list</code> does not show it, because git no longer knows about it. Look inside the folder before
+    you delete it, since it may hold files you want, and then remove the leftover folder by hand.
+  </p>
+
+  <h2 id="stop-the-pile">Stop the pile growing</h2>
+  <ul>
+    <li>
+      <strong>Ignore the folder.</strong> The docs suggest adding <code>.claude/worktrees/</code> to your <code>.gitignore</code>. Without it, every worktree shows up as untracked files in your main checkout:
+<pre class="term"><code><span class="p">$</span> git status --short
+?? .claude/
+
+<span class="p">$</span> echo ".claude/worktrees/" &gt;&gt; .gitignore
+<span class="p">$</span> git status --short
+?? .gitignore</code></pre>
+    </li>
+    <li><strong>End terminal sessions with <code>/exit</code>.</strong> That is when Claude runs its keep-or-remove check.</li>
+    <li><strong>In the desktop app,</strong> archive a session when you are done with it, so its worktree goes with it.</li>
+    <li><strong>Look now and then.</strong> <code>git worktree list</code> takes a second and shows what git itself knows, whatever any tool believes.</li>
+  </ul>
+
+  <h2 id="many-worktrees">When there are dozens</h2>
+  <p>
+    A few worktrees are easy to handle by hand. After weeks of parallel agents there can be dozens across several
+    repositories, and the checks above have to be run for each one. That is what Lopper automates, described below.
+    It recognises Claude Code's worktrees by their folder and branch names, along with those from Cursor, Codex and
+    Conductor, and shows for each one whether it is safe to remove.
+  </p>
+</Guide>
