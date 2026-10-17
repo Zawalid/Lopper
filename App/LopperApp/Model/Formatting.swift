@@ -21,6 +21,20 @@ enum AgeFormat {
     }
 }
 
+extension AgeFormat {
+    /// "today", "yesterday", "11 days ago", "3 months ago", "2 years ago": for a sentence or a row with room.
+    static func long(from date: Date, to now: Date = Date()) -> String {
+        let days = max(0, Int(now.timeIntervalSince(date) / 86_400))
+        switch days {
+        case 0: return "today"
+        case 1: return "yesterday"
+        case 2..<60: return "\(days) days ago"
+        case 60..<730: return "\(days / 30) months ago"
+        default: return "\(days / 365) years ago"
+        }
+    }
+}
+
 enum Plural {
     /// "1 branch", "3 branches".
     static func count(_ n: Int, _ singular: String, _ plural: String? = nil) -> String {

@@ -520,6 +520,9 @@ final class AppModel {
     private(set) var localOnly: [LocalOnlyItem] = []
     /// False until the first look finished, so an empty list is not read as "everything is backed up" too early.
     private(set) var localOnlyLoaded = false
+    /// What each opened row contains, by item id. Cleared whenever the list is rescanned.
+    private(set) var localOnlyDetails: [String: LocalOnlyDetail] = [:]
+    @ObservationIgnored private var localOnlyDetailsInFlight: Set<String> = []
 
     #if DEBUG
     @ObservationIgnored private var hiddenLocalOnly: [LocalOnlyItem]?
@@ -551,7 +554,17 @@ final class AppModel {
         }
         #endif
         localOnly = found
+        localOnlyDetails = [:]
         localOnlyLoaded = true
+    }
+
+    /// Reads what is inside one item the first time its row is opened. A second open uses the saved answer.
+    func loadLocalOnlyDetail(_ item: LocalOnlyItem) async {
+        guard localOnlyDetails[item.id] == nil, localOnlyDetailsInFlight.insert(item.id).inserted else { return }
+        defer { localOnlyDetailsInFlight.remove(item.id) }
+        let detail = await client.localOnlyDetail(for: item)
+        guard !Task.isCancelled else { return }
+        localOnlyDetails[item.id] = detail
     }
 
     // MARK: Setup problems

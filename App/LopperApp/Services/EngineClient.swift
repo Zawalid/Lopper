@@ -40,6 +40,8 @@ protocol EngineClient: Sendable {
     func diagnosticEvents() async -> [DiagnosticEvent]
     /// Work in these repositories that exists only on this Mac. Reads git; changes nothing.
     func localOnlyWork(for snapshots: [RepoSnapshot]) async -> [LocalOnlyItem]
+    /// The commits or files inside one item, read when its row is opened. Reads git; changes nothing.
+    func localOnlyDetail(for item: LocalOnlyItem) async -> LocalOnlyDetail
     /// Whether each folder can be read, keyed by canonical path. Opens the folders, so it can wait on a slow drive.
     func folderAccess(of folders: [URL]) async -> [String: FolderAccess]
     /// Commits unique to `ref` against `base`, and the size of the change. Read-only and loaded per item.
@@ -150,6 +152,10 @@ struct LiveEngineClient: EngineClient {
 
     func localOnlyWork(for snapshots: [RepoSnapshot]) async -> [LocalOnlyItem] {
         await LocalWorkScanner(git: git).scan(snapshots)
+    }
+
+    func localOnlyDetail(for item: LocalOnlyItem) async -> LocalOnlyDetail {
+        await LocalWorkScanner(git: git).detail(for: item)
     }
 
     func folderAccess(of folders: [URL]) async -> [String: FolderAccess] {

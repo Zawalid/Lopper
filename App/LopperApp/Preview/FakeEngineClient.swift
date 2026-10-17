@@ -225,6 +225,15 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         return localOnly
     }
 
+    /// Detail returned per item id; an item not listed here has none.
+    var localOnlyDetails: [String: LocalOnlyDetail] = [:]
+    private(set) var localOnlyDetailRequests: [String] = []
+
+    func localOnlyDetail(for item: LocalOnlyItem) async -> LocalOnlyDetail {
+        localOnlyDetailRequests.append(item.id)
+        return localOnlyDetails[item.id] ?? .empty
+    }
+
     /// Folders listed here are reported with this access; every other folder reads fine.
     var folderAccessOverrides: [String: FolderAccess] = [:]
 

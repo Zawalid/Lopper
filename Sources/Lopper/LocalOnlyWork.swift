@@ -32,10 +32,15 @@ public struct LocalOnlyItem: Identifiable, Equatable, Sendable {
     public let branch: String?
     /// A command that would back it up. Lopper only offers it for copying and never runs it.
     public let pushCommand: String?
+    /// For uncommitted changes: whether tracked files were modified. False when the only thing at risk is untracked files.
+    public let hasTrackedChanges: Bool
+    /// For unpushed commits: the branch whose commits are left out, so the detail lists the same commits the count does.
+    public let baseBranch: String?
 
     public init(
         id: String, kind: Kind, repoRoot: URL, repoName: String, title: String, detail: String, count: Int = 0,
-        lastTouched: Date? = nil, path: URL? = nil, branch: String? = nil, pushCommand: String? = nil
+        lastTouched: Date? = nil, path: URL? = nil, branch: String? = nil, pushCommand: String? = nil,
+        hasTrackedChanges: Bool = false, baseBranch: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -48,7 +53,23 @@ public struct LocalOnlyItem: Identifiable, Equatable, Sendable {
         self.path = path
         self.branch = branch
         self.pushCommand = pushCommand
+        self.hasTrackedChanges = hasTrackedChanges
+        self.baseBranch = baseBranch
     }
+}
+
+/// What is at risk inside one item: commit subjects, changed files or stashed files. Loaded when a row is opened.
+public struct LocalOnlyDetail: Equatable, Sendable {
+    public let lines: [String]
+    /// How many more entries exist than `lines` shows.
+    public let hiddenCount: Int
+
+    public init(lines: [String], hiddenCount: Int = 0) {
+        self.lines = lines
+        self.hiddenCount = hiddenCount
+    }
+
+    public static let empty = LocalOnlyDetail(lines: [])
 }
 
 /// Finds what exists only on this Mac in repositories that were already scanned.
@@ -121,7 +142,8 @@ public struct LocalWorkScanner: Sendable {
                 id: "unpushed:\(repo.root.path)#\(branch.name)", kind: .unpushedCommits, repoRoot: repo.root,
                 repoName: repo.name, title: branch.name, detail: detail, count: count, lastTouched: branch.lastCommit,
                 path: branch.checkedOutAt, branch: branch.name,
-                pushCommand: repo.remoteURL == nil ? nil : "git -C \(Self.quoted(repo.root.path)) push -u origin \(Self.quoted(branch.name))"))
+                pushCommand: repo.remoteURL == nil ? nil : "git -C \(Self.quoted(repo.root.path)) push -u origin \(Self.quoted(branch.name))",
+                baseBranch: isDefault ? nil : repo.defaultBranch))
         }
 
         for worktree in snapshot.worktrees {
@@ -142,7 +164,8 @@ public struct LocalWorkScanner: Sendable {
                     id: "uncommitted:\(worktree.path.path)", kind: .uncommittedChanges, repoRoot: repo.root,
                     repoName: repo.name, title: worktree.branch ?? worktree.path.lastPathComponent,
                     detail: sentence(parts.joined(separator: " and ")),
-                    count: extra, lastTouched: worktree.lastCommit, path: worktree.path, branch: worktree.branch))
+                    count: extra, lastTouched: worktree.lastCommit, path: worktree.path, branch: worktree.branch,
+                    hasTrackedChanges: worktree.status.isDirty))
             }
             if worktree.branch == nil, !worktree.isPrunable {
                 let count = await detachedCount(of: worktree.head, in: repo.root)
@@ -158,6 +181,50 @@ public struct LocalWorkScanner: Sendable {
 
         items += await stashes(of: snapshot)
         return items
+    }
+
+    /// The most entries a detail lists; the rest are counted, not shown.
+    public static let detailLimit = 30
+
+    /// What is inside one item, read from git when a row is opened. Read-only: only `log`, `status` and `stash show` run.
+    public func detail(for item: LocalOnlyItem) async -> LocalOnlyDetail {
+        let limit = Self.detailLimit
+        switch item.kind {
+        case .unpushedCommits:
+            guard let branch = item.branch else { return .empty }
+            var arguments = ["log", "-n", "\(limit + 1)", "--format=%h%x09%s", "refs/heads/\(branch)", "--not", "--remotes"]
+            if let base = item.baseBranch { arguments.append("refs/heads/\(base)") }
+            arguments.append("--")
+            return await commitLines(arguments, in: item.repoRoot, total: item.count)
+        case .detachedCommits:
+            guard let path = item.path else { return .empty }
+            let arguments = ["log", "-n", "\(limit + 1)", "--format=%h%x09%s", "HEAD", "--not", "--branches", "--remotes", "--tags", "--"]
+            return await commitLines(arguments, in: path, total: item.count)
+        case .uncommittedChanges:
+            guard let path = item.path,
+                let output = try? await git.run(["status", "--short", "--untracked-files=normal"], in: path), output.succeeded
+            else { return .empty }
+            let lines = output.stdout.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+            return LocalOnlyDetail(lines: Array(lines.prefix(limit)), hiddenCount: max(0, lines.count - limit))
+        case .stash:
+            guard let output = try? await git.run(["stash", "show", "--name-status", item.title], in: item.repoRoot),
+                output.succeeded else { return .empty }
+            let lines = output.stdout.split(separator: "\n", omittingEmptySubsequences: true)
+                .map { $0.replacingOccurrences(of: "\t", with: "  ") }
+            return LocalOnlyDetail(lines: Array(lines.prefix(limit)), hiddenCount: max(0, lines.count - limit))
+        case .operationInProgress:
+            return .empty
+        }
+    }
+
+    private func commitLines(_ arguments: [String], in directory: URL, total: Int) async -> LocalOnlyDetail {
+        guard let output = try? await git.run(arguments, in: directory), output.succeeded else { return .empty }
+        let rows = output.stdout.split(separator: "\n", omittingEmptySubsequences: true).map { row -> String in
+            let parts = row.split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
+            return parts.count == 2 ? "\(parts[0])  \(parts[1])" : String(row)
+        }
+        let shown = Array(rows.prefix(Self.detailLimit))
+        return LocalOnlyDetail(lines: shown, hiddenCount: max(0, max(total, rows.count) - shown.count))
     }
 
     private func hasRemoteRefs(_ root: URL) async -> Bool {

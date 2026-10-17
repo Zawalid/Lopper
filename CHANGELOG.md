@@ -6,6 +6,16 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Changed
+- Only on this Mac is easier to work with. Three tiles at the top filter by Not pushed, Uncommitted and Other, and
+  a search box and a sort menu narrow the list. Rows are ordered by risk, with commits that no branch holds first
+  and the biggest unpushed branches next. Each repository folds up, shows its first five items with a "Show more"
+  row, and sets worktrees that hold only untracked files apart.
+- Click a row to see what is in it: the commit subjects for unpushed work, the changed files for an uncommitted
+  worktree, the files in a stash. Every action has a name and a tooltip, and a repository can copy all of its push
+  commands at once. A new Copy list button copies the whole page as plain text. Lopper still never pushes or
+  removes anything on this page.
+
 ## [0.3.1] - 2026-10-17
 
 ### Fixed

@@ -140,6 +140,78 @@ final class LocalWorkScannerTests: XCTestCase {
         XCTAssertTrue(found.isEmpty, "\(found)")
     }
 
+    func testDetailListsTheUnpushedCommitSubjectsAndNothingTheDefaultBranchCarries() async throws {
+        let repo = try baseWithOrigin()
+        try repo.git("checkout", "-b", "local-only", "main")
+        try repo.commit("first idea", files: ["b.txt": "b"])
+        try repo.commit("second idea", files: ["c.txt": "c"])
+        try repo.git("checkout", "main")
+        try repo.commit("main moves on", files: ["m.txt": "m"])
+        let found = try await items(repo)
+        let item = try XCTUnwrap(found.first { $0.title == "local-only" })
+
+        let detail = await LocalWorkScanner().detail(for: item)
+
+        XCTAssertEqual(detail.lines.count, 2, "\(detail.lines)")
+        XCTAssertTrue(detail.lines[0].hasSuffix("second idea"), detail.lines[0])
+        XCTAssertTrue(detail.lines[1].hasSuffix("first idea"), detail.lines[1])
+        XCTAssertEqual(detail.hiddenCount, 0)
+    }
+
+    func testDetailCapsALongCommitListAndCountsTheRest() async throws {
+        let repo = try baseWithOrigin()
+        try repo.git("checkout", "-b", "long", "main")
+        for number in 1...35 { try repo.commit("change \(number)", files: ["f\(number).txt": "x"]) }
+        try repo.git("checkout", "main")
+        let all = try await items(repo)
+        let item = try XCTUnwrap(all.first { $0.title == "long" })
+        XCTAssertEqual(item.count, 35)
+
+        let detail = await LocalWorkScanner().detail(for: item)
+
+        XCTAssertEqual(detail.lines.count, LocalWorkScanner.detailLimit)
+        XCTAssertEqual(detail.hiddenCount, 5)
+    }
+
+    func testDetailForAnUncommittedWorktreeNamesTheFilesAndTellsTrackedFromUntracked() async throws {
+        let repo = try baseWithOrigin()
+        let untrackedOnly = repo.sandbox.appendingPathComponent("untracked-only")
+        try repo.git("worktree", "add", untrackedOnly.path, "-b", "untracked-only")
+        try repo.git("push", "-u", "origin", "untracked-only", in: untrackedOnly)
+        try "new".write(to: untrackedOnly.appendingPathComponent("scratch.txt"), atomically: true, encoding: .utf8)
+        let edited = repo.sandbox.appendingPathComponent("edited")
+        try repo.git("worktree", "add", edited.path, "-b", "edited")
+        try repo.git("push", "-u", "origin", "edited", in: edited)
+        try "changed\n".write(to: edited.appendingPathComponent("app.txt"), atomically: true, encoding: .utf8)
+
+        let found = try await items(repo)
+        let scratch = try XCTUnwrap(found.first { $0.title == "untracked-only" })
+        let changed = try XCTUnwrap(found.first { $0.title == "edited" })
+
+        XCTAssertFalse(scratch.hasTrackedChanges)
+        XCTAssertTrue(changed.hasTrackedChanges)
+        let scratchDetail = await LocalWorkScanner().detail(for: scratch)
+        let changedDetail = await LocalWorkScanner().detail(for: changed)
+        XCTAssertEqual(scratchDetail.lines, ["?? scratch.txt"])
+        XCTAssertEqual(changedDetail.lines, [" M app.txt"])
+    }
+
+    func testDetailForAStashListsItsFilesAndAHalfDoneOperationHasNone() async throws {
+        let repo = try baseWithOrigin()
+        try "wip\n".write(to: repo.root.appendingPathComponent("app.txt"), atomically: true, encoding: .utf8)
+        try repo.git("stash", "push", "-m", "half done idea")
+        let all = try await items(repo)
+        let item = try XCTUnwrap(all.first { $0.kind == .stash })
+
+        let detail = await LocalWorkScanner().detail(for: item)
+
+        XCTAssertEqual(detail.lines, ["M  app.txt"])
+        let operation = LocalOnlyItem(
+            id: "x", kind: .operationInProgress, repoRoot: repo.root, repoName: "r", title: "main", detail: "")
+        let none = await LocalWorkScanner().detail(for: operation)
+        XCTAssertEqual(none, .empty)
+    }
+
     func testWorkspaceExposesTheListForAScan() async throws {
         let repo = try baseWithOrigin()
         try repo.git("checkout", "-b", "local-only")
