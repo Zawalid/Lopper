@@ -523,14 +523,18 @@ final class AppModel {
 
     #if DEBUG
     @ObservationIgnored private var hiddenLocalOnly: [LocalOnlyItem]?
+    @ObservationIgnored private var keepsLocalOnlyHidden = false
 
-    /// Screenshot mode only: takes the list away for one shot and puts it back for the next.
+    /// Screenshot and footage capture only: keeps the list away while recording, through any rescan, and puts it
+    /// back afterwards.
     func debugHideLocalOnly(_ hide: Bool) {
-        if hide, hiddenLocalOnly == nil {
+        if hide, !keepsLocalOnlyHidden {
+            keepsLocalOnlyHidden = true
             hiddenLocalOnly = localOnly
             localOnly = []
-        } else if !hide, let items = hiddenLocalOnly {
-            localOnly = items
+        } else if !hide, keepsLocalOnlyHidden {
+            keepsLocalOnlyHidden = false
+            if let items = hiddenLocalOnly { localOnly = items }
             hiddenLocalOnly = nil
         }
     }
@@ -539,6 +543,13 @@ final class AppModel {
     func scanLocalOnly() async {
         let found = await client.localOnlyWork(for: snapshots)
         guard !Task.isCancelled else { return }
+        #if DEBUG
+        if keepsLocalOnlyHidden {
+            hiddenLocalOnly = found
+            localOnlyLoaded = true
+            return
+        }
+        #endif
         localOnly = found
         localOnlyLoaded = true
     }
