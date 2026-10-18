@@ -24,6 +24,10 @@ enum ScanPhase: Equatable {
     case idle
     case scanning(done: Int, total: Int)
     case ready(Date)
+
+    var isReady: Bool {
+        if case .ready = self { true } else { false }
+    }
 }
 
 enum VerdictFilter: String, CaseIterable, Identifiable {
@@ -411,9 +415,16 @@ final class AppModel {
         // saved over it, so there is nothing to confirm.
         if settingsNeedAttention, store.canWrite { settingsNeedAttention = false }
         let needsRescan = copy.requiresRescan(comparedTo: settings)
+        let hidden = copy.newlyHiddenRepositories(comparedTo: settings)
         settings = copy
         store.scheduleSave(copy)
         guard needsRescan else { return }
+        // Hiding repositories removes them from what is loaded. A rescan of everything, and the size measuring that
+        // follows it, would take minutes on a large scan for no new information.
+        if let hidden, phase.isReady {
+            dropRepositories(atPaths: hidden)
+            return
+        }
         if copy.roots.isEmpty {
             // Nothing left to look in: forget everything that came from the removed folders.
             scanTask?.cancel()
@@ -427,6 +438,17 @@ final class AppModel {
         } else {
             startScan()
         }
+    }
+
+    /// Forgets what was loaded for these repositories, without scanning anything.
+    private func dropRepositories(atPaths paths: Set<String>) {
+        results.removeAll { paths.contains($0.repoRoot.path) }
+        artifacts.removeAll { paths.contains($0.repoRoot.path) }
+        localOnly.removeAll { paths.contains($0.repoRoot.path) }
+        let gone = Set(allRows.filter { paths.contains($0.repoRoot.path) }.map(\.id))
+        checked.subtract(gone)
+        if let focused = focusedRowID, gone.contains(focused) { focusedRowID = nil }
+        if case .repo(let id) = route, paths.contains(id) { route = .overview }
     }
 
     func completeOnboarding() { isOnboarding = false }
@@ -900,6 +922,19 @@ final class AppModel {
         }
         .filter { paths?.contains($0.path.path) ?? true }
         let client = self.client
+        // Sizes arrive one folder at a time, and every change throws away the rows built from them. Apply them in
+        // batches, so a large scan does not redraw every open screen for each folder.
+        var pending: [String: DiskUsage] = [:]
+        var lastFlush = ContinuousClock.now
+        func flush() {
+            guard !pending.isEmpty else { return }
+            var merged = sizes
+            for (path, usage) in pending { merged[path] = usage }
+            sizes = merged
+            measuredPaths.formUnion(pending.keys)
+            pending = [:]
+            lastFlush = .now
+        }
         await withTaskGroup(of: (String, DiskUsage).self) { group in
             var iterator = targets.makeIterator()
             func addNext() {
@@ -909,13 +944,19 @@ final class AppModel {
                      await client.measure(target.path, disposable: target.disposable, excluding: target.excluding))
                 }
             }
-            for _ in 0..<4 { addNext() }
+            for _ in 0..<SizeCalculator.concurrentMeasurements { addNext() }
             while let (path, usage) = await group.next() {
-                sizes[path] = usage
-                measuredPaths.insert(path)
+                // A cancelled walk stops early and its number is partial: never keep it.
+                if Task.isCancelled {
+                    group.cancelAll()
+                    break
+                }
+                pending[path] = usage
+                if ContinuousClock.now - lastFlush > .milliseconds(400) { flush() }
                 addNext()
             }
         }
+        if !Task.isCancelled { flush() }
     }
 
     // MARK: Agents

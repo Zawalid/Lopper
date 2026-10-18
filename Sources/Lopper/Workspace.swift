@@ -99,7 +99,7 @@ public struct Workspace: Sendable {
                      await SizeCalculator.measure(target.path, disposableNames: target.disposable, excluding: target.excluding))
                 }
             }
-            for _ in 0..<4 { addNext() }
+            for _ in 0..<SizeCalculator.concurrentMeasurements { addNext() }
             while let (path, usage) = await group.next() {
                 sizes[path] = usage
                 addNext()

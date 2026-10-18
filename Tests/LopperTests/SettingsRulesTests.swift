@@ -59,4 +59,39 @@ final class SettingsRulesTests: XCTestCase {
 
         XCTAssertFalse(after.requiresRescan(comparedTo: before))
     }
+
+    // MARK: Hiding repositories needs no rescan
+
+    func testHidingRepositoriesIsRecognisedWhenItIsTheOnlyChange() {
+        let before = Settings(roots: [URL(fileURLWithPath: "/code")])
+        var after = before
+        after.repos["/code/a", default: RepoOverrides()].isIgnored = true
+        after.repos["/code/b", default: RepoOverrides()].isIgnored = true
+
+        XCTAssertEqual(after.newlyHiddenRepositories(comparedTo: before), ["/code/a", "/code/b"])
+        XCTAssertTrue(after.requiresRescan(comparedTo: before), "the settings did change; only the loaded results can be reused")
+    }
+
+    func testAnyOtherChangeAlongsideHidingMeansARealRescan() {
+        let before = Settings(roots: [URL(fileURLWithPath: "/code")])
+        var withDepth = before
+        withDepth.repos["/code/a", default: RepoOverrides()].isIgnored = true
+        withDepth.scanDepth = 6
+        var withBranch = before
+        withBranch.repos["/code/a", default: RepoOverrides()].isIgnored = true
+        withBranch.repos["/code/other", default: RepoOverrides()].defaultBranch = "develop"
+
+        XCTAssertNil(withDepth.newlyHiddenRepositories(comparedTo: before))
+        XCTAssertNil(withBranch.newlyHiddenRepositories(comparedTo: before))
+    }
+
+    func testShowingOrNotChangingAnythingIsNotAHide() {
+        var hidden = Settings(roots: [URL(fileURLWithPath: "/code")])
+        hidden.repos["/code/a", default: RepoOverrides()].isIgnored = true
+        var shown = hidden
+        shown.repos["/code/a"] = nil
+
+        XCTAssertNil(shown.newlyHiddenRepositories(comparedTo: hidden), "bringing one back needs it scanned")
+        XCTAssertNil(hidden.newlyHiddenRepositories(comparedTo: hidden), "nothing new was hidden")
+    }
 }

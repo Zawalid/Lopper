@@ -780,14 +780,17 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(model.isScanning)
     }
 
-    func testIgnoringARepositoryRescansAndTheRepositoryDisappears() async {
-        let (model, _) = makeModel([Fixtures.sample])
+    func testIgnoringARepositoryDropsItAtOnceWithoutScanningAgain() async {
+        let (model, client) = makeModel([Fixtures.sample])
         model.startScan()
         await settle(model)
+        let scans = client.scanRequests
 
         model.updateSettings { $0.repos[Fixtures.root.path, default: RepoOverrides()].isIgnored = true }
 
-        XCTAssertTrue(model.isScanning)
+        XCTAssertFalse(model.isScanning, "hiding finds nothing new, so nothing is scanned")
+        XCTAssertEqual(client.scanRequests, scans)
+        XCTAssertTrue(model.summaries.isEmpty, "the repository is gone from what is shown")
     }
 
     // MARK: Settings window support
@@ -851,7 +854,8 @@ final class AppModelTests: XCTestCase {
         model.hideRepository(Fixtures.root)
 
         XCTAssertEqual(model.settings.repos[Fixtures.root.path]?.isIgnored, true)
-        XCTAssertTrue(model.isScanning, "hiding changes what is found, so the scan runs again")
+        XCTAssertFalse(model.isScanning, "hiding drops the repository from what is loaded; no rescan")
+        XCTAssertTrue(model.summaries.isEmpty)
         XCTAssertTrue(model.notice?.contains(Fixtures.sample.repo.name) == true)
         XCTAssertTrue(model.notice?.contains("Settings") == true)
     }

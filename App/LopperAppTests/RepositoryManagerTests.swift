@@ -8,7 +8,7 @@ final class RepositoryManagerTests: XCTestCase {
     private func repo(_ path: String, hidden: Bool = false, items: Int = 3) -> ManagedRepository {
         let url = URL(fileURLWithPath: path)
         return ManagedRepository(
-            name: url.lastPathComponent, root: url, isHidden: hidden, items: items, reclaimableBytes: 0, problem: nil)
+            name: url.lastPathComponent, root: url, isHidden: hidden, items: items, problem: nil)
     }
 
     func testRepositoriesGroupByTheirContainingFolderAndSortByName() {
@@ -186,5 +186,32 @@ final class RepositoryManagerTests: XCTestCase {
             }
         }
         window.close()
+    }
+
+    @MainActor
+    func testHidingAfterAScanDropsTheRepositoriesWithoutScanningAgain() async throws {
+        func snapshot(_ name: String) -> RepoSnapshot {
+            let root = URL(fileURLWithPath: "/code/\(name)")
+            return Fixtures.snapshot(name: name, root: root, branches: [Fixtures.branch("done", .safe, root: root)])
+        }
+        let client = FakeEngineClient(snapshots: ["a", "b", "c"].map(snapshot))
+        let store = SettingsStore(url: FileManager.default.temporaryDirectory
+            .appendingPathComponent("lopper-hide-\(UUID().uuidString).json"))
+        let model = AppModel(client: client, store: store, settings: Settings(roots: [URL(fileURLWithPath: "/code")]))
+        model.startScan()
+        for _ in 0..<300 where !model.phase.isReady { try? await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<300 where !model.localOnlyLoaded { try? await Task.sleep(for: .milliseconds(10)) }
+        let scans = client.scanRequests
+
+        model.hideRepositories([URL(fileURLWithPath: "/code/a"), URL(fileURLWithPath: "/code/b")])
+
+        XCTAssertEqual(model.listedRepositories.map(\.name), ["c"], "the hidden ones are gone at once")
+        XCTAssertEqual(client.scanRequests, scans, "hiding must not start another scan")
+        XCTAssertEqual(model.hiddenRepositories.map(\.name), ["a", "b"])
+
+        model.showRepositories([URL(fileURLWithPath: "/code/a")])
+        try await Task.sleep(for: .milliseconds(100))
+
+        XCTAssertEqual(client.scanRequests, scans + 1, "bringing one back does need a scan to find it again")
     }
 }

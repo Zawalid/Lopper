@@ -110,13 +110,17 @@ struct ManageRepositoriesSheet: View {
     }
 
     private var repositoriesTab: some View {
-        let groups = RepositoryManagerPresenter.groups(of: source, search: search)
+        // Each of these reads the scan, so they are read once per redraw and not once per use.
+        let listed = model.listedRepositories
+        let hidden = model.hiddenRepositories
+        let groups = RepositoryManagerPresenter.groups(of: listing == .listed ? listed : hidden, search: search)
+        let scannedFolders = model.settings.folders.filter(\.isEnabled).map { $0.path.canonicalized.path }
         return VStack(spacing: 0) {
             HStack(spacing: Theme.Spacing.md) {
                 ManageSearchField(text: $search)
                 Picker("List", selection: $listing) {
-                    Text("Listed (\(model.listedRepositories.count))").tag(Listing.listed)
-                    Text("Hidden (\(model.hiddenRepositories.count))").tag(Listing.hidden)
+                    Text("Listed (\(listed.count))").tag(Listing.listed)
+                    Text("Hidden (\(hidden.count))").tag(Listing.hidden)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
@@ -131,7 +135,7 @@ struct ManageRepositoriesSheet: View {
             } else {
                 ScrollView {
                     ManageGroupsList(
-                        groups: groups, listing: listing, selection: $selection,
+                        groups: groups, listing: listing, scannedFolders: scannedFolders, selection: $selection,
                         onHide: { hide($0, label: $1) }, onShow: { show($0) }, onSkip: { skip($0) })
                     .padding(.horizontal, Theme.Spacing.xl)
                     .padding(.bottom, Theme.Spacing.xl)
@@ -288,6 +292,8 @@ private struct ManageSearchField: View {
 struct ManageGroupsList: View {
     let groups: [ManagedGroup]
     let listing: ManageRepositoriesSheet.Listing
+    /// Canonical paths of the enabled scanned folders, read once so no group has to resolve them again.
+    var scannedFolders: [String] = []
     @Binding var selection: Set<String>
     let onHide: ([ManagedRepository], String) -> Void
     let onShow: ([ManagedRepository]) -> Void
@@ -297,7 +303,7 @@ struct ManageGroupsList: View {
         LazyVStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             ForEach(groups) { group in
                 GroupSection(
-                    group: group, listing: listing, selection: $selection,
+                    group: group, listing: listing, scannedFolders: scannedFolders, selection: $selection,
                     onHide: onHide, onShow: onShow, onSkip: onSkip)
             }
         }
@@ -307,6 +313,7 @@ struct ManageGroupsList: View {
 private struct GroupSection: View {
     let group: ManagedGroup
     let listing: ManageRepositoriesSheet.Listing
+    let scannedFolders: [String]
     @Binding var selection: Set<String>
     let onHide: ([ManagedRepository], String) -> Void
     let onShow: ([ManagedRepository]) -> Void
@@ -317,10 +324,9 @@ private struct GroupSection: View {
     private var ids: Set<String> { Set(group.repositories.map(\.id)) }
     private var allSelected: Bool { !ids.isEmpty && ids.isSubset(of: selection) }
     private var canSkip: Bool {
-        listing == .listed && RepositoryManagerPresenter.canSkip(folderNamed: group.name)
-            && group.repositories.first.map {
-                RepositoryManagerPresenter.owningFolder(of: $0.root, in: model.settings.folders) != nil
-            } == true
+        guard listing == .listed, RepositoryManagerPresenter.canSkip(folderNamed: group.name),
+            let first = group.repositories.first else { return false }
+        return scannedFolders.contains { first.root.path == $0 || first.root.path.hasPrefix($0 + "/") }
     }
 
     var body: some View {
@@ -434,8 +440,6 @@ private struct RepositoryRow: View {
     private var detail: String {
         if let problem = repository.problem { return "Could not be read: \(problem)" }
         if listing == .hidden { return "Hidden. Not scanned." }
-        var parts = [Plural.count(repository.items, "item")]
-        if repository.reclaimableBytes > 0 { parts.append("\(SizeFormat.string(repository.reclaimableBytes)) can be reclaimed") }
-        return parts.joined(separator: " · ")
+        return Plural.count(repository.items, "item")
     }
 }

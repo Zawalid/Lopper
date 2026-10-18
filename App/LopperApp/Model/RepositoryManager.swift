@@ -7,9 +7,8 @@ struct ManagedRepository: Identifiable, Equatable {
     let name: String
     let root: URL
     let isHidden: Bool
-    /// Branches and worktrees found in it; zero for a hidden repository, which is not scanned.
+    /// Branches and linked worktrees found in it; zero for a hidden repository, which is not scanned.
     let items: Int
-    let reclaimableBytes: Int64
     /// Set when the last scan could not read it.
     let problem: String?
 
@@ -68,12 +67,19 @@ enum RepositoryManagerPresenter {
 }
 
 extension AppModel {
-    /// Repositories the last scan found.
+    /// Repositories the last scan found. Read straight from the scan, not from the cleanup rows: the manager must stay
+    /// cheap on a scan of hundreds of repositories, and the rows are rebuilt whenever a folder size arrives.
     var listedRepositories: [ManagedRepository] {
-        summaries.map {
-            ManagedRepository(
-                name: $0.name, root: $0.root, isHidden: false, items: $0.total,
-                reclaimableBytes: $0.reclaimableBytes, problem: $0.failure)
+        results.map { result in
+            switch result {
+            case .failure(let root, let message):
+                return ManagedRepository(name: root.lastPathComponent, root: root, isHidden: false, items: 0, problem: message)
+            case .snapshot(let snapshot):
+                let linked = snapshot.worktrees.filter { !$0.isMain && !$0.isPrunable }.count
+                return ManagedRepository(
+                    name: snapshot.repo.name, root: snapshot.repo.root, isHidden: false,
+                    items: snapshot.branches.count + linked, problem: nil)
+            }
         }
     }
 
@@ -84,7 +90,7 @@ extension AppModel {
             .map { path, _ in
                 let url = URL(fileURLWithPath: path)
                 return ManagedRepository(
-                    name: url.lastPathComponent, root: url, isHidden: true, items: 0, reclaimableBytes: 0, problem: nil)
+                    name: url.lastPathComponent, root: url, isHidden: true, items: 0, problem: nil)
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }

@@ -43,7 +43,11 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         self.githubCLIAvailable = githubCLIAvailable
     }
 
+    /// How many times a scan was started, so a test can tell a rescan from a change that needed none.
+    private(set) var scanRequests = 0
+
     func scan(settings: Settings) -> AsyncStream<ScanEvent> {
+        scanRequests += 1
         let snapshots = self.snapshots
         let failures = self.failures
         let delay = scanDelay

@@ -6,6 +6,15 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Fixed
+- Lopper no longer slows the whole Mac down while it measures folder sizes on a large scan. Sizes are measured two
+  folders at a time instead of four, the walk does less work per file, a new scan stops the old walk at once instead of
+  piling on top of it, and sizes are applied in batches so open windows do not redraw for each folder. On a scan of 90+
+  repositories the app's CPU use at its peak roughly halved.
+- Hiding repositories, one or many, no longer starts a rescan of everything: they drop out of the list at once.
+  Bringing one back still scans it.
+- The Manage Repositories sheet reads the scan directly, so it stays quick while sizes are still arriving.
+
 ## [0.5.0] - 2026-10-18
 
 ### Added

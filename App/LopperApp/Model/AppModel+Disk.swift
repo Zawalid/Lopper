@@ -120,7 +120,7 @@ extension AppModel {
                         in: target.root, repoRoot: target.repoRoot, location: target.location, names: target.names)
                 }
             }
-            for _ in 0..<4 { addNext() }
+            for _ in 0..<SizeCalculator.concurrentMeasurements { addNext() }
             while let items = await group.next() {
                 found.append(contentsOf: items)
                 addNext()

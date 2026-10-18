@@ -265,6 +265,17 @@ public struct Settings: Sendable, Equatable {
 
     /// True when switching from `previous` to this value changes what Lopper finds or how it decides, so
     /// the app must scan again. Retention, the stale threshold and unknown keys do not.
+    /// The repositories hidden since `previous` when hiding is the only thing that changed, so the people who hid them
+    /// do not need a full rescan: the repositories are simply dropped from what is already loaded. Nil for any other
+    /// change, and for a change that hides nothing.
+    public func newlyHiddenRepositories(comparedTo previous: Settings) -> Set<String>? {
+        let added = Set(repos.filter { $0.value.isIgnored && !(previous.repos[$0.key]?.isIgnored ?? false) }.keys)
+        guard !added.isEmpty else { return nil }
+        var expected = previous
+        for path in added { expected.repos[path, default: RepoOverrides()].isIgnored = true }
+        return expected == self ? added : nil
+    }
+
     public func requiresRescan(comparedTo previous: Settings) -> Bool {
         folders.filter(\.isEnabled) != previous.folders.filter(\.isEnabled)
             || scanDepth != previous.scanDepth
