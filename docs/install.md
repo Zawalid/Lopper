@@ -61,8 +61,12 @@ the first-launch steps above.
 
 ## Updating
 
-Lopper does not update itself yet. Download the new DMG and replace the app, or run `brew upgrade --cask lopper`.
-Your settings and your undo history are kept between versions.
+Lopper can update itself. In Settings, General, turn on "Check for updates automatically", or choose Lopper, Check for
+Updates… at any time. It shows you what is new and installs nothing until you press Install Update. An update installed
+this way does not normally ask you to confirm the app again. See [updates.md](updates.md) for exactly what is checked.
+
+You can also download the new DMG and replace the app, or run `brew upgrade --cask lopper`. Your settings and your undo
+history are kept between versions.
 
 ## Uninstalling
 

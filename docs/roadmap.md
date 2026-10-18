@@ -33,7 +33,7 @@ Sidebar: **Overview**, **Agents**, **Disk**, **Only on this Mac**, **History**, 
 | Disk | Where space goes: generated folders by project, kind and as a map, developer caches, free space, clear to the Trash with undo, optional reinstall | done |
 | Only on this Mac | Unpushed commits, uncommitted changes in worktrees, stashes and half-done operations, with a copyable push command. Never removes anything | done |
 | Rules and schedule | "Delete branches merged more than 14 days ago", run weekly, digest notification | planned |
-| What's new, About, Updates | Release notes, version, check for updates | planned |
+| What's new, About, Updates | Release notes, version, check for updates | done |
 
 ## 3. Feature backlog
 
@@ -65,7 +65,7 @@ Sidebar: **Overview**, **Agents**, **Disk**, **Only on this Mac**, **History**, 
 
 ### Platform and business
 - Real app icon, bundle identifier, signing, notarization, DMG (`next` when the product is ready to share)
-- Auto-update (Sparkle), release notes, appcast hosting (`planned`)
+- Auto-update (Sparkle), release notes, appcast hosting (`done`)
 - Licensing and purchase flow, offline-verifiable licence keys (`idea`, after the free app is loved)
 - Opt-in diagnostics: log export, crash reports (`planned`)
 - Localization: English and French, string catalogs from now on (`planned`)

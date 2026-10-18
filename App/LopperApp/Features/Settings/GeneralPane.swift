@@ -3,6 +3,7 @@ import ServiceManagement
 
 struct GeneralPane: View {
     @Environment(AppModel.self) private var model
+    @Environment(AppUpdater.self) private var updater: AppUpdater?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
@@ -37,6 +38,24 @@ struct GeneralPane: View {
                 ))
             } footer: {
                 Text("Without a Dock icon, Lopper lives in the menu bar and opens its window from there.")
+            }
+
+            if let updater {
+                Section {
+                    Toggle("Check for updates automatically", isOn: Binding(
+                        get: { updater.automaticallyChecks },
+                        set: { updater.automaticallyChecks = $0 }
+                    ))
+                    .help("Off by default. When on, Lopper asks GitHub once a day if a newer version exists.")
+                    Button("Check for Updates…") { updater.checkNow() }
+                        .buttonStyle(.lopperSecondary)
+                        .disabled(!updater.canCheck)
+                        .help("Ask GitHub now if a newer version exists. Nothing is installed until you say so.")
+                } header: {
+                    Text("Updates")
+                } footer: {
+                    Text("Lopper itself makes no other network calls. It asks GitHub for one small file, so GitHub sees the request like any download. It shows you what is new and installs nothing until you press Install Update. Homebrew users can also run brew upgrade.")
+                }
             }
 
             Section {

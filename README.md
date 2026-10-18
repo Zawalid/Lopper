@@ -102,7 +102,7 @@ history with the app.
 
 **Built for the Mac**<br>
 Native SwiftUI, a menu bar popover, a command palette (Command-K), onboarding that finds your project folders, light and
-dark appearance. No account, no analytics, no network calls of its own.
+dark appearance. No account, no analytics, and it goes online only if you turn on update checks.
 
 </td>
 </tr>
@@ -244,6 +244,10 @@ at their exact commit.
 
 No. There is no account, no analytics and no crash reporting. Lopper only runs `git` (and `gh`, if you have it) on your
 machine, and reads the folders you chose.
+
+The one exception is update checks, which are off until you turn them on in Settings, General. Then Lopper asks GitHub
+once a day for a small file that says whether a newer version exists, shows you what is new, and installs nothing until
+you press Install Update. See [docs/updates.md](docs/updates.md).
 
 If something goes wrong, Settings, About, Diagnostics shows the report a bug report would contain, with repository and
 branch names left out unless you include them. You copy or save it yourself; Lopper never sends it.

@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct AboutPane: View {
+    @Environment(AppUpdater.self) private var updater: AppUpdater?
     @State private var showsDiagnostics = false
     private var version: String {
         let info = Bundle.main.infoDictionary
@@ -24,7 +25,7 @@ struct AboutPane: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 400)
-                Text("No account, no analytics, nothing leaves your Mac.")
+                Text("No account, no analytics. Lopper goes online only if you turn on update checks.")
                     .font(.callout)
                     .foregroundStyle(Theme.metaText)
             }
@@ -47,9 +48,17 @@ struct AboutPane: View {
                 AboutLink(title: "MIT licence", symbol: "doc.text", link: .license)
             }
 
-            Button("Diagnostics…") { showsDiagnostics = true }
-                .buttonStyle(.lopperSecondary)
-                .help("See what a bug report would contain. Nothing is sent.")
+            HStack(spacing: Theme.Spacing.md) {
+                if let updater {
+                    Button("Check for Updates…") { updater.checkNow() }
+                        .buttonStyle(.lopperSecondary)
+                        .disabled(!updater.canCheck)
+                        .help("Ask GitHub if a newer version exists. Nothing is installed until you say so.")
+                }
+                Button("Diagnostics…") { showsDiagnostics = true }
+                    .buttonStyle(.lopperSecondary)
+                    .help("See what a bug report would contain. Nothing is sent.")
+            }
         }
         .padding(Theme.Spacing.xl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

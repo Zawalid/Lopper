@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct LopperApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @State private var updater = AppUpdater()
     @State private var model: AppModel = {
         let model = AppModel(client: LiveEngineClient(), preferences: .standard)
         model.digest = SystemDigestNotifier()
@@ -14,13 +15,14 @@ struct LopperApp: App {
         Window("Lopper", id: "main") {
             RootView()
                 .environment(model)
+                .environment(updater)
                 #if DEBUG
                 .task { await ScreenshotMode.runIfRequested(model: model) }
                 .task { await DemoTour.runIfRequested(model: model) }
                 #endif
         }
         .defaultSize(width: 1080, height: 700)
-        .commands { LopperCommands(model: model) }
+        .commands { LopperCommands(model: model, updater: updater) }
 
         MenuBarExtra {
             MenuBarView().environment(model)
@@ -30,15 +32,20 @@ struct LopperApp: App {
         .menuBarExtraStyle(.window)
 
         SwiftUI.Settings {
-            SettingsView().environment(model)
+            SettingsView().environment(model).environment(updater)
         }
     }
 }
 
 struct LopperCommands: Commands {
     let model: AppModel
+    let updater: AppUpdater
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates…") { updater.checkNow() }
+                .disabled(!updater.canCheck)
+        }
         CommandGroup(after: .newItem) {
             Button("Add Folder…") { FolderPicker.choose { model.addRoots($0) } }
                 .keyboardShortcut("o")

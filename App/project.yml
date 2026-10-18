@@ -7,6 +7,9 @@ options:
 packages:
   Lopper:
     path: ..
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.6
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -23,6 +26,22 @@ targets:
     dependencies:
       - package: Lopper
         product: Lopper
+      - package: Sparkle
+        product: Sparkle
+    entitlements:
+      path: LopperApp/Lopper.entitlements
+      properties:
+        # Sparkle is signed by its own identity. A hardened app signed ad hoc (no team) refuses to load a framework
+        # signed by a different one and crashes at launch, so library validation has to be off. See docs/updates.md.
+        com.apple.security.cs.disable-library-validation: true
+    info:
+      path: LopperApp/Info.plist
+      properties:
+        SUFeedURL: https://github.com/Zawalid/Lopper/releases/latest/download/appcast.xml
+        SUPublicEDKey: sRYsiToQSh4zkfdb+PY9b1Km5yByYA7deW3ZIG7RFXk=
+        # Never check on its own until the person turns it on in Settings, and never show Sparkle's own prompt.
+        SUEnableAutomaticChecks: false
+        SUAllowsAutomaticUpdates: false
     settings:
       base:
         PRODUCT_NAME: Lopper

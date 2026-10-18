@@ -7,6 +7,10 @@ work lands; `scripts/release.sh` moves them under the new version.
 ## [Unreleased]
 
 ### Added
+- Lopper can update itself. Update checks are off until you turn them on in Settings, General; then Lopper asks GitHub
+  once a day for a small file, shows you what is new, and installs nothing until you press Install Update. Choose Lopper,
+  Check for Updates… at any time, or use the new button in Settings. Every update is signed, and one that does not
+  match is refused. The "no network calls" claims now say the app goes online only if you turn this on.
 - Manage Repositories (Command-Shift-M, or the folder button at the bottom of the sidebar). It lists every repository
   Lopper found, grouped by the folder that holds it. Tick several and hide them in one step, hide a whole project
   folder with one button, or skip a folder by name so it is left out of future scans. A Hidden list brings anything

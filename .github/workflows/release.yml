@@ -18,6 +18,9 @@ jobs:
       #   DEVELOPER_ID_P12 (base64 of the .p12), DEVELOPER_ID_P12_PASSWORD, DEVELOPER_ID_NAME
       #   ("Developer ID Application: Your Name (TEAMID)"), NOTARY_KEY_ID, NOTARY_ISSUER_ID, NOTARY_KEY_P8 (base64)
       HAS_SIGNING: ${{ secrets.DEVELOPER_ID_P12 != '' && secrets.DEVELOPER_ID_NAME != '' && secrets.NOTARY_KEY_P8 != '' }}
+      # In-app updates: the EdDSA private key that signs each release's zip (see docs/updates.md). Without it the release
+      # still publishes, just without an update feed.
+      HAS_SPARKLE: ${{ secrets.SPARKLE_ED_PRIVATE_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,6 +106,8 @@ jobs:
           (cd build && shasum -a 256 "lop-$VERSION-macos.tar.gz" > "lop-$VERSION-macos.tar.gz.sha256")
           awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > build/notes.md
           [ -s build/notes.md ] || echo "Release $VERSION" > build/notes.md
+          # What the in-app update window shows: the changelog entry without the install instructions below.
+          cp build/notes.md build/update-notes.md
           {
             echo
             echo "### Install"
@@ -111,13 +116,25 @@ jobs:
             echo "SHA-256: \`$(cut -d' ' -f1 "build/Lopper-$VERSION.dmg.sha256")\`"
           } >> build/notes.md
 
+      - name: Build the update feed
+        if: env.HAS_SPARKLE == 'true'
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          NOTES: build/update-notes.md
+        run: scripts/appcast.sh "$VERSION"
+
       - name: Publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           PRERELEASE=""
           case "$VERSION" in *-*) PRERELEASE="--prerelease";; esac
+          UPDATE_FILES=()
+          if [ -f build/appcast/appcast.xml ]; then
+            UPDATE_FILES=(build/appcast/appcast.xml "build/appcast/Lopper-$VERSION.zip")
+          fi
           gh release create "$GITHUB_REF_NAME" \
             "build/Lopper-$VERSION.dmg" build/Lopper.dmg "build/Lopper-$VERSION.dmg.sha256" \
             "build/lop-$VERSION-macos.tar.gz" "build/lop-$VERSION-macos.tar.gz.sha256" \
+            "${UPDATE_FILES[@]}" \
             --title "Lopper $VERSION" --notes-file build/notes.md $PRERELEASE

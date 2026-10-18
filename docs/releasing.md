@@ -56,7 +56,12 @@ cd ../homebrew-lopper && git add -A && git commit -m "lopper 0.2.0" && git push
 
 People install with `brew install --cask zawalid/lopper/lopper`.
 
+## In-app updates
+
+Each release also publishes `appcast.xml` and `Lopper-<version>.zip` (see [updates.md](updates.md)). The workflow builds
+them with `scripts/appcast.sh` when the repository secret `SPARKLE_ED_PRIVATE_KEY` is set; without it the release still
+publishes, just with no update feed. Check after a release that `releases/latest/download/appcast.xml` opens.
+
 ## Later
 
-- In-app updates with Sparkle (an appcast hosted next to the releases).
 - Automating the cask update from the release workflow.
