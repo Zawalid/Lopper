@@ -12,7 +12,7 @@ struct FoldersPane: View {
                         .foregroundStyle(.secondary)
                 }
                 ForEach(model.settings.folders, id: \.path) { folder in
-                    FolderRow(folder: folder)
+                    ScannedFolderRow(folder: folder)
                 }
                 Button("Add folder…") { FolderPicker.choose { model.addRoots($0) } }
                 Button("Run setup again…") { model.restartOnboarding() }
@@ -35,7 +35,7 @@ struct FoldersPane: View {
     }
 }
 
-private struct FolderRow: View {
+struct ScannedFolderRow: View {
     let folder: FolderSetting
     @Environment(AppModel.self) private var model
 

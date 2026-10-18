@@ -6,6 +6,13 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Added
+- Manage Repositories (Command-Shift-M, or the folder button at the bottom of the sidebar). It lists every repository
+  Lopper found, grouped by the folder that holds it. Tick several and hide them in one step, hide a whole project
+  folder with one button, or skip a folder by name so it is left out of future scans. A Hidden list brings anything
+  back, every change can be undone from the banner, and nothing is ever deleted from your Mac. The Folders tab changes
+  where Lopper looks, and a repository's right-click menu gains "Hide All" for its folder.
+
 ## [0.4.0] - 2026-10-17
 
 ### Changed

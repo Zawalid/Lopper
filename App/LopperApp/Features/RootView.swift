@@ -50,6 +50,9 @@ struct RootView: View {
         .sheet(isPresented: $model.showsPalette) {
             CommandPaletteView()
         }
+        .sheet(isPresented: $model.showsManager) {
+            ManageRepositoriesSheet()
+        }
         .sheet(isPresented: Binding(
             get: { model.diskClear != nil },
             set: { if !$0 { model.dismissDiskClear() } }

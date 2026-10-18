@@ -187,6 +187,8 @@ final class AppModel {
     var diskFocusedID: String?
     var diskClear: DiskClearState?
     var showsPalette = false
+    /// The repositories and folders manager sheet.
+    var showsManager = false
     /// The setup flow is on screen. It stays up after the folders are saved so the first scan can be watched,
     /// and ends only when the person opens the app.
     private(set) var isOnboarding: Bool

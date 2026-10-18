@@ -347,6 +347,19 @@ private struct RepoContextMenu: View {
         }
         Divider()
         Button("Hide Repository") { model.hideRepository(summary.root) }
+        if siblings.count > 1 {
+            Button("Hide All \(siblings.count) in \(summary.root.deletingLastPathComponent().lastPathComponent)") {
+                model.hideRepositories(siblings.map(\.root))
+                model.notice = "Hid \(siblings.count) repositories. Bring them back from Manage Repositories."
+            }
+        }
+        Button("Manage Repositories…") { model.showsManager = true }
+    }
+
+    /// Scanned repositories in the same containing folder, this one included.
+    private var siblings: [RepoSummary] {
+        let folder = summary.root.deletingLastPathComponent().path
+        return model.summaries.filter { $0.root.deletingLastPathComponent().path == folder }
     }
 }
 
@@ -371,6 +384,15 @@ private struct SidebarFooter: View {
                 .help("Add a folder to scan (Command-O)")
 
                 Spacer(minLength: 0)
+
+                Button {
+                    model.showsManager = true
+                } label: {
+                    Image(systemName: "folder.badge.gearshape")
+                }
+                .buttonStyle(SidebarIconButtonStyle())
+                .help("Manage repositories and folders (Command-Shift-M)")
+                .accessibilityLabel("Manage repositories and folders")
 
                 Button {
                     model.startScan()

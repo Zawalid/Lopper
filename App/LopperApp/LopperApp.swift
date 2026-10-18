@@ -42,6 +42,8 @@ struct LopperCommands: Commands {
         CommandGroup(after: .newItem) {
             Button("Add Folder…") { FolderPicker.choose { model.addRoots($0) } }
                 .keyboardShortcut("o")
+            Button("Manage Repositories…") { model.showsManager = true }
+                .keyboardShortcut("m", modifiers: [.command, .shift])
             Button("Rescan") { model.startScan() }
                 .keyboardShortcut("r")
             Button("Select All Safe Items") { model.checkAllSafe() }
