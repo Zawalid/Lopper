@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-18
+
 ### Added
 - Lopper can update itself. Update checks are off until you turn them on in Settings, General; then Lopper asks GitHub
   once a day for a small file, shows you what is new, and installs nothing until you press Install Update. Choose Lopper,
