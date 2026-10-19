@@ -6,6 +6,23 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Added
+- Choosing rows is much easier on the repository page. Click a row, Shift-click for a range, Command-click to add or
+  remove one, Shift with the arrow keys to extend, and Command-A for everything shown. The checkboxes follow the same
+  selection, Shift-click on a checkbox picks a range, and there is a checkbox above them for everything shown, nothing,
+  or some. Space ticks the row you are on and Escape clears the selection.
+- A Select menu in the footer picks rows by a rule: everything shown, none, invert, only Safe, only Review, older than
+  30 or 90 days, larger than 100 MB, already merged into the default branch, or with no uncommitted files. Right-click a
+  row for "Select all like this" by verdict, tool, age or kind, each with how many it would pick.
+- The footer says what is selected: how many, how much space, how many Safe and Review, how many a filter is hiding, and
+  how many protected rows were skipped. Protected rows can be looked at but never selected for cleaning.
+- A Group menu divides the list into sections by tool, age, verdict or kind. Each section folds up and has its own
+  checkbox.
+- The Agents page gets the same: a checkbox above the column, Shift-click for a range, Space, an Include menu (all shown,
+  none, invert, older than 30 or 90 days, larger than 100 MB) and "Include only" by tool or age in the right-click menu.
+- Choosing a row now selects it, so the row the inspector shows is always a selected row. Nothing is removed by
+  selecting: Review and clean still shows every item and its evidence first.
+
 ## [0.5.1] - 2026-10-19
 
 ### Fixed

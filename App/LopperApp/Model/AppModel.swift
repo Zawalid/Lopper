@@ -168,7 +168,18 @@ final class AppModel {
     private var routeStorage: Route = .overview
     private var inspectorStorage = true
     var checked: Set<String> = []
-    var focusedRowID: String?
+    /// The row the inspector shows: the last one chosen. It is always one of the selected rows, so choosing a row
+    /// from anywhere (the table, the palette, the triage buttons) also selects it.
+    var focusedRowID: String? {
+        didSet {
+            if let id = focusedRowID, !checked.contains(id) { checked = [id] }
+        }
+    }
+    /// Where a shift-click range starts: the last row clicked.
+    @ObservationIgnored var selectionAnchor: String?
+    @ObservationIgnored var agentSelectionAnchor: String?
+    /// How the repository table is divided into sections.
+    var repoGrouping: RepoGrouping = .none
     var verdictFilter: VerdictFilter = .all
     var kindFilter: KindFilter = .all
     var searchText = ""

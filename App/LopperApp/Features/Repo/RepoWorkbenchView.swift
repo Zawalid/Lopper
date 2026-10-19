@@ -4,11 +4,16 @@ import Lopper
 struct RepoWorkbenchView: View {
     let repoID: String
     @Environment(AppModel.self) private var model
-    @State private var sortOrder: [KeyPathComparator<CleanupRow>] = []
+    @State private var sortOrder: [KeyPathComparator<RepoTableItem>] = []
+    @State private var collapsed: Set<String> = []
 
     var body: some View {
         @Bindable var model = model
-        let rows = sortedRows
+        let visible = model.visibleRows(forRepo: repoID)
+        let items = RepoTableItems.build(
+            rows: visible, sortOrder: sortOrder, grouping: model.repoGrouping, collapsed: collapsed)
+        let sections = RepoTableItems.sections(items)
+        let order = RepoTableItems.shownRows(items)
         let summary = model.summaries.first { $0.id == repoID }
 
         Group {
@@ -22,50 +27,14 @@ struct RepoWorkbenchView: View {
                     ProgressView().controlSize(.large)
                     Text("Reading this repository…").foregroundStyle(.secondary)
                 }
-            } else if rows.isEmpty {
+            } else if visible.isEmpty {
                 EmptyState(
                     symbol: "line.3.horizontal.decrease.circle", title: "Nothing matches",
                     message: model.searchText.isEmpty && model.verdictFilter == .all && model.kindFilter == .all
                         ? "This repository has no extra branches or worktrees."
                         : "Try a different search or filter.")
             } else {
-                Table(rows, selection: $model.focusedRowID, sortOrder: $sortOrder) {
-                    // Table cells are created in their own hosting views, so they get everything they need
-                    // passed in explicitly instead of reading AppModel from the environment.
-                    TableColumn("") { row in
-                        CheckCell(
-                            row: row,
-                            isChecked: Binding(
-                                get: { model.checked.contains(row.id) },
-                                set: { isOn in
-                                    if isOn { model.checked.insert(row.id) } else { model.checked.remove(row.id) }
-                                }))
-                    }
-                    .width(28)
-                    TableColumn("Name", value: \.title) { row in NameCell(row: row) }
-                        .width(min: 120)
-                    TableColumn("Verdict", value: \.verdict) { row in VerdictChip(kind: row.verdict) }
-                        .width(min: 96, ideal: 100)
-                    TableColumn("Evidence", value: \.evidence) { row in
-                        Text(row.evidence).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    .width(min: 72, ideal: 150)
-                    TableColumn("Last commit", value: \.lastCommitSort) { row in
-                        Text(row.lastCommit.map { AgeFormat.short(from: $0) } ?? "-")
-                            .foregroundStyle(.secondary)
-                            .monospacedDigit()
-                    }
-                    .width(min: 64, ideal: 78)
-                    TableColumn("Size", value: \.sizeSort) { row in SizeCell(row: row) }
-                        .width(min: 52, ideal: 64)
-                }
-                .contextMenu(forSelectionType: CleanupRow.ID.self) { ids in
-                    if let id = ids.first, let row = model.allRows.first(where: { $0.id == id }) {
-                        RowMenu(
-                            row: row, terminalBundleID: model.preferences.terminalBundleID,
-                            copy: { model.copy($0, confirming: $1) })
-                    }
-                }
+                table(items: items, visible: visible, order: order, sections: sections)
             }
         }
         .navigationTitle(summary?.name ?? "Repository")
@@ -76,17 +45,116 @@ struct RepoWorkbenchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Filters sit above the table rather than in the toolbar: the toolbar already carries the title,
         // search, rescan and inspector, and a segmented control there squeezed the title and subtitle.
-        .safeAreaInset(edge: .top, spacing: 0) { FilterBar() }
-        .safeAreaInset(edge: .bottom) { SelectionBar(repoID: repoID) }
+        .safeAreaInset(edge: .top, spacing: 0) { FilterBar(shown: visible) }
+        .safeAreaInset(edge: .bottom) { SelectionBar(repoID: repoID, shown: visible) }
         .inspector(isPresented: $model.showInspector) {
             InspectorView()
                 .inspectorColumnWidth(min: 240, ideal: 270, max: 400)
         }
     }
 
-    private var sortedRows: [CleanupRow] {
-        let rows = model.visibleRows(forRepo: repoID)
-        return sortOrder.isEmpty ? rows : rows.sorted(using: sortOrder)
+    private func table(
+        items: [RepoTableItem], visible: [CleanupRow], order: [CleanupRow], sections: [String: [CleanupRow]]
+    ) -> some View {
+        Table(
+            items,
+            selection: Binding(
+                get: { model.checked },
+                set: { model.updateSelection(fromTable: $0, sections: sections) }),
+            sortOrder: $sortOrder
+        ) {
+            // Table cells are created in their own hosting views, so they get everything they need
+            // passed in explicitly instead of reading AppModel from the environment.
+            TableColumn("") { item in
+                switch item.content {
+                case .row(let row):
+                    RowCheckbox(
+                        isOn: model.checked.contains(row.id), isEnabled: row.isSelectable, title: row.title,
+                        disabledReason: row.reasons.first ?? "Protected",
+                        toggle: { model.toggleChecked(row, extendingRange: $0, order: order) })
+                case .section(let section):
+                    TriStateCheckbox(
+                        state: RowSelection.headerState(selection: model.checked, selectable: section.selectableIDs),
+                        help: "Select everything in \(section.key.title)",
+                        isEnabled: !section.selectableIDs.isEmpty,
+                        action: {
+                            let state = RowSelection.headerState(selection: model.checked, selectable: section.selectableIDs)
+                            model.setAllShown(state != .all, rows: section.rows)
+                        })
+                }
+            }
+            .width(32)
+            TableColumn("Name", value: \.titleSort) { item in
+                switch item.content {
+                case .row(let row): NameCell(row: row)
+                case .section(let section):
+                    SectionHeaderCell(section: section) {
+                        if collapsed.contains(section.key.id) { collapsed.remove(section.key.id) } else { collapsed.insert(section.key.id) }
+                    }
+                }
+            }
+            .width(min: 120)
+            TableColumn("Verdict", value: \.verdictSort) { item in
+                if let row = item.row { VerdictChip(kind: row.verdict) }
+            }
+            .width(min: 96, ideal: 100)
+            TableColumn("Evidence", value: \.evidenceSort) { item in
+                if let row = item.row { Text(row.evidence).foregroundStyle(.secondary).lineLimit(1) }
+            }
+            .width(min: 72, ideal: 150)
+            TableColumn("Last commit", value: \.lastCommitSort) { item in
+                if let row = item.row {
+                    Text(row.lastCommit.map { AgeFormat.short(from: $0) } ?? "-")
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            .width(min: 64, ideal: 78)
+            TableColumn("Size", value: \.sizeSort) { item in
+                switch item.content {
+                case .row(let row): SizeCell(row: row)
+                case .section(let section):
+                    if section.bytes > 0 {
+                        Text(SizeFormat.string(section.bytes)).monospacedDigit().foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .width(min: 52, ideal: 64)
+        }
+        .contextMenu(forSelectionType: String.self) { ids in
+            rowMenu(ids: ids, visible: visible, sections: sections)
+        }
+        .onKeyPress(.space) {
+            // Space does what the checkbox does for the row the inspector shows.
+            guard let id = model.focusedRowID, let row = visible.first(where: { $0.id == id }) else { return .ignored }
+            model.toggleChecked(row, extendingRange: false, order: order)
+            return .handled
+        }
+        .onKeyPress(.escape) {
+            guard !model.checked.isEmpty else { return .ignored }
+            model.setSelection([])
+            return .handled
+        }
+    }
+
+    @ViewBuilder
+    private func rowMenu(ids: Set<String>, visible: [CleanupRow], sections: [String: [CleanupRow]]) -> some View {
+        if ids.count == 1, let id = ids.first, let rows = sections[id] {
+            Button("Select all \(rows.filter(\.isSelectable).count) in this section") {
+                model.setSelection(Set(rows.filter(\.isSelectable).map(\.id)))
+            }
+        } else if let id = ids.first, let row = visible.first(where: { $0.id == id }) {
+            if ids.count == 1 {
+                RowMenu(
+                    row: row, terminalBundleID: model.preferences.terminalBundleID,
+                    copy: { model.copy($0, confirming: $1) })
+                Divider()
+            }
+            SelectLikeMenu(row: row, rows: visible)
+        }
+        if !model.checked.isEmpty {
+            Button("Clear the selection") { model.setSelection([]) }
+        }
     }
 
     private func subtitle(_ summary: RepoSummary?) -> String {
@@ -95,12 +163,61 @@ struct RepoWorkbenchView: View {
     }
 }
 
+/// "Select all like this": the things a row shares with others, each with how many it would pick.
+struct SelectLikeMenu: View {
+    let row: CleanupRow
+    let rows: [CleanupRow]
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let offers = RowSelection.affinities(of: row).map { affinity in
+            (affinity, RowSelection.rows(sharing: affinity, among: rows).count)
+        }
+        ForEach(Array(offers.enumerated()), id: \.offset) { _, offer in
+            if offer.1 > 0 {
+                Button(offer.0.title(count: offer.1)) { model.select(sharing: offer.0, among: rows) }
+            }
+        }
+    }
+}
+
+private struct SectionHeaderCell: View {
+    let section: RepoTableItem.Section
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(spacing: Theme.Spacing.sm) {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .rotationEffect(.degrees(section.isCollapsed ? 0 : 90))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 12)
+                Text(section.key.title).font(.headline)
+                Text("\(section.rows.count)").font(.callout).foregroundStyle(Theme.metaText).monospacedDigit()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
+        .help(section.isCollapsed ? "Show the rows in \(section.key.title)" : "Hide the rows in \(section.key.title)")
+    }
+}
+
 private struct FilterBar: View {
+    let shown: [CleanupRow]
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
-        HStack(spacing: Theme.Spacing.md) {
+        let state = RowSelection.headerState(selection: model.checked, selectable: shown.filter(\.isSelectable).map(\.id))
+        HStack(spacing: Theme.Spacing.sm) {
+            // The checkbox above the checkbox column: everything shown, none, or some.
+            TriStateCheckbox(
+                state: state,
+                help: state == .all ? "Clear every row shown" : "Select every row shown",
+                isEnabled: shown.contains(where: \.isSelectable),
+                action: { model.setAllShown(state != .all, rows: shown) })
             Picker("Verdict", selection: $model.verdictFilter) {
                 ForEach(VerdictFilter.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -124,20 +241,6 @@ private struct FilterBar: View {
         .padding(.vertical, Theme.Spacing.sm)
         .background(.bar)
         .overlay(alignment: .bottom) { Divider() }
-    }
-}
-
-private struct CheckCell: View {
-    let row: CleanupRow
-    @Binding var isChecked: Bool
-
-    var body: some View {
-        Toggle(isOn: $isChecked) { EmptyView() }
-            .toggleStyle(.checkbox)
-            .labelsHidden()
-            .disabled(!row.isSelectable)
-            .help(row.isSelectable ? "Select for cleaning" : (row.reasons.first ?? "Protected"))
-            .accessibilityLabel("Select \(row.title)")
     }
 }
 
@@ -207,27 +310,86 @@ struct RowMenu: View {
 
 private struct SelectionBar: View {
     let repoID: String
+    let shown: [CleanupRow]
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        let checked = model.checkedRows
-        let bytes = checked.reduce(Int64(0)) { $0 + ($1.size ?? 0) }
-        HStack {
-            Text(checked.isEmpty
-                ? "Nothing selected"
-                : "\(checked.count) selected" + (bytes > 0 ? ", \(SizeFormat.string(bytes)) to reclaim" : ""))
-                .font(.callout)
-                .foregroundStyle(.secondary)
+        @Bindable var model = model
+        let summary = model.selectionSummary(shown: shown)
+        HStack(spacing: Theme.Spacing.md) {
+            SelectionSummaryText(summary: summary)
             Spacer()
+            Menu {
+                ForEach(0..<3, id: \.self) { group in
+                    if group > 0 { Divider() }
+                    ForEach(SelectionPreset.allCases.filter { $0.group == group }) { preset in
+                        Button(preset.title) { model.applyPreset(preset, rows: shown) }
+                            .help(preset.help)
+                    }
+                }
+            } label: {
+                Text("Select")
+            }
+            .menuStyle(.button)
+            .buttonStyle(.lopperSecondary)
+            .controlSize(.small)
+            .fixedSize()
+            .help("Pick rows by a rule: everything shown, only Safe, older than 30 days, larger than 100 MB and more")
+            Menu {
+                Picker("Group by", selection: $model.repoGrouping) {
+                    ForEach(RepoGrouping.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Text(model.repoGrouping == .none ? "Group" : "Group: \(model.repoGrouping.rawValue)")
+            }
+            .menuStyle(.button)
+            .buttonStyle(.lopperSecondary)
+            .controlSize(.small)
+            .fixedSize()
+            .help("Divide the list into sections by tool, age, verdict or kind. Each section has its own checkbox.")
             Button("Select all safe") { model.checkAllSafe(inRepo: repoID) }
                 .buttonStyle(.lopperSecondary)
+                .controlSize(.small)
+                .help("Pick every row Lopper can prove is safe in this repository")
             Button("Review and clean") { model.beginCleanChecked() }
                 .buttonStyle(.lopperPrimary)
-                .disabled(checked.isEmpty)
+                .disabled(summary.isEmpty)
+                .help("See exactly what would be removed before anything is. Everything can be undone for 30 days.")
         }
         .padding(.horizontal, Theme.Spacing.lg)
         .padding(.vertical, Theme.Spacing.md)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
+    }
+}
+
+/// "3 selected · 180.2 MB · 2 Safe, 1 Review", plus what is not obvious: rows a filter hides and rows that cannot go.
+struct SelectionSummaryText: View {
+    let summary: SelectionSummary
+
+    var body: some View {
+        Text(text)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .accessibilityLabel(text)
+    }
+
+    private var text: String {
+        guard !summary.isEmpty else {
+            return summary.skipped > 0 ? "Nothing to clean selected (\(summary.skipped) protected)" : "Nothing selected"
+        }
+        var parts = ["\(summary.count) selected"]
+        if summary.bytes > 0 { parts.append("\(SizeFormat.string(summary.bytes)) to reclaim") }
+        var kinds: [String] = []
+        if summary.safe > 0 { kinds.append("\(summary.safe) Safe") }
+        if summary.review > 0 { kinds.append("\(summary.review) Review") }
+        parts.append(kinds.joined(separator: ", "))
+        var line = parts.joined(separator: " · ")
+        if summary.hidden > 0 { line += " (\(summary.hidden) hidden by filters)" }
+        if summary.skipped > 0 { line += ", \(summary.skipped) protected skipped" }
+        return line
     }
 }

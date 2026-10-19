@@ -50,7 +50,7 @@ struct AgentsContent: View {
             case .nothingToReclaim, .ready:
                 VStack(spacing: 0) {
                     HeaderStrip()
-                    AgentFilterBar()
+                    AgentFilterBar(shown: rows)
                     table
                 }
             }
@@ -74,11 +74,10 @@ struct AgentsContent: View {
                 TableColumn("") { item in
                     AgentCheckCell(
                         item: item,
-                        isIncluded: Binding(
-                            get: { !model.agentExcluded.contains(item.id) },
-                            set: { model.setAgentIncluded(item.id, $0) }))
+                        isIncluded: model.isAgentIncluded(item.id),
+                        toggle: { model.toggleAgentIncluded(item, extendingRange: $0, order: rows) })
                 }
-                .width(28)
+                .width(32)
                 TableColumn("Worktree", value: \.title) { item in WorktreeCell(item: item) }
                     .width(min: 100)
                 TableColumn("State", value: \.stateSort) { item in
@@ -97,9 +96,20 @@ struct AgentsContent: View {
                 TableColumn("Size", value: \.sizeSort) { item in AgentSizeCell(row: item.row) }
                     .width(min: 52, ideal: 68)
             }
+            .onKeyPress(.space) {
+                // Space does what the checkbox does for the worktree the inspector shows.
+                guard let id = model.focusedRowID, let item = rows.first(where: { $0.id == id }),
+                    item.assessment.isReclaimable else { return .ignored }
+                model.toggleAgentIncluded(item, extendingRange: false, order: rows)
+                return .handled
+            }
             .contextMenu(forSelectionType: String.self) { ids in
                 if let id = ids.first, let item = model.agentRows.first(where: { $0.id == id }) {
                     RowMenu(row: item.row, terminalBundleID: model.preferences.terminalBundleID)
+                    if item.assessment.isReclaimable {
+                        Divider()
+                        AgentIncludeLikeMenu(row: item.row, shown: rows)
+                    }
                     if item.assessment.canReview {
                         Divider()
                         Button("Review and remove…") { model.beginReview(row: item.row) }
@@ -207,11 +217,20 @@ private struct HeaderStrip: View {
 }
 
 private struct AgentFilterBar: View {
+    let shown: [AgentRow]
     @Environment(AppModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
+        let state = model.headerStateForAgents(shown: shown)
         HStack(spacing: Theme.Spacing.md) {
+            // The checkbox above the checkbox column: every finished worktree shown, none, or some.
+            TriStateCheckbox(
+                state: state,
+                help: state == .all ? "Leave out every worktree shown" : "Include every finished worktree shown",
+                isEnabled: !model.eligibleAgentRows(shown: shown).isEmpty,
+                action: { model.setAllAgentsShown(state != .all, shown: shown) })
+
             Picker("State", selection: $model.agentFilter) {
                 ForEach(AgentStateFilter.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -226,6 +245,23 @@ private struct AgentFilterBar: View {
             .pickerStyle(.menu)
             .frame(maxWidth: 170)
             .help("Filter by tool")
+
+            Menu {
+                ForEach([SelectionPreset.allVisible, .none, .invert]) { preset in
+                    Button(preset.title) { model.applyAgentPreset(preset, shown: shown) }.help(preset.help)
+                }
+                Divider()
+                ForEach([SelectionPreset.olderThan30Days, .olderThan90Days, .largerThan100MB]) { preset in
+                    Button(preset.title) { model.applyAgentPreset(preset, shown: shown) }.help(preset.help)
+                }
+            } label: {
+                Text("Include")
+            }
+            .menuStyle(.button)
+            .buttonStyle(.lopperSecondary)
+            .controlSize(.small)
+            .fixedSize()
+            .help("Choose which finished worktrees Reclaim finished will remove: all shown, none, older than 30 days, larger than 100 MB and more")
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Theme.Spacing.lg)
@@ -260,14 +296,13 @@ struct StateChip: View {
 
 private struct AgentCheckCell: View {
     let item: AgentRow
-    @Binding var isIncluded: Bool
+    let isIncluded: Bool
+    /// Called with whether Shift was held.
+    let toggle: (Bool) -> Void
 
     var body: some View {
         if item.assessment.isReclaimable {
-            Toggle("", isOn: $isIncluded)
-                .toggleStyle(.checkbox)
-                .labelsHidden()
-                .accessibilityLabel("Include \(item.title)")
+            RowCheckbox(isOn: isIncluded, isEnabled: true, title: item.title, toggle: toggle)
         } else {
             Image(systemName: "lock")
                 .foregroundStyle(Theme.metaText)
@@ -275,6 +310,29 @@ private struct AgentCheckCell: View {
                     ? "You asked Lopper to keep this worktree."
                     : item.assessment.sheetNote.isEmpty ? item.assessment.state.label : item.assessment.sheetNote)
                 .accessibilityLabel("Not part of Reclaim finished")
+        }
+    }
+}
+
+/// "Include all like this": limits Reclaim finished to the worktrees that share something with the one clicked.
+private struct AgentIncludeLikeMenu: View {
+    let row: CleanupRow
+    let shown: [AgentRow]
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let eligible = model.eligibleAgentRows(shown: shown).map(\.row)
+        let offers = RowSelection.affinities(of: row).filter { affinity in
+            if case .verdict = affinity { return false }
+            return true
+        }
+        ForEach(Array(offers.enumerated()), id: \.offset) { _, affinity in
+            let count = RowSelection.rows(sharing: affinity, among: eligible).count
+            if count > 0 {
+                Button(affinity.title(count: count).replacingOccurrences(of: "Select all", with: "Include only")) {
+                    model.includeAgents(sharing: affinity, shown: shown)
+                }
+            }
         }
     }
 }
