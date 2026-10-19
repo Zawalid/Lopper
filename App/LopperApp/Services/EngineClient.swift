@@ -5,6 +5,8 @@ import Lopper
 protocol EngineClient: Sendable {
     var githubCLIAvailable: Bool { get }
     func scan(settings: Settings) -> AsyncStream<ScanEvent>
+    /// Reads only these repositories, to refresh them after a removal or a restore without scanning everything.
+    func scanRepositories(_ roots: [URL], settings: Settings) async -> [RepoScanResult]
     /// `excluding` are folders inside `path` that belong to another worktree and are not counted.
     func measure(_ path: URL, disposable: Set<String>, excluding: [URL]) async -> DiskUsage
     /// Generated folders (node_modules, build output, ...) git ignores inside one working folder.
@@ -75,6 +77,13 @@ struct LiveEngineClient: EngineClient {
             scanner: RepoScanner(excludePatterns: settings.excludePatterns),
             gate: gate
         ).scanStream(roots: settings.roots, maxDepth: settings.scanDepth)
+    }
+
+    func scanRepositories(_ roots: [URL], settings: Settings) async -> [RepoScanResult] {
+        let inspector = inspector(settings)
+        return await ScanService(
+            inspector: inspector, scanner: RepoScanner(excludePatterns: settings.excludePatterns), gate: gate
+        ).inspect(repos: roots.filter { !inspector.isIgnored($0) })
     }
 
     func measure(_ path: URL, disposable: Set<String>, excluding: [URL]) async -> DiskUsage {

@@ -849,6 +849,7 @@ final class AppModel {
     func startScan() {
         guard !settings.roots.isEmpty, !isCleaning else { return }
         scanTask?.cancel()
+        scanTaskCompleted = false
         let progressive = results.isEmpty
         phase = .scanning(done: 0, total: 0)
         let scanStarted = Date()
@@ -861,6 +862,7 @@ final class AppModel {
                 results = []
                 measuredPaths = []
                 phase = .ready(Date())
+                scanTaskCompleted = true
                 return
             }
             var collected: [RepoScanResult] = []
@@ -900,7 +902,72 @@ final class AppModel {
             await scanLocalOnly()
             await scanArtifacts()
             await sendDigestIfDue()
+            scanTaskCompleted = true
         }
+    }
+
+    /// False while a full scan is running or was cut short, in which case what is loaded cannot be refreshed piece by
+    /// piece and the next change needs a full scan.
+    @ObservationIgnored private var scanTaskCompleted = true
+    @ObservationIgnored private var pendingRefresh: [String: URL] = [:]
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+
+    /// Re-reads only these repositories after something changed inside them (a removal, an undo), with their folder sizes,
+    /// work that exists only here, and generated folders. A full scan of a hundred repositories to refresh three takes
+    /// minutes of disk and CPU. Falls back to a full scan when what is loaded is not complete enough to patch.
+    func refreshRepositories(_ roots: [URL]) {
+        guard !roots.isEmpty else { return }
+        guard scanTaskCompleted, phase.isReady, !isCleaning else {
+            startScan()
+            return
+        }
+        for root in roots { pendingRefresh[root.path] = root }
+        guard refreshTask == nil else { return }
+        refreshTask = Task {
+            while !pendingRefresh.isEmpty {
+                let batch = Array(pendingRefresh.values)
+                pendingRefresh = [:]
+                await refresh(batch)
+            }
+            refreshTask = nil
+        }
+    }
+
+    private func refresh(_ roots: [URL]) async {
+        let paths = Set(roots.map(\.path))
+        let fresh = await client.scanRepositories(roots, settings: readableSettings(settings))
+        guard !Task.isCancelled else { return }
+        // A repository whose folder is gone is dropped, not shown as a failure.
+        let kept = fresh.filter { result in
+            if case .failure(let root, _) = result { return FileManager.default.fileExists(atPath: root.path) }
+            return true
+        }
+        results = Self.sorted(results.filter { !paths.contains($0.repoRoot.path) } + kept)
+        let touched = kept.compactMap { result -> RepoSnapshot? in
+            if case .snapshot(let snapshot) = result { snapshot } else { nil }
+        }
+        // Only worktrees that have no size yet are measured; the others did not change.
+        let unmeasured = Set(touched.flatMap(\.worktrees).filter { !$0.isPrunable }.map(\.path.path))
+            .subtracting(sizes.keys)
+        if !unmeasured.isEmpty { await measureSizes(only: unmeasured) }
+        guard !Task.isCancelled else { return }
+        let items = await client.localOnlyWork(for: touched)
+        localOnly = (localOnly.filter { !paths.contains($0.repoRoot.path) } + items).sorted(by: LocalWorkScanner.order)
+        localOnlyDetails = localOnlyDetails.filter { id, _ in items.contains { $0.id == id } == false }
+        let found = await findArtifacts(in: touched)
+        guard !Task.isCancelled else { return }
+        artifacts = artifacts.filter { !paths.contains($0.repoRoot.path) } + found
+        if case .repo(let id) = route, paths.contains(id), !results.contains(where: { $0.repoRoot.path == id }) {
+            route = .overview
+        }
+    }
+
+    /// After a restore: refresh the repositories that got something back. Nothing restored, nothing to refresh.
+    private func refreshAfterRestore(_ outcomes: [RestoreOutcome]) {
+        let roots = outcomes.compactMap { outcome -> URL? in
+            if case .restored(let record) = outcome { URL(fileURLWithPath: record.repoPath) } else { nil }
+        }
+        refreshRepositories(roots)
     }
 
     private static func sorted(_ results: [RepoScanResult]) -> [RepoScanResult] {
@@ -1202,8 +1269,10 @@ final class AppModel {
     }
 
     func finishClean() {
+        let touched = Array(Set((clean?.includedRows ?? []).map(\.repoRoot)))
         clean = nil
-        startScan()
+        guard !touched.isEmpty else { return }
+        refreshRepositories(touched)
     }
 
     private static func title(of item: CleanupItem) -> String {
@@ -1233,9 +1302,10 @@ final class AppModel {
         guard let toast else { return }
         self.toast = nil
         Task {
-            report(await client.restoreBatch(toast.id))
+            let outcomes = await client.restoreBatch(toast.id)
+            report(outcomes)
             await reloadHistory()
-            startScan()
+            refreshAfterRestore(outcomes)
         }
     }
 
@@ -1262,9 +1332,10 @@ final class AppModel {
 
     func restoreBatch(_ id: UUID) {
         Task {
-            report(await client.restoreBatch(id))
+            let outcomes = await client.restoreBatch(id)
+            report(outcomes)
             await reloadHistory()
-            startScan()
+            refreshAfterRestore(outcomes)
         }
     }
 
@@ -1276,15 +1347,16 @@ final class AppModel {
             for record in records { outcomes.append(await client.restore(record)) }
             report(outcomes)
             await reloadHistory()
-            startScan()
+            refreshAfterRestore(outcomes)
         }
     }
 
     func restore(_ record: UndoRecord) {
         Task {
-            report([await client.restore(record)])
+            let outcomes = [await client.restore(record)]
+            report(outcomes)
             await reloadHistory()
-            startScan()
+            refreshAfterRestore(outcomes)
         }
     }
 }

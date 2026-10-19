@@ -94,6 +94,15 @@ extension AppModel {
 
     /// Looks for generated folders in every working folder, a few at a time.
     func scanArtifacts() async {
+        artifactPhase = .scanning
+        artifacts = await findArtifacts(in: snapshots)
+        developerCaches = await client.developerCaches()
+        volumeSpace = client.volumeSpace()
+        artifactPhase = .ready(clock())
+    }
+
+    /// The generated folders in these repositories' checkouts, a few checkouts at a time.
+    func findArtifacts(in snapshots: [RepoSnapshot]) async -> [DiskArtifact] {
         struct Target {
             let root: URL
             let repoRoot: URL
@@ -108,7 +117,6 @@ extension AppModel {
                     location: entry.isMain ? .mainCheckout : .worktree(branch: entry.branch), names: names)
             }
         }
-        artifactPhase = .scanning
         let client = self.client
         var found: [DiskArtifact] = []
         await withTaskGroup(of: [DiskArtifact].self) { group in
@@ -126,10 +134,7 @@ extension AppModel {
                 addNext()
             }
         }
-        artifacts = found
-        developerCaches = await client.developerCaches()
-        volumeSpace = client.volumeSpace()
-        artifactPhase = .ready(clock())
+        return found
     }
 
     // MARK: Clearing

@@ -97,6 +97,61 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.toast?.removed, 4)
     }
 
+    func testFinishingACleanRefreshesOnlyTheRepositoriesItTouchedNotEverything() async {
+        func snapshot(_ name: String) -> RepoSnapshot {
+            let root = URL(fileURLWithPath: "/code/\(name)")
+            return Fixtures.snapshot(name: name, root: root, branches: [
+                Fixtures.branch("done", .safe, root: root), Fixtures.branch("main", .protected, root: root),
+            ])
+        }
+        let (model, client) = makeModel(["a", "b", "c"].map(snapshot))
+        model.startScan()
+        await settle(model)
+        await waitUntil { model.artifactPhase != .scanning && model.localOnlyLoaded }
+        let scans = client.scanRequests
+
+        model.beginClean(rows: model.rows(forRepo: "/code/b").filter(\.isBulkEligible))
+        model.runClean()
+        for _ in 0..<200 where model.clean?.phase != .finished { try? await Task.sleep(for: .milliseconds(10)) }
+        model.finishClean()
+        await waitUntil { !client.repositoryScans.isEmpty }
+
+        XCTAssertEqual(client.repositoryScans, [["/code/b"]], "only the repository that was cleaned is read again")
+        XCTAssertEqual(client.scanRequests, scans, "no full scan")
+        XCTAssertEqual(model.summaries.count, 3, "the other repositories are untouched")
+    }
+
+    func testARestoreRefreshesOnlyTheRepositoryThatGotSomethingBack() async {
+        func snapshot(_ name: String) -> RepoSnapshot {
+            let root = URL(fileURLWithPath: "/code/\(name)")
+            return Fixtures.snapshot(name: name, root: root, branches: [Fixtures.branch("main", .protected, root: root)])
+        }
+        let (model, client) = makeModel(["a", "b"].map(snapshot))
+        model.startScan()
+        await settle(model)
+        await waitUntil { model.artifactPhase != .scanning && model.localOnlyLoaded }
+        let scans = client.scanRequests
+        let record = UndoRecord(
+            timestamp: Date(), repoPath: "/code/a", action: .deleteBranch, branch: "gone", tip: "abc1234", upstream: nil,
+            worktreePath: nil, trashRef: "refs/lopper/trash/1/gone", status: .completed, batchID: UUID())
+
+        model.restore(record)
+        await waitUntil { !client.repositoryScans.isEmpty }
+
+        XCTAssertEqual(client.repositoryScans, [["/code/a"]])
+        XCTAssertEqual(client.scanRequests, scans)
+    }
+
+    func testARepositoryRefreshFallsBackToAFullScanWhenTheFirstScanNeverFinished() async {
+        let (model, client) = makeModel([Fixtures.sample])
+        // no scan has completed, so there is nothing loaded to patch
+        model.refreshRepositories([Fixtures.root])
+        await waitUntil { client.scanRequests > 0 }
+
+        XCTAssertGreaterThan(client.scanRequests, 0)
+        XCTAssertTrue(client.repositoryScans.isEmpty)
+    }
+
     func testAWorktreeAndItsBranchCountAsOneItemRemoved() async {
         let (model, client) = makeModel([Fixtures.sample], sizes: ["/code/wt/feat/in-worktree": 52_000_000])
         client.emitsBranchFollowUps = true
@@ -251,9 +306,10 @@ final class AppModelTests: XCTestCase {
     }
 
     func testDismissingAFinishedSheetBehavesLikeDone() async {
-        let (model, _) = makeModel([Fixtures.sample])
+        let (model, client) = makeModel([Fixtures.sample])
         model.startScan()
         await settle(model)
+        await waitUntil { model.artifactPhase != .scanning && model.localOnlyLoaded }
         model.beginCleanAllSafe()
         model.runClean()
         await waitUntil { model.clean?.phase == .finished }
@@ -261,7 +317,10 @@ final class AppModelTests: XCTestCase {
         model.dismissClean()
 
         XCTAssertNil(model.clean)
-        XCTAssertTrue(model.isScanning, "closing the finished sheet must rescan so removed items disappear")
+        await waitUntil { !client.repositoryScans.isEmpty }
+        XCTAssertEqual(
+            client.repositoryScans, [[Fixtures.root.path]],
+            "closing the finished sheet re-reads the repository that was cleaned, so removed items disappear")
     }
 
     func testBeginningACleanIsIgnoredWhileASheetIsAlreadyOpen() async {

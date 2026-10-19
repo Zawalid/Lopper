@@ -46,6 +46,15 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
     /// How many times a scan was started, so a test can tell a rescan from a change that needed none.
     private(set) var scanRequests = 0
 
+    /// The repositories each partial refresh asked for, as paths.
+    private(set) var repositoryScans: [[String]] = []
+
+    func scanRepositories(_ roots: [URL], settings: Settings) async -> [RepoScanResult] {
+        repositoryScans.append(roots.map(\.path).sorted())
+        let wanted = Set(roots.map(\.path))
+        return snapshots.filter { wanted.contains($0.repo.root.path) }.map { .snapshot($0) }
+    }
+
     func scan(settings: Settings) -> AsyncStream<ScanEvent> {
         scanRequests += 1
         let snapshots = self.snapshots

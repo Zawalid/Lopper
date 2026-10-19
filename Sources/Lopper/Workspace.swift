@@ -72,6 +72,15 @@ public struct Workspace: Sendable {
         return WorkspaceScan(results: results, sizes: sizes, rows: rows, failures: failures)
     }
 
+    /// Reads only these repositories, for refreshing them after something changed inside them. Hidden repositories are
+    /// left out, and nothing is discovered: the caller already knows which repositories it means.
+    public func scanRepositories(_ roots: [URL]) async -> [RepoScanResult] {
+        let service = ScanService(
+            inspector: inspector, scanner: RepoScanner(excludePatterns: settings.excludePatterns), gate: gate)
+        return await service.inspect(repos: roots.filter { !inspector.isIgnored($0) })
+            .sorted { $0.repoRoot.path < $1.repoRoot.path }
+    }
+
     /// Work in the scanned repositories that exists only on this Mac: unpushed commits, uncommitted changes, stashes.
     public func localOnlyWork(in scan: WorkspaceScan) async -> [LocalOnlyItem] {
         await LocalWorkScanner(git: git).scan(scan.snapshots)

@@ -11,6 +11,9 @@ work lands; `scripts/release.sh` moves them under the new version.
   folders at a time instead of four, the walk does less work per file, a new scan stops the old walk at once instead of
   piling on top of it, and sizes are applied in batches so open windows do not redraw for each folder. On a scan of 90+
   repositories the app's CPU use at its peak roughly halved.
+- After you clean something, undo it or restore it from History, Lopper now re-reads only the repositories that
+  changed, with their folder sizes, work that exists only on this Mac, and generated folders, instead of scanning every
+  repository again. A full scan is still used if the first scan had not finished.
 - Hiding repositories, one or many, no longer starts a rescan of everything: they drop out of the list at once.
   Bringing one back still scans it.
 - The Manage Repositories sheet reads the scan directly, so it stays quick while sizes are still arriving.
