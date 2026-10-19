@@ -101,7 +101,8 @@ final class WorkspaceTests: XCTestCase {
         try "unsaved".write(to: wt.appendingPathComponent("notes.md"), atomically: true, encoding: .utf8)
         let trash = repo.sandbox.appendingPathComponent(".Trash")
         let workspace = Workspace(
-            settings: settings, prProvider: nil, undoLog: UndoLog(url: log), trash: FolderTrash(folder: trash))
+            settings: settings, prProvider: nil, undoLog: UndoLog(url: log), trash: FolderTrash(folder: trash),
+            registrationBackups: repo.sandbox.appendingPathComponent("records"))
         let scan = await workspace.scan()
         let row = try XCTUnwrap(scan.rows.first { $0.path?.lastPathComponent == "wt-wip" })
 

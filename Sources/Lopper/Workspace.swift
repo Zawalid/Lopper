@@ -26,18 +26,21 @@ public struct Workspace: Sendable {
     private let prProvider: PRProvider?
     private let undoLog: UndoLog
     private let trash: TrashProvider
+    private let registrationBackups: URL
     private let gate = RepoGate()
     private let now: @Sendable () -> Date
 
     public init(
         settings: Settings, prProvider: PRProvider? = GhCliProvider(), undoLog: UndoLog = UndoLog(url: UndoLog.defaultURL),
-        git: GitRunner = GitRunner(), trash: TrashProvider = SystemTrash(), now: @escaping @Sendable () -> Date = { Date() }
+        git: GitRunner = GitRunner(), trash: TrashProvider = SystemTrash(),
+        registrationBackups: URL = Cleaner.defaultRegistrationBackups, now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.settings = settings
         self.prProvider = prProvider
         self.undoLog = undoLog
         self.git = git
         self.trash = trash
+        self.registrationBackups = registrationBackups
         self.now = now
     }
 
@@ -46,7 +49,8 @@ public struct Workspace: Sendable {
     }
 
     private var cleaner: Cleaner {
-        Cleaner(git: git, inspector: inspector, undoLog: undoLog, gate: gate, trash: trash)
+        Cleaner(git: git, inspector: inspector, undoLog: undoLog, gate: gate, trash: trash,
+            registrationBackups: registrationBackups)
     }
 
     /// Finds the repositories under the configured folders, classifies every branch and worktree, and (unless
