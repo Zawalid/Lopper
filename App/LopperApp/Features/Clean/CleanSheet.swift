@@ -17,7 +17,7 @@ struct CleanSheet: View {
                 footer(state)
             }
             .frame(width: 560, height: 520)
-            .interactiveDismissDisabled(model.isCleaning)
+            .interactiveDismissDisabled(model.isCleaning || !state.working.isEmpty)
         }
     }
 
@@ -48,7 +48,8 @@ struct CleanSheet: View {
             return state.isStopping ? "Stopping after the current item…" : "\(done) of \(total)"
         case .finished:
             let size = state.reclaimedBytes > 0 ? ", \(SizeFormat.string(state.reclaimedBytes)) reclaimed" : ""
-            return "Removed \(Plural.count(state.removedCount, "item"))\(size)."
+            let left = state.problemCount > 0 ? " \(Plural.count(state.problemCount, "item")) left alone." : ""
+            return "Removed \(Plural.count(state.removedCount, "item"))\(size).\(left)"
         }
     }
 
@@ -64,8 +65,20 @@ struct CleanSheet: View {
                         message: "\(Plural.count(reviewCount, "item")) could not be confirmed as merged. Their commits stay restorable from History.")
                         .padding(Theme.Spacing.md)
                 }
+                let blocked = state.blockedRows
+                if !blocked.isEmpty {
+                    Banner(
+                        symbol: "exclamationmark.triangle",
+                        message: "\(Plural.count(blocked.count, "item")) hold changes that exist only in their folder. "
+                            + "git will not remove them, so they would be left alone.",
+                        actionTitle: "Leave those out", action: { model.leaveOutBlocked() })
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.bottom, Theme.Spacing.md)
+                        .help("Take these out of this removal. Nothing in them is touched.")
+                }
                 reviewList(state)
             }
+            .task(id: state.includedRows.map(\.id)) { await model.checkForBlockingChanges() }
         case .running(let done, let total):
             VStack(spacing: Theme.Spacing.md) {
                 ProgressView(value: Double(done), total: Double(max(total, 1)))
@@ -105,16 +118,7 @@ struct CleanSheet: View {
                 symbol: "checkmark.circle", title: "All set",
                 message: "You can undo this from the toast or from History.")
         } else {
-            List {
-                Section("Not removed") {
-                    ForEach(state.outcomes.filter { $0.status != .removed }) { outcome in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(outcome.title)
-                            Text(outcome.message ?? "").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
+            NotRemovedList(state: state)
         }
     }
 
@@ -140,6 +144,7 @@ struct CleanSheet: View {
                 Button("Done") { model.finishClean() }
                     .buttonStyle(.lopperPrimary)
                     .keyboardShortcut(.defaultAction)
+                    .disabled(!state.working.isEmpty)
             }
         }
         .padding(Theme.Spacing.lg)

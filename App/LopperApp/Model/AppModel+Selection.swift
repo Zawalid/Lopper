@@ -119,6 +119,11 @@ extension AppModel {
         setSelection(Set(RowSelection.rows(sharing: affinity, among: rows, now: now).map(\.id)))
     }
 
+    /// Drops the selected worktrees that may hold work only in their folder, which git would not remove anyway.
+    func leaveOutFolderOnlyWork() {
+        setSelection(checked.subtracting(RowSelection.foldersWithOnlyWork(selection: checked, allRows: allRows)))
+    }
+
     func selectionSummary(shown rows: [CleanupRow]) -> SelectionSummary {
         RowSelection.summary(selection: checked, allRows: allRows, shownIDs: Set(rows.map(\.id)))
     }

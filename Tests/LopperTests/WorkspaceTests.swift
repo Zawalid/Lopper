@@ -92,4 +92,39 @@ final class WorkspaceTests: XCTestCase {
         let history = await workspace.history()
         XCTAssertEqual(history.last?.action, .trashFolder)
     }
+
+    func testAWorktreeWithChangesIsMovedToTheTrashAndCanBeBroughtBack() async throws {
+        let (repo, settings, log) = try fixture()
+        defer { withExtendedLifetime(repo) {} }
+        let wt = repo.sandbox.appendingPathComponent("wt-wip")
+        try repo.git("worktree", "add", wt.path, "wip")
+        try "unsaved".write(to: wt.appendingPathComponent("notes.md"), atomically: true, encoding: .utf8)
+        let trash = repo.sandbox.appendingPathComponent(".Trash")
+        let workspace = Workspace(
+            settings: settings, prProvider: nil, undoLog: UndoLog(url: log), trash: FolderTrash(folder: trash))
+        let scan = await workspace.scan()
+        let row = try XCTUnwrap(scan.rows.first { $0.path?.lastPathComponent == "wt-wip" })
+
+        let changes = await workspace.blockingChanges(of: row)
+        let outcome = await workspace.removeKeepingCopy(row)
+
+        XCTAssertEqual(changes.files.map(\.path), ["notes.md"])
+        guard case .removed(let record) = outcome else { return XCTFail("\(outcome)") }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: wt.path))
+        XCTAssertEqual(record.action, .trashWorktree)
+        guard case .restored = await workspace.restore(record) else { return XCTFail() }
+        XCTAssertEqual(try String(contentsOf: wt.appendingPathComponent("notes.md"), encoding: .utf8), "unsaved")
+    }
+
+    func testKeepingACopyIsRefusedForBranchesAndProtectedRows() async throws {
+        let (repo, settings, log) = try fixture()
+        defer { withExtendedLifetime(repo) {} }
+        let workspace = Workspace(settings: settings, prProvider: nil, undoLog: UndoLog(url: log))
+        let scan = await workspace.scan()
+
+        for row in scan.rows where row.kind == .branch || row.verdict == .protected {
+            guard case .skipped = await workspace.removeKeepingCopy(row) else { return XCTFail("\(row.title)") }
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: repo.root.path))
+    }
 }

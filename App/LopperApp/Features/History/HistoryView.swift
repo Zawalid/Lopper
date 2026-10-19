@@ -438,6 +438,12 @@ struct HistoryInspector: View {
                     Text(SizeFormat.string(bytes))
                 }
             }
+            if entry.keptInTrash {
+                GridRow {
+                    Text("Folder").foregroundStyle(.secondary)
+                    Text("In the Trash with every file. Restore puts it back as a worktree.")
+                }
+            }
             if entry.keptBranch {
                 GridRow {
                     Text("Branch").foregroundStyle(.secondary)

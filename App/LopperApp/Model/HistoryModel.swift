@@ -21,6 +21,9 @@ struct HistoryEntry: Identifiable, Equatable {
     let bytes: Int64?
     /// A worktree folder was removed but its branch was kept, so the work was never deleted.
     let keptBranch: Bool
+    /// The whole folder, changes and all, went to the Trash instead of being deleted. Its size is not freed until the
+    /// Trash is emptied.
+    let keptInTrash: Bool
 
     var canRestore: Bool { status == .removed }
 
@@ -152,7 +155,7 @@ enum HistoryBuilder {
         for record in shown where record.action == .deleteBranch && !paired.contains(record.id) {
             result.append(entry(primary: record, branchRecord: nil))
         }
-        for record in shown where record.action == .trashFolder {
+        for record in shown where record.action == .trashFolder || record.action == .trashWorktree {
             result.append(entry(primary: record, branchRecord: nil))
         }
         return result.sorted { $0.date > $1.date }
@@ -160,7 +163,7 @@ enum HistoryBuilder {
 
     private static func entry(primary: UndoRecord, branchRecord: UndoRecord?) -> HistoryEntry {
         let records = [branchRecord, primary].compactMap { $0 }
-        let isWorktree = primary.action == .removeWorktree
+        let isWorktree = primary.action == .removeWorktree || primary.action == .trashWorktree
         let statuses = records.map(\.status)
         let status: HistoryEntry.Status
         if statuses.contains(.completed) {
@@ -183,7 +186,8 @@ enum HistoryBuilder {
             status: status,
             reason: primary.reason ?? branchRecord?.reason,
             bytes: primary.bytes,
-            keptBranch: isWorktree && primary.branch != nil && branchRecord == nil)
+            keptBranch: isWorktree && primary.branch != nil && branchRecord == nil,
+            keptInTrash: primary.action == .trashWorktree)
     }
 
     static func batches(from entries: [HistoryEntry]) -> [HistoryBatch] {

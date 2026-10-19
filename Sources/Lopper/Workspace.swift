@@ -46,7 +46,7 @@ public struct Workspace: Sendable {
     }
 
     private var cleaner: Cleaner {
-        Cleaner(git: git, inspector: inspector, undoLog: undoLog, gate: gate)
+        Cleaner(git: git, inspector: inspector, undoLog: undoLog, gate: gate, trash: trash)
     }
 
     /// Finds the repositories under the configured folders, classifies every branch and worktree, and (unless
@@ -132,6 +132,25 @@ public struct Workspace: Sendable {
         }
         return BatchCleaner(cleaner: cleaner).run(
             items: items, now: now(), control: control, strictItemIDs: strict, sizeHints: hints, heldBack: heldBack)
+    }
+
+    /// Moves one worktree's whole folder to the Trash and drops git's record of it, for a folder that holds changes git
+    /// will not discard. The branch stays and History can undo it. No size is recorded as freed: the folder sits in the
+    /// Trash until it is emptied. One row at a time, never part of a batch of
+    /// removals: the person has to have seen this folder's files. A branch, a Protected row and a worktree an agent
+    /// may still be using are refused here, whatever the caller allowed.
+    public func removeKeepingCopy(_ row: CleanupRow, batchID: UUID = UUID()) async -> CleanOutcome {
+        if let refusal = row.keepCopyRefusal { return .skipped(reason: refusal) }
+        guard let path = row.path else { return .skipped(reason: "Only a worktree's folder can be moved to the Trash") }
+        return await cleaner.removeWorktreeKeepingCopy(
+            repoRoot: row.repoRoot, path: path, approved: row.verdict, batchID: batchID,
+            bytes: nil, now: now())
+    }
+
+    /// The files that stand in the way of removing this row's folder. Read only.
+    public func blockingChanges(of row: CleanupRow) async -> WorktreeChanges {
+        guard row.kind == .worktree, let path = row.path else { return .none }
+        return await WorktreeChanges.read(at: path, git: git)
     }
 
     public func history() async -> [UndoRecord] {

@@ -99,6 +99,9 @@ struct SelectionSummary: Equatable {
     var hidden = 0
     /// Selected rows that cannot be cleaned (protected). They stay selected so they can be looked at, and are never removed.
     var skipped = 0
+    /// Selected worktrees with changes or files git does not track, which may exist only in their folder: git will
+    /// not remove those, so they would come back as "not removed".
+    var folderOnlyWork = 0
 
     var isEmpty: Bool { count == 0 }
 }
@@ -192,7 +195,13 @@ enum RowSelection {
             summary.bytes += row.size ?? 0
             if row.verdict == .safe { summary.safe += 1 } else { summary.review += 1 }
             if !shownIDs.contains(row.id) { summary.hidden += 1 }
+            if row.mayHoldFolderOnlyWork { summary.folderOnlyWork += 1 }
         }
         return summary
+    }
+
+    /// The selected rows that may hold work only in their folder, so one click can leave exactly those out.
+    static func foldersWithOnlyWork(selection: Set<String>, allRows: [CleanupRow]) -> Set<String> {
+        Set(allRows.filter { selection.contains($0.id) && $0.isSelectable && $0.mayHoldFolderOnlyWork }.map(\.id))
     }
 }

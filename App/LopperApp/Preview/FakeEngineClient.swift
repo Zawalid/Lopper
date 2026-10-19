@@ -205,6 +205,31 @@ final class FakeEngineClient: EngineClient, @unchecked Sendable {
         }
     }
 
+    /// The files each worktree row is said to have, keyed by row id. A row not listed has none.
+    var changesByRow: [String: WorktreeChanges] = [:]
+    private(set) var blockingChangeRequests: [String] = []
+
+    func blockingChanges(of row: CleanupRow) async -> WorktreeChanges {
+        blockingChangeRequests.append(row.id)
+        return changesByRow[row.id] ?? .none
+    }
+
+    /// What moving a worktree's folder to the Trash gives back; by default it works and records a `.trashWorktree`.
+    var keepCopyOutcome: @Sendable (CleanupRow) -> CleanOutcome = { row in
+        .removed(UndoRecord(
+            timestamp: Fixtures.now, repoPath: row.repoRoot.path, action: .trashWorktree, branch: row.title,
+            tip: "abc", upstream: nil, worktreePath: row.path?.path, trashRef: "refs/lopper/trash/1/x",
+            status: .completed, batchID: UUID(), trashedPath: "/Users/me/.Trash/\(row.title)",
+            registrationBackup: "/tmp/records/x/y"))
+    }
+    private(set) var keptCopies: [String] = []
+
+    func removeKeepingCopy(_ row: CleanupRow, settings: Settings) async -> CleanOutcome {
+        keptCopies.append(row.id)
+        if let refusal = row.keepCopyRefusal { return .skipped(reason: refusal) }
+        return keepCopyOutcome(row)
+    }
+
     /// What `history()` returns, so a preview or test can show a log that survives the startup rescan.
     var historyRecords: [UndoRecord] = []
 

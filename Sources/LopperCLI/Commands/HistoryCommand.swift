@@ -20,6 +20,7 @@ enum HistoryFormat {
         switch record.action {
         case .deleteBranch: record.branch ?? "(branch)"
         case .removeWorktree: record.branch ?? URL(fileURLWithPath: record.worktreePath ?? "").lastPathComponent
+        case .trashWorktree: record.branch ?? URL(fileURLWithPath: record.worktreePath ?? "").lastPathComponent
         case .trashFolder: URL(fileURLWithPath: record.worktreePath ?? record.trashedPath ?? "").lastPathComponent
         }
     }
@@ -27,7 +28,7 @@ enum HistoryFormat {
     static func actionLabel(_ action: UndoAction) -> String {
         switch action {
         case .deleteBranch: "branch"
-        case .removeWorktree: "worktree"
+        case .removeWorktree, .trashWorktree: "worktree"
         case .trashFolder: "folder"
         }
     }
@@ -118,7 +119,7 @@ struct UndoCommand: AsyncParsableCommand {
                 let members = history.filter { $0.batchID == batch && $0.status == .completed }
                 // The engine restores branches first, then worktrees, then folders; the names must line up with that
                 // order or a failure would be reported against the wrong item.
-                let ordered = [UndoAction.deleteBranch, .removeWorktree, .trashFolder].flatMap { action in
+                let ordered = [UndoAction.deleteBranch, .removeWorktree, .trashWorktree, .trashFolder].flatMap { action in
                     members.filter { $0.action == action }
                 }
                 let results = await session.workspace.restoreBatch(batch)

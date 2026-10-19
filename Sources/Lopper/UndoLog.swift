@@ -5,6 +5,9 @@ public enum UndoAction: String, Codable, Sendable, Equatable {
     case removeWorktree
     /// A generated folder (node_modules, .next, ...) moved to the macOS Trash.
     case trashFolder
+    /// A worktree whose folder holds changes git would not discard: the whole folder moved to the macOS Trash and git's
+    /// record of it dropped. The branch stays, and the record keeps what is needed to put both back.
+    case trashWorktree
 }
 
 public enum UndoStatus: String, Codable, Sendable, Equatable {
@@ -40,12 +43,16 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
     /// Who the trashed folder was (device and inode), so a different folder that later takes the same name in the Trash
     /// is never mistaken for it. Absent in records written before this field existed.
     public var trashedIdentity: String?
+    /// For `.trashWorktree`: Lopper's copy of git's own record of the worktree (its index, HEAD and links), which
+    /// is what lets the restored folder be a worktree again. Absent for every other action.
+    public var registrationBackup: String?
 
     public init(
         id: UUID = UUID(), timestamp: Date, repoPath: String, action: UndoAction, branch: String?,
         tip: String, upstream: String?, worktreePath: String?, trashRef: String,
         status: UndoStatus, detail: String? = nil, batchID: UUID? = nil,
-        reason: String? = nil, bytes: Int64? = nil, trashedPath: String? = nil, trashedIdentity: String? = nil
+        reason: String? = nil, bytes: Int64? = nil, trashedPath: String? = nil, trashedIdentity: String? = nil,
+        registrationBackup: String? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -63,6 +70,7 @@ public struct UndoRecord: Codable, Sendable, Equatable, Identifiable {
         self.bytes = bytes
         self.trashedPath = trashedPath
         self.trashedIdentity = trashedIdentity
+        self.registrationBackup = registrationBackup
     }
 
     /// `device:inode` of what is at `path` now, without following links. Nil when nothing is there.

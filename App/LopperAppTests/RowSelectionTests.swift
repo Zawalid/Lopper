@@ -162,6 +162,20 @@ final class RowSelectionTests: XCTestCase {
         XCTAssertEqual(summary.skipped, 1)
     }
 
+    func testTheSummaryCountsSelectedWorktreesThatMayHoldWorkOnlyInTheirFolder() {
+        let all = [
+            row("clean"), row("modified", .review, dirty: true), row("untracked", .review, extra: ["notes.md"]),
+            row("branch", .review, kind: .branch, dirty: true), row("locked", .protected, dirty: true),
+            row("notPicked", .review, dirty: true),
+        ]
+
+        let summary = RowSelection.summary(
+            selection: ["clean", "modified", "untracked", "branch", "locked"], allRows: all, shownIDs: Set(all.map(\.id)))
+
+        XCTAssertEqual(summary.folderOnlyWork, 2, "only picked, cleanable worktrees with changes or untracked files count")
+        XCTAssertEqual(RowSelection.foldersWithOnlyWork(selection: ["clean", "modified", "untracked"], allRows: all), ["modified", "untracked"])
+    }
+
     func testAnEmptySelectionSaysSo() {
         XCTAssertTrue(RowSelection.summary(selection: [], allRows: [row("a")], shownIDs: ["a"]).isEmpty)
     }

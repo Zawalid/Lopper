@@ -317,7 +317,10 @@ private struct SelectionBar: View {
         @Bindable var model = model
         let summary = model.selectionSummary(shown: shown)
         HStack(spacing: Theme.Spacing.md) {
-            SelectionSummaryText(summary: summary)
+            VStack(alignment: .leading, spacing: 2) {
+                SelectionSummaryText(summary: summary)
+                if summary.folderOnlyWork > 0 { folderOnlyWarning(summary.folderOnlyWork) }
+            }
             Spacer()
             Menu {
                 ForEach(0..<3, id: \.self) { group in
@@ -365,6 +368,24 @@ private struct SelectionBar: View {
 }
 
 /// "3 selected · 180.2 MB · 2 Safe, 1 Review", plus what is not obvious: rows a filter hides and rows that cannot go.
+extension SelectionBar {
+    /// Worktrees with changes or untracked files hold work that may exist only in their folder, and git will not remove
+    /// those: say so before the review sheet, with one click to leave them out.
+    fileprivate func folderOnlyWarning(_ count: Int) -> some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(.secondary)
+            Text("\(Plural.count(count, "worktree")) may have changes that exist only in their folder, so git will skip them")
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Button("Leave those out") { model.leaveOutFolderOnlyWork() }
+                .buttonStyle(.lopperLink)
+                .help("Take these off the selection. Nothing in them is touched.")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+}
+
 struct SelectionSummaryText: View {
     let summary: SelectionSummary
 

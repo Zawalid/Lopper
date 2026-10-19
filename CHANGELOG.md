@@ -6,6 +6,17 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Added
+- When a removal leaves a worktree alone because its folder holds changes, the "Not removed" list now says so in plain
+  words and shows which files are in the way (changed, new, deleted, not tracked), with Show in Finder, Open in
+  Terminal, Copy file list and Retry.
+- "Remove anyway, keep a copy" for such a worktree: the whole folder moves to the Trash with every file in it, git lets
+  go of the worktree, and the branch stays. History restores the folder and the worktree together for as long as the
+  folder is in the Trash. It is offered one worktree at a time, after you have seen the files, and never for a
+  worktree an agent may still be using, a locked one, or a Protected one. Nothing is ever forced.
+- Before you start, the review sheet and the selection footer warn about worktrees that hold changes only in their
+  folder, which git would skip, with one click to leave those out.
+
 ## [0.5.2] - 2026-10-19
 
 ### Added

@@ -29,6 +29,11 @@ protocol EngineClient: Sendable {
         _ items: [CleanupItem], settings: Settings, control: BatchControl, strictItemIDs: Set<String>,
         sizeHints: [String: Int64]
     ) -> AsyncStream<BatchEvent>
+    /// The files that stand in the way of removing this worktree's folder. Reads git; changes nothing.
+    func blockingChanges(of row: CleanupRow) async -> WorktreeChanges
+    /// Moves one worktree's whole folder to the Trash and drops git's record of it, keeping the branch. Refuses
+    /// branches, Protected rows and worktrees an agent may still be using.
+    func removeKeepingCopy(_ row: CleanupRow, settings: Settings) async -> CleanOutcome
     func history() async -> [UndoRecord]
     /// Cleared folders that are still in the Trash.
     func trashedFolders() async -> [UndoRecord]
@@ -124,6 +129,18 @@ struct LiveEngineClient: EngineClient {
     ) -> AsyncStream<BatchEvent> {
         BatchCleaner(cleaner: cleaner(settings)).run(
             items: items, control: control, strictItemIDs: strictItemIDs, sizeHints: sizeHints)
+    }
+
+    func blockingChanges(of row: CleanupRow) async -> WorktreeChanges {
+        guard row.kind == .worktree, let path = row.path else { return .none }
+        return await WorktreeChanges.read(at: path, git: git)
+    }
+
+    func removeKeepingCopy(_ row: CleanupRow, settings: Settings) async -> CleanOutcome {
+        if let refusal = row.keepCopyRefusal { return .skipped(reason: refusal) }
+        guard let path = row.path else { return .skipped(reason: "Only a worktree's folder can be moved to the Trash") }
+        return await cleaner(settings).removeWorktreeKeepingCopy(
+            repoRoot: row.repoRoot, path: path, approved: row.verdict, batchID: UUID(), bytes: nil)
     }
 
     func history() async -> [UndoRecord] {

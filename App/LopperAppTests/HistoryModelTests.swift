@@ -58,6 +58,29 @@ final class HistoryModelTests: XCTestCase {
         XCTAssertTrue(entries[0].canRestore)
     }
 
+    func testAWorktreeMovedToTheTrashIsOneRestorableWorktreeEntryThatKeptItsBranch() {
+        let kept = UndoRecord(
+            timestamp: now, repoPath: "/code/api", action: .trashWorktree, branch: "feat/notes", tip: "abc", upstream: nil,
+            worktreePath: "/code/wt/notes", trashRef: "refs/lopper/trash/1/feat-notes", status: .completed,
+            batchID: UUID(), reason: "Not merged", trashedPath: "/Users/me/.Trash/notes", registrationBackup: "/x/y/z")
+
+        let entries = HistoryBuilder.entries(from: [kept])
+
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0].kind, .worktree)
+        XCTAssertEqual(entries[0].title, "feat/notes")
+        XCTAssertTrue(entries[0].keptBranch)
+        XCTAssertTrue(entries[0].keptInTrash)
+        XCTAssertTrue(entries[0].canRestore)
+        XCTAssertEqual(entries[0].records.map(\.action), [.trashWorktree])
+    }
+
+    func testOrdinaryEntriesAreNotMarkedAsKeptInTheTrash() {
+        let entries = HistoryBuilder.entries(from: [record(.removeWorktree, branch: "feat/a", batch: UUID())])
+
+        XCTAssertFalse(entries[0].keptInTrash)
+    }
+
     func testAWorktreeWithoutABranchDeletionKeptItsBranch() {
         let entries = HistoryBuilder.entries(from: [record(.removeWorktree, branch: "feat/spike", batch: UUID())])
 

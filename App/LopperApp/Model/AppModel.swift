@@ -70,6 +70,9 @@ struct ItemOutcome: Identifiable, Equatable {
     let title: String
     let status: Status
     let message: String?
+
+    /// Why it was left, from the words the engine reported.
+    var refusal: RemovalRefusal { RemovalRefusal.classify(message ?? "") }
 }
 
 struct CleanState: Equatable {
@@ -91,8 +94,19 @@ struct CleanState: Equatable {
     /// The user pressed Stop: the item in flight finishes, then the batch ends.
     var isStopping = false
 
+    /// The files that stand in the way of removing a worktree, by row id. Read before the removal, to warn about
+    /// the ones git would skip, and again for an item that was not removed.
+    var changes: [String: WorktreeChanges] = [:]
+    /// Item ids being retried or moved to the Trash right now.
+    var working: Set<String> = []
+
     var includedRows: [CleanupRow] { rows.filter { !excluded.contains($0.id) } }
     var includedBytes: Int64 { includedRows.reduce(0) { $0 + ($1.size ?? 0) } }
+    /// Included worktrees that have files git will not let go of, so they would come back as "not removed".
+    var blockedRows: [CleanupRow] { includedRows.filter { (changes[$0.id]?.total ?? 0) > 0 } }
+
+    /// The row an outcome is about, found through the engine item it came from.
+    func row(forOutcome id: String) -> CleanupRow? { rows.first { $0.cleanupItem?.id == id } }
     var removedCount: Int { removedRows }
     var problemCount: Int { outcomes.filter { $0.status != .removed }.count }
 }
@@ -1241,7 +1255,7 @@ final class AppModel {
                 case .itemFinished(_, let item, let outcome):
                     let row = rowsByItemID[item.id]
                     let title = row?.title ?? Self.title(of: item)
-                    current.outcomes.append(Self.outcome(id: item.id, title: title, outcome))
+                    current.outcomes.append(Self.itemOutcome(id: item.id, title: title, outcome))
                     switch outcome {
                     case .skipped(let reason): record(.cleanProblem, "\(title) skipped: \(reason)")
                     case .failed(let message): record(.cleanProblem, "\(title) failed: \(message)")
@@ -1293,7 +1307,7 @@ final class AppModel {
         }
     }
 
-    private static func outcome(id: String, title: String, _ outcome: CleanOutcome) -> ItemOutcome {
+    static func itemOutcome(id: String, title: String, _ outcome: CleanOutcome) -> ItemOutcome {
         switch outcome {
         case .removed: ItemOutcome(id: id, title: title, status: .removed, message: nil)
         case .skipped(let reason): ItemOutcome(id: id, title: title, status: .skipped, message: reason)

@@ -95,6 +95,20 @@ public struct CleanupRow: Identifiable, Equatable, Sendable {
         return agent.sheetNote.isEmpty ? "Lopper will not remove this from here." : agent.sheetNote
     }
 
+    /// A worktree with uncommitted changes or files git does not track: work that may exist only in its folder, which is
+    /// what makes git refuse to remove it. A cheap hint from the scan; `WorktreeChanges` gives the exact files.
+    public var mayHoldFolderOnlyWork: Bool {
+        kind == .worktree && (facts.isDirty || !extraFiles.isEmpty)
+    }
+
+    /// Why this row may never be moved to the Trash with its folder, or nil when it may. A branch has no folder, a
+    /// Protected row is never removed, and a worktree an agent may still be using is left to the agent.
+    public var keepCopyRefusal: String? {
+        guard kind == .worktree, path != nil else { return "Only a worktree's folder can be moved to the Trash" }
+        guard isSelectable else { return "Protected items are never removed" }
+        return agentHeldBackReason
+    }
+
     public var lastCommitSort: Date { lastCommit ?? .distantPast }
     public var sizeSort: Int64 { size ?? -1 }
 
