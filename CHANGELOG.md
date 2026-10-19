@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-19
+
 ### Added
 - Choosing rows is much easier on the repository page. Click a row, Shift-click for a range, Command-click to add or
   remove one, Shift with the arrow keys to extend, and Command-A for everything shown. The checkboxes follow the same

@@ -17,5 +17,5 @@ public struct Lop: AsyncParsableCommand {
 }
 
 public enum LopVersion {
-    public static let current = "0.5.1"
+    public static let current = "0.5.2"
 }
