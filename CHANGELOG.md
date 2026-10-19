@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-19
+
 ### Fixed
 - Lopper no longer slows the whole Mac down while it measures folder sizes on a large scan. Sizes are measured two
   folders at a time instead of four, the walk does less work per file, a new scan stops the old walk at once instead of
