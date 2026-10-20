@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-20
+
 ### Fixed
 - Scanning while offline no longer takes minutes. Lopper asked GitHub about every repository separately and waited for
   each to give up, so 84 repositories could take over three minutes. It now gives up after 15 seconds, and once GitHub

@@ -47,7 +47,7 @@ targets:
         PRODUCT_NAME: Lopper
         PRODUCT_MODULE_NAME: LopperApp
         PRODUCT_BUNDLE_IDENTIFIER: com.zawalid.lopper
-        MARKETING_VERSION: 0.6.0
+        MARKETING_VERSION: 0.6.1
         CURRENT_PROJECT_VERSION: 1
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Lopper
