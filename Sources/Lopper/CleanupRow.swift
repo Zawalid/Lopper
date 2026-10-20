@@ -10,10 +10,13 @@ public struct RowFacts: Equatable, Sendable {
     public var isDirty: Bool
     public var defaultBranch: String?
     public var prDetectionAvailable: Bool
+    /// Pull requests were not checked because GitHub could not be reached.
+    public var prOffline: Bool
 
     public init(
         evidence: MergeEvidence = .none, tip: String? = nil, upstream: String? = nil, ahead: Int? = nil,
-        behind: Int? = nil, isDirty: Bool = false, defaultBranch: String? = nil, prDetectionAvailable: Bool = true
+        behind: Int? = nil, isDirty: Bool = false, defaultBranch: String? = nil, prDetectionAvailable: Bool = true,
+        prOffline: Bool = false
     ) {
         self.evidence = evidence
         self.tip = tip
@@ -23,6 +26,7 @@ public struct RowFacts: Equatable, Sendable {
         self.isDirty = isDirty
         self.defaultBranch = defaultBranch
         self.prDetectionAvailable = prDetectionAvailable
+        self.prOffline = prOffline
     }
 }
 
@@ -165,7 +169,7 @@ public enum RowMapper {
                     behind: snapshot.branches.first { $0.name == worktree.branch }?.behind,
                     isDirty: worktree.status.isDirty,
                     defaultBranch: repo.defaultBranch,
-                    prDetectionAvailable: snapshot.prDetectionAvailable),
+                    prDetectionAvailable: snapshot.prDetectionAvailable, prOffline: snapshot.prOffline),
                 // A size measured before the latest scan still fills the Size column, but its activity time is
                 // stale: the folder may have been recreated or switched to other work since.
                 agent: AgentAssessor.assess(
@@ -199,7 +203,7 @@ public enum RowMapper {
                 facts: RowFacts(
                     evidence: branch.evidence, tip: branch.tip, upstream: branch.upstream,
                     ahead: branch.ahead, behind: branch.behind, isDirty: false,
-                    defaultBranch: repo.defaultBranch, prDetectionAvailable: snapshot.prDetectionAvailable)))
+                    defaultBranch: repo.defaultBranch, prDetectionAvailable: snapshot.prDetectionAvailable, prOffline: snapshot.prOffline)))
         }
 
         return rows.sorted(by: defaultOrder)

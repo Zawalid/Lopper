@@ -416,8 +416,29 @@ final class AppModel {
     /// lookup failed. A repository with no remote, or one on another host, has nothing for `gh` to find.
     var prDetectionNote: Bool {
         snapshots.contains { snapshot in
-            !snapshot.prDetectionAvailable && RemoteLinks.repository(remoteURL: snapshot.repo.remoteURL) != nil
+            !snapshot.prDetectionAvailable && !snapshot.prOffline
+                && RemoteLinks.repository(remoteURL: snapshot.repo.remoteURL) != nil
         }
+    }
+
+    /// Repositories on GitHub whose pull requests were not checked because GitHub could not be reached. A repository
+    /// with no GitHub remote has nothing to be offline about.
+    var offlineRepositoryCount: Int {
+        snapshots.filter { $0.prOffline && RemoteLinks.repository(remoteURL: $0.repo.remoteURL) != nil }.count
+    }
+
+    var isOffline: Bool { offlineRepositoryCount > 0 }
+
+    /// What being offline changes, in one sentence, and what to do about it.
+    var offlineMessage: String {
+        "Lopper can't reach GitHub, so pull requests were not checked. Branches merged through a pull request show as "
+            + "Review until you are back online."
+    }
+
+    /// The connection came back. If pull requests were skipped, look again without being asked.
+    func networkBecameReachable() {
+        guard isOffline, !isScanning, !isCleaning else { return }
+        startScan()
     }
 
     // MARK: Settings
@@ -873,6 +894,8 @@ final class AppModel {
 
     func startScan() {
         guard !settings.roots.isEmpty, !isCleaning else { return }
+        // A pull request lookup that found nothing because GitHub was out of reach must be asked again.
+        pullRequests = pullRequests.filter { $0.value != nil }
         scanTask?.cancel()
         scanTaskCompleted = false
         let progressive = results.isEmpty

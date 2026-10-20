@@ -34,6 +34,20 @@ public final class GitHubReachability: Sendable {
         offlineUntil.withLock { $0 = nil }
     }
 
+    /// Forgets the memory. A scan a person starts always tries GitHub again, so coming back online is noticed at once.
+    public func reset() { recordSuccess() }
+
+    /// True when `error` means GitHub could not be reached: skipped because an earlier call found it unreachable, timed
+    /// out, or `gh` printed a no-network message.
+    public static func isNetworkError(_ error: Error) -> Bool {
+        if (error as? GhCliProvider.Unavailable) == .offline { return true }
+        switch error as? CommandError {
+        case .timedOut: return true
+        case .failed(_, _, let stderr): return looksLikeNoNetwork(stderr)
+        default: return false
+        }
+    }
+
     /// True for the messages `gh` prints when it cannot reach GitHub at all. A repository that is not on GitHub, or a
     /// login that is missing, says nothing about the others and is not matched.
     public static func looksLikeNoNetwork(_ stderr: String) -> Bool {

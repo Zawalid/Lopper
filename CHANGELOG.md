@@ -11,6 +11,9 @@ work lands; `scripts/release.sh` moves them under the new version.
   each to give up, so 84 repositories could take over three minutes. It now gives up after 15 seconds, and once GitHub
   cannot be reached it skips the others and tries again on the next scan. Without GitHub, rows still show, but a branch
   can only be called Safe when git itself proves it is merged.
+- When GitHub cannot be reached, Lopper now says so: a banner on the Overview, repository and Agents pages with a
+  "Check again" button, a line in the sidebar, and a plain explanation in the details panel instead of a request to
+  install the GitHub CLI. Lopper also checks again by itself when your connection comes back.
 
 ## [0.6.0] - 2026-10-20
 

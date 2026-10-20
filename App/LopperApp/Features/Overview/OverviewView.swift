@@ -68,6 +68,7 @@ struct OverviewContent: View {
                     openSettings()
                 })
         }
+        OfflineBanner()
         if model.localOnlySummary.items > 0, !dismissedLocalOnlyBanner, model.setupIssue == nil {
             Banner(
                 symbol: "icloud.slash",

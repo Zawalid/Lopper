@@ -442,6 +442,15 @@ private struct ScanStatus: View {
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.vertical, Theme.Spacing.sm)
             .accessibilityElement(children: .combine)
+        } else if model.isOffline {
+            Label("Offline: pull requests not checked", systemImage: "wifi.slash")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.vertical, Theme.Spacing.sm)
+                .help(model.offlineMessage)
         } else if model.totals.reclaimableBytes > 0 {
             Button {
                 model.route = .overview

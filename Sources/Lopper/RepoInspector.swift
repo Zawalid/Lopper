@@ -30,6 +30,7 @@ public struct RepoInspector: Sendable {
         let aheadBehindByTip: [String: (ahead: Int, behind: Int)]
         let mergedPRs: [MergedPR]
         let prAvailable: Bool
+        let prOffline: Bool
     }
 
     private func makeContext(repoRoot: URL) async throws -> Context {
@@ -48,6 +49,7 @@ public struct RepoInspector: Sendable {
 
         var mergedPRs: [MergedPR] = []
         var prAvailable = false
+        var prOffline = false
         if let prProvider {
             do {
                 // A PR merged into some other branch (a stacked PR, an abandoned integration branch)
@@ -57,6 +59,7 @@ public struct RepoInspector: Sendable {
                 prAvailable = true
             } catch {
                 prAvailable = false
+                prOffline = GitHubReachability.isNetworkError(error)
             }
         }
         let listedWorktrees = GitParsers.parseWorktreeList(worktreeText)
@@ -98,7 +101,7 @@ public struct RepoInspector: Sendable {
             branchesInOperation: inOperation,
             aheadBehindByTip: counts,
             mergedPRs: mergedPRs,
-            prAvailable: prAvailable)
+            prAvailable: prAvailable, prOffline: prOffline)
     }
 
     /// How many branches of one repository are judged at the same time. The scan already runs several repositories
@@ -152,7 +155,7 @@ public struct RepoInspector: Sendable {
             defaultBranch: context.defaultName, remoteURL: remoteURL)
         return RepoSnapshot(
             repo: repo, branches: branchEntries, worktrees: worktreeEntries,
-            prDetectionAvailable: context.prAvailable, scannedAt: now)
+            prDetectionAvailable: context.prAvailable, prOffline: context.prOffline, scannedAt: now)
     }
 
     /// True when the user hid this repository; scans skip it entirely.

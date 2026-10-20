@@ -77,7 +77,9 @@ struct LiveEngineClient: EngineClient {
     }
 
     func scan(settings: Settings) -> AsyncStream<ScanEvent> {
-        ScanService(
+        // A scan a person asked for always tries GitHub again, so coming back online is noticed straight away.
+        GitHubReachability.shared.reset()
+        return ScanService(
             inspector: inspector(settings),
             scanner: RepoScanner(excludePatterns: settings.excludePatterns),
             gate: gate

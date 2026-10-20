@@ -109,10 +109,23 @@ extension GhCliProvider {
     /// call fails for any reason. Only ever called for the one item being looked at.
     public func pullRequestStatus(forBranch branch: String, in repoRoot: URL) async -> PullRequestStatus? {
         guard !branch.isEmpty, !branch.hasPrefix("-") else { return nil }
-        guard let output = try? await runner.run(
-            ["pr", "list", "--head", branch, "--state", "all", "--limit", "10",
-             "--json", "number,title,state,isDraft,reviewDecision,url,updatedAt,statusCheckRollup"],
-            in: repoRoot), output.succeeded else { return nil }
+        guard !reachability.isOffline else { return nil }
+        let output: CommandOutput
+        do {
+            output = try await runner.run(
+                ["pr", "list", "--head", branch, "--state", "all", "--limit", "10",
+                 "--json", "number,title,state,isDraft,reviewDecision,url,updatedAt,statusCheckRollup"],
+                in: repoRoot)
+        } catch {
+            if GitHubReachability.isNetworkError(error) { reachability.recordNetworkFailure() }
+            return nil
+        }
+        if output.succeeded {
+            reachability.recordSuccess()
+        } else {
+            if GitHubReachability.looksLikeNoNetwork(output.stderr) { reachability.recordNetworkFailure() }
+            return nil
+        }
         return (try? PullRequestStatus.decode(output.stdout)).flatMap(PullRequestStatus.mostRelevant)
     }
 }

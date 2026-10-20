@@ -10,12 +10,14 @@ struct LopperApp: App {
         model.digest = SystemDigestNotifier()
         return model
     }()
+    @State private var network = NetworkMonitor()
 
     var body: some Scene {
         Window("Lopper", id: "main") {
             RootView()
                 .environment(model)
                 .environment(updater)
+                .task { network.start { model.networkBecameReachable() } }
                 #if DEBUG
                 .task { await ScreenshotMode.runIfRequested(model: model) }
                 .task { await DemoTour.runIfRequested(model: model) }

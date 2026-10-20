@@ -3,7 +3,7 @@ import Foundation
 /// Reads merged pull requests through the GitHub CLI (`gh`). One call per repository.
 public struct GhCliProvider: PRProvider {
     let runner: CommandRunner
-    private let reachability: GitHubReachability
+    let reachability: GitHubReachability
 
     /// Why GitHub was not asked at all.
     public enum Unavailable: Error, Equatable, Sendable {

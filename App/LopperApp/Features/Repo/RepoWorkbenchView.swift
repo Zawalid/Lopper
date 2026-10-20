@@ -45,7 +45,14 @@ struct RepoWorkbenchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // Filters sit above the table rather than in the toolbar: the toolbar already carries the title,
         // search, rescan and inspector, and a segmented control there squeezed the title and subtitle.
-        .safeAreaInset(edge: .top, spacing: 0) { FilterBar(shown: visible) }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                if model.isOffline {
+                    OfflineBanner().padding(.horizontal, Theme.Spacing.lg).padding(.vertical, Theme.Spacing.sm)
+                }
+                FilterBar(shown: visible)
+            }
+        }
         .safeAreaInset(edge: .bottom) { SelectionBar(repoID: repoID, shown: visible) }
         .inspector(isPresented: $model.showInspector) {
             InspectorView()

@@ -105,16 +105,20 @@ public struct RepoSnapshot: Sendable, Equatable {
     public let worktrees: [WorktreeEntry]
     /// False when no provider was configured or the provider failed (gh missing, not signed in, ...).
     public let prDetectionAvailable: Bool
+    /// True when pull requests were not checked because GitHub could not be reached, as opposed to `gh` being missing
+    /// or signed out. The app then says "offline" instead of asking for something to be installed.
+    public let prOffline: Bool
     public let scannedAt: Date
 
     public init(
         repo: Repo, branches: [BranchEntry], worktrees: [WorktreeEntry],
-        prDetectionAvailable: Bool, scannedAt: Date
+        prDetectionAvailable: Bool, prOffline: Bool = false, scannedAt: Date
     ) {
         self.repo = repo
         self.branches = branches
         self.worktrees = worktrees
         self.prDetectionAvailable = prDetectionAvailable
+        self.prOffline = prOffline
         self.scannedAt = scannedAt
     }
 }

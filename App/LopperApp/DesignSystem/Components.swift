@@ -493,6 +493,22 @@ struct Banner: View {
     }
 }
 
+/// Shown wherever pull requests matter while GitHub cannot be reached: what is different, and a way to try again.
+struct OfflineBanner: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        if model.isOffline {
+            Banner(
+                symbol: "wifi.slash",
+                message: model.offlineMessage,
+                actionTitle: model.isScanning ? nil : "Check again",
+                action: { model.startScan() })
+                .help("Lopper looks again by itself when your connection returns")
+        }
+    }
+}
+
 struct EmptyState: View {
     let symbol: String
     let title: String

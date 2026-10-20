@@ -45,6 +45,7 @@ struct WhyCommand: AsyncParsableCommand {
         }
         if let upstream = row.facts.upstream { field("Upstream", upstream) }
         if let number = row.prNumber { field("Pull request", "#\(number)" + (row.prURL.map { "  \($0.absoluteString)" } ?? "")) }
+        else if row.facts.prOffline { field("Pull requests", "not checked (GitHub could not be reached)") }
         else if !row.facts.prDetectionAvailable { field("Pull requests", "not checked (install the GitHub CLI to check them)") }
         if let path = row.path { field("Folder", path.path) }
         if let size = row.size { field("Size", Format.bytes(size)) }

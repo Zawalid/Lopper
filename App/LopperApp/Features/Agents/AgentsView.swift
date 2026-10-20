@@ -203,6 +203,7 @@ private struct HeaderStrip: View {
                         + "Agent worktrees there are not shown.",
                     actionTitle: "Rescan", action: { model.startScan() })
             }
+            OfflineBanner()
             if model.prDetectionNote {
                 Banner(
                     symbol: "link",

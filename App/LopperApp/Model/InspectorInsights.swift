@@ -175,7 +175,9 @@ enum InspectorInsights {
             }
             return EvidenceCheck(
                 id: "pr", state: .neutral, title: "Pull requests were not checked",
-                detail: "Install the GitHub CLI to check them.")
+                detail: facts.prOffline
+                    ? "GitHub could not be reached. They are checked again when you are back online."
+                    : "Install the GitHub CLI to check them.")
         }
     }
 
