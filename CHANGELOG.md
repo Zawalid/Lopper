@@ -6,6 +6,12 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Fixed
+- Scanning while offline no longer takes minutes. Lopper asked GitHub about every repository separately and waited for
+  each to give up, so 84 repositories could take over three minutes. It now gives up after 15 seconds, and once GitHub
+  cannot be reached it skips the others and tries again on the next scan. Without GitHub, rows still show, but a branch
+  can only be called Safe when git itself proves it is merged.
+
 ## [0.6.0] - 2026-10-20
 
 ### Added
