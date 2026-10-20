@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-20
+
 ### Added
 - When a removal leaves a worktree alone because its folder holds changes, the "Not removed" list now says so in plain
   words and shows which files are in the way (changed, new, deleted, not tracked), with Show in Finder, Open in
