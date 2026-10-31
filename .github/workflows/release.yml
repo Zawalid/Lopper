@@ -1,6 +1,7 @@
 name: Release
 
-# Pushing a tag like v0.2.0 (made by scripts/release.sh) builds the app, packs a DMG and publishes a GitHub Release.
+# Pushing a tag like v0.2.0 (made by scripts/release.sh) builds the app, packs a DMG and creates a DRAFT GitHub Release.
+# Try the DMG from the draft, then publish it: gh release edit vX.Y.Z --draft=false.
 # Without signing secrets the app is ad hoc signed (people confirm it once with Open Anyway in System Settings). Add the secrets
 # below and the same workflow signs with a Developer ID certificate and notarizes the DMG.
 on:
@@ -9,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   release:
@@ -38,12 +40,25 @@ jobs:
 
       - run: brew install xcodegen
 
-      - name: Run the engine tests
+      - name: Require a green CI run on this commit
+        # The tests already run in ci.yml on every push. Running them again here can fail on a slow runner and forces the
+        # tag to be moved. Instead the release waits for that run: if it failed, fix the cause, re-run the failed CI
+        # jobs from the Actions tab, then re-run this workflow. The tag never has to move.
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git config --global user.email "ci@example.com"
-          git config --global user.name "CI"
-          git config --global init.defaultBranch main
-          swift test
+          for attempt in $(seq 1 60); do
+            RESULT="$(gh run list --workflow ci.yml --commit "$GITHUB_SHA" --json status,conclusion \
+              --jq 'map(select(.status == "completed")) | (.[0].conclusion // "pending")')"
+            echo "CI for $GITHUB_SHA: $RESULT (check $attempt)"
+            case "$RESULT" in
+              success) exit 0 ;;
+              pending) sleep 30 ;;
+              *) echo "CI did not pass on this commit: $RESULT" >&2; exit 1 ;;
+            esac
+          done
+          echo "No finished CI run for this commit after 30 minutes" >&2
+          exit 1
 
       - name: Import the signing certificate
         if: env.HAS_SIGNING == 'true'
@@ -127,8 +142,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PRERELEASE=""
-          case "$VERSION" in *-*) PRERELEASE="--prerelease";; esac
+          # Always a draft: try the DMG, then publish with: gh release edit vX.Y.Z --draft=false
+          PRERELEASE="--draft"
+          case "$VERSION" in *-*) PRERELEASE="--draft --prerelease";; esac
           UPDATE_FILES=()
           if [ -f build/appcast/appcast.xml ]; then
             UPDATE_FILES=(build/appcast/appcast.xml "build/appcast/Lopper-$VERSION.zip")

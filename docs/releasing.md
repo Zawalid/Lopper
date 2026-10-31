@@ -23,9 +23,17 @@ How a new version gets from `main` to a download. One command cuts it, one push 
    `MARKETING_VERSION`, commits `chore: release v0.2.0` and tags `v0.2.0`. It never pushes.
 5. Publish: `git push origin main --follow-tags`.
 
-The tag starts `.github/workflows/release.yml`: it checks that the tag matches `MARKETING_VERSION`, runs the engine tests,
-builds the app, packs `Lopper-0.2.0.dmg`, writes a SHA-256 file and creates the GitHub Release with the changelog entry
+The tag starts `.github/workflows/release.yml`: it checks that the tag matches `MARKETING_VERSION`, **waits for a green
+`ci.yml` run on that commit** (it does not run the tests again), builds the app, packs `Lopper-0.2.0.dmg`, writes a SHA-256
+file, builds the update feed when the Sparkle key is set, and creates a **draft** GitHub Release with the changelog entry
 as its notes.
+
+6. Try the draft: download the DMG from it and go through `docs/install.md` on a clean account.
+7. Publish it: `gh release edit v0.2.0 --draft=false`. The `releases/latest/download/...` links, the update feed and the
+   Homebrew cask only work once it is published.
+
+If the gate fails, fix the cause on `main`, let CI go green, then re-run the failed release workflow from the Actions tab.
+The tag never has to move.
 
 ## Signing and notarization
 
