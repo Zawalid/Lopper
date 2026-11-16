@@ -6,6 +6,8 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-16
+
 ### Fixed
 - Lopper no longer thinks you are offline when GitHub simply does not know a repository (a private one gh cannot see,
   a renamed or deleted one, a remote that points elsewhere). 0.6.1 read gh's answer "Could not resolve to a
