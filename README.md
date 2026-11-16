@@ -291,7 +291,7 @@ things need tests that prove the safety rules still hold. For security problems 
 
 ## Author
 
-Made by [Walid Zakan](https://zawalid.com) &nbsp;·&nbsp; [GitHub](https://github.com/Zawalid) &nbsp;·&nbsp; [X](https://x.com/Zawaalid)
+Made by [Walid Zakan](https://zawalid.com) &nbsp;·&nbsp; [GitHub](https://github.com/Zawalid) &nbsp;·&nbsp; [X](https://x.com/Zawaalid) &nbsp;·&nbsp; [More Mac apps](https://mac.zawalid.com)
 
 ## License
 
