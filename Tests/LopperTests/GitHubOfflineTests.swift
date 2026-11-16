@@ -47,6 +47,10 @@ final class GitHubOfflineTests: XCTestCase {
         XCTAssertFalse(GitHubReachability.looksLikeNoNetwork("HTTP 404: Not Found (https://api.github.com/repos/x/y)"))
         XCTAssertFalse(GitHubReachability.looksLikeNoNetwork("To get started with GitHub CLI, please run: gh auth login"))
         XCTAssertFalse(GitHubReachability.looksLikeNoNetwork("none of the git remotes point to a known GitHub host"))
+        // A repository gh cannot see (private, renamed, deleted) is an answer from GitHub, not a missing connection.
+        XCTAssertFalse(GitHubReachability.looksLikeNoNetwork(
+            "GraphQL: Could not resolve to a Repository with the name 'acme/web'. (repository)"))
+        XCTAssertTrue(GitHubReachability.looksLikeNoNetwork("curl: (6) Could not resolve host: api.github.com"))
     }
 
     // MARK: The provider asks once

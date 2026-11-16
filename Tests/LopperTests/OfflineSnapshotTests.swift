@@ -36,6 +36,11 @@ final class OfflineSnapshotTests: XCTestCase {
         let signedOut = try await snapshot(failingWith: CommandError.failed(
             command: "gh pr list", exitCode: 4, stderr: "To get started with GitHub CLI, please run:  gh auth login"))
 
+        let notFound = try await snapshot(failingWith: CommandError.failed(
+            command: "gh pr list", exitCode: 1,
+            stderr: "GraphQL: Could not resolve to a Repository with the name 'acme/web'. (repository)"))
+
+        XCTAssertFalse(notFound.prOffline, "a repository GitHub does not know is not a missing connection")
         XCTAssertFalse(missing.prOffline)
         XCTAssertFalse(signedOut.prOffline)
         XCTAssertFalse(missing.prDetectionAvailable)

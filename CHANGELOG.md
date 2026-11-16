@@ -6,6 +6,12 @@ work lands; `scripts/release.sh` moves them under the new version.
 
 ## [Unreleased]
 
+### Fixed
+- Lopper no longer thinks you are offline when GitHub simply does not know a repository (a private one gh cannot see,
+  a renamed or deleted one, a remote that points elsewhere). 0.6.1 read gh's answer "Could not resolve to a
+  Repository" as a missing connection, skipped pull requests for every other repository and showed the offline
+  banner. Only a real connection failure does that now.
+
 ## [0.6.1] - 2026-10-20
 
 ### Fixed

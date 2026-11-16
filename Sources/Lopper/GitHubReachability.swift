@@ -49,12 +49,13 @@ public final class GitHubReachability: Sendable {
     }
 
     /// True for the messages `gh` prints when it cannot reach GitHub at all. A repository that is not on GitHub, or a
-    /// login that is missing, says nothing about the others and is not matched.
+    /// login that is missing, says nothing about the others and is not matched. Note that "Could not resolve to a
+    /// Repository" is GitHub answering that it does not know the repository, so only "could not resolve host" counts.
     public static func looksLikeNoNetwork(_ stderr: String) -> Bool {
         let text = stderr.lowercased()
         return [
             "no such host", "dial tcp", "i/o timeout", "network is unreachable", "error connecting to",
-            "could not resolve", "context deadline exceeded", "tls handshake timeout", "connection refused",
+            "could not resolve host", "context deadline exceeded", "tls handshake timeout", "connection refused",
         ].contains { text.contains($0) }
     }
 }
